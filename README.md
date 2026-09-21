@@ -1,38 +1,21 @@
-# Agro_widgetV5 — Agro Space Monitoring
+# agri — Space Agro Monitoring (Agro_widgetV5 / V6)
 
-Local folder name: `Agro_widgetV5`. Published portal name: `Agro_widgetV6`
-(or `Agro-main-widget` if that is the folder/manifest name on the portal).
+## Portal (Experience Builder)
 
-## Deploy / GitHub → Portal (chunks)
+Stable manifest URL (use this in Portal custom widgets):
 
-Experience Builder splits some modules into **sibling** files under
-`widgets/chunks/`. A widget folder alone is not enough.
+https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.json
 
-When copying a **built** widget to the portal (or GitHub Pages), ship both:
+After each code change, republish the built package (`bash scripts/publish-agri.sh` from the ExB widget folder). Then in Portal: **Custom widgets → Agro_widgetV6 → Update**.
 
-```
-widgets/Agro-main-widget/   (or Agro_widgetV6/)
-widgets/chunks/             ← must include Agro-*-prefetch-*.js etc.
-```
+GitHub Pages updates automatically on push; Portal caches the old build until you click **Update**.
 
-Source-only clone of this repo is for ExB `your-extensions` + `npm start`
-(local webpack serves chunks). Registering raw GitHub source as a custom
-widget URL will 404 on chunks such as
-`…/widgets/chunks/Agro-main-widget_src_gis_agri-vegetation-overlay-prefetch_….js`.
+## Local development
 
-Use `scripts/publish-agro-v6.sh` for a Pages layout that includes `chunks/`.
+Clone this repo into ExB:
 
-Popup is loaded eagerly (not `React.lazy`) so overlay-prefetch is not an
-extra async chunk dependency for map clicks.
+`client/your-extensions/widgets/Agro_widgetV5/`
 
-## Access control (important)
+Then `npm start` in the ExB client.
 
-Row-level access rules configured in the widget Settings (`accessConfig`) are
-**enforced only in the browser** when building ArcGIS WHERE clauses.
-
-**Server-side mirror is mandatory for real security:**
-
-- FeatureServer layer definition query / hosted view matching the same group→row rules
-- Portal item sharing that does not expose unrestricted FeatureServer URLs to unauthenticated callers
-
-Until those exist, anyone who can call the FeatureServer REST endpoints directly can bypass the widget UI restriction. Client WHERE building is UX + defense-in-depth only.
+Do **not** register the raw GitHub source URL as a custom widget — Portal needs `widgets/Agro_widgetV6` + `widgets/chunks`.
