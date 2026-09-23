@@ -2,7 +2,7 @@
   "name": "Agro_widgetV6",
   "label": "Space Agro Monitoring V6",
   "type": "widget",
-  "version": "6.1.7",
+  "version": "6.1.8",
   "exbVersion": "1.16.0",
   "author": "abdullajonov1",
   "description": "Agri portal package (single-date export-image, eager Graff+Popup). Source: https://github.com/abdullajonov1/agri",
