@@ -2,6 +2,8 @@ import { type ImmutableObject } from "jimu-core";
 
 export interface AgriPopupConfig {
   fieldsToShow?: string[];
+  /** Dropdown option order. Popup shows checked names in this sequence. */
+  fieldOrder?: string[];
   titleField?: string;
   labels?: Record<string, string>;
   settings?: {

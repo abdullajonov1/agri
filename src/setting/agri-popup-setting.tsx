@@ -4,6 +4,7 @@ import {
   IMUseDataSource,
   Immutable,
   React,
+  ReactDOM,
 } from "jimu-core";
 import { type AllWidgetSettingProps } from "jimu-for-builder";
 import { Option, Select, Switch, TextInput, MultiSelect } from "jimu-ui";
@@ -27,6 +28,8 @@ interface State {
   showMapPopup: boolean;
   allFields: FieldInfo[];
   fieldsToShowLocal: string[];
+  fieldOrder: string[];
+  popupFieldMenuOpen: boolean;
 }
 
 export default class AgriPopupSettingPanel extends React.PureComponent<
@@ -37,6 +40,16 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
   private fieldsExtractToken = 0;
   private ownedDataSourceIds: string[] = [];
   private lastUseDataSourceKey = "";
+  private popupFieldDragFrom: number | null = null;
+  private popupFieldMenuRef = React.createRef<HTMLDivElement>();
+  private popupFieldButtonRef = React.createRef<HTMLButtonElement>();
+  private popupFieldListRef = React.createRef<HTMLUListElement>();
+  private popupMenuFrame: {
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null = null;
 
   constructor(props: AllWidgetSettingProps<IMConfig>) {
     super(props);
@@ -49,14 +62,20 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
       showMapPopup: !!agri.settings?.showMapPopup,
       allFields: [],
       fieldsToShowLocal: [...(agri.fieldsToShow || [])],
+      fieldOrder: [...(agri.fieldOrder || [])],
+      popupFieldMenuOpen: false,
     };
   }
 
   componentDidMount(): void {
     this.initializeDataSources();
+    document.addEventListener("mousedown", this.onPopupFieldMenuOutside);
   }
 
-  componentDidUpdate(prev: Readonly<AllWidgetSettingProps<IMConfig>>): void {
+  componentDidUpdate(
+    prev: Readonly<AllWidgetSettingProps<IMConfig>>,
+    prevState: State,
+  ): void {
     const previousKey = this.getUseDataSourceKey(prev.useDataSources);
     const currentKey = this.getUseDataSourceKey(this.props.useDataSources);
     if (previousKey !== currentKey) {
@@ -65,20 +84,77 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
     if (prev.config !== this.props.config) {
       const agri = this.getAgriConfig();
       const nextFields = [...(agri.fieldsToShow || [])];
+      const nextOrder = [...(agri.fieldOrder || [])];
       this.setState((s) => ({
         fieldsToShowLocal:
           JSON.stringify(s.fieldsToShowLocal) === JSON.stringify(nextFields)
             ? s.fieldsToShowLocal
             : nextFields,
+        fieldOrder:
+          !nextOrder.length ||
+          JSON.stringify(s.fieldOrder) === JSON.stringify(nextOrder)
+            ? s.fieldOrder
+            : nextOrder,
         zoomToSelection: agri.settings?.zoomToSelection !== false,
         showMapPopup: !!agri.settings?.showMapPopup,
       }));
     }
+    if (this.state.popupFieldMenuOpen && !prevState.popupFieldMenuOpen) {
+      this.placePopupFieldMenu();
+      window.addEventListener("scroll", this.placePopupFieldMenu, true);
+      window.addEventListener("resize", this.placePopupFieldMenu);
+    } else if (!this.state.popupFieldMenuOpen && prevState.popupFieldMenuOpen) {
+      this.detachPopupFieldMenuListeners();
+    }
   }
 
   componentWillUnmount(): void {
+    document.removeEventListener("mousedown", this.onPopupFieldMenuOutside);
+    this.detachPopupFieldMenuListeners();
     this.cleanupDataSources();
   }
+
+  private detachPopupFieldMenuListeners = () => {
+    window.removeEventListener("scroll", this.placePopupFieldMenu, true);
+    window.removeEventListener("resize", this.placePopupFieldMenu);
+  };
+
+  private placePopupFieldMenu = () => {
+    const button = this.popupFieldButtonRef.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+    const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(120, Math.min(280, openUp ? spaceAbove : spaceBelow));
+    const frame = {
+      top: openUp ? Math.max(8, rect.top - maxHeight - 2) : rect.bottom + 2,
+      left: rect.left,
+      width: rect.width,
+      maxHeight,
+    };
+    const prev = this.popupMenuFrame;
+    if (
+      prev &&
+      prev.top === frame.top &&
+      prev.left === frame.left &&
+      prev.width === frame.width &&
+      prev.maxHeight === frame.maxHeight
+    ) {
+      return;
+    }
+    this.popupMenuFrame = frame;
+    if (this.state.popupFieldMenuOpen) this.forceUpdate();
+  };
+
+  private onPopupFieldMenuOutside = (event: MouseEvent) => {
+    if (!this.state.popupFieldMenuOpen) return;
+    const target = event.target as Node;
+    const root = this.popupFieldMenuRef.current;
+    const list = this.popupFieldListRef.current;
+    if (root?.contains(target) || list?.contains(target)) return;
+    this.setState({ popupFieldMenuOpen: false });
+  };
 
   private toPlainAgri(value: unknown): AgriPopupConfig {
     if (!value) return {};
@@ -130,18 +206,188 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
     });
   };
 
-  private onFieldsMultiSelect = (
-    _evt: React.MouseEvent,
-    _value: string | number,
-    selectedValues: Array<string | number>,
-  ) => {
-    const next = selectedValues.map((v) => String(v));
-    this.setState({ fieldsToShowLocal: next });
-    const cfg = this.ensureDashboardConfig();
-    this.props.onSettingChange({
-      id: this.props.id,
-      config: (cfg as any).setIn(["agriPopup", "fieldsToShow"], next),
-    });
+  private commitPopupFields = (fieldsToShow: string[], fieldOrder: string[]) => {
+    this.setState({ fieldsToShowLocal: fieldsToShow, fieldOrder });
+    this.updateAgriConfig({ fieldsToShow, fieldOrder });
+  };
+
+  private orderedPopupFieldNames = (): string[] => {
+    const known = this.state.allFields.map((field) => field.name);
+    return this.mergeFieldOrder(
+      known.map((name) => ({ name, alias: name, type: "" })),
+      this.state.fieldOrder,
+    );
+  };
+
+  private togglePopupField = (name: string) => {
+    const selected = new Set(this.state.fieldsToShowLocal);
+    if (selected.has(name)) selected.delete(name);
+    else selected.add(name);
+    const order = this.orderedPopupFieldNames();
+    this.commitPopupFields(
+      order.filter((item) => selected.has(item)),
+      order,
+    );
+  };
+
+  private reorderPopupOptions = (from: number, to: number) => {
+    const order = this.orderedPopupFieldNames();
+    if (
+      from === to ||
+      from < 0 ||
+      to < 0 ||
+      from >= order.length ||
+      to >= order.length
+    ) {
+      return;
+    }
+    const [moved] = order.splice(from, 1);
+    order.splice(to, 0, moved);
+    const selected = new Set(this.state.fieldsToShowLocal);
+    this.commitPopupFields(
+      order.filter((item) => selected.has(item)),
+      order,
+    );
+  };
+
+  private renderPopupFieldSelect = (fieldsToShow: string[]) => {
+    const order = this.orderedPopupFieldNames();
+    const byName = new Map(this.state.allFields.map((field) => [field.name, field]));
+    const selected = new Set(fieldsToShow);
+    const summary = fieldsToShow.length
+      ? `${fieldsToShow.length} tanlangan: ${fieldsToShow
+          .map((name) => {
+            const field = byName.get(name);
+            return field ? this.formatFieldLabel(field) : name;
+          })
+          .join(", ")}`
+      : "Maydonlarni tanlang...";
+
+    const frame = this.popupMenuFrame;
+    const menu =
+      this.state.popupFieldMenuOpen && frame
+        ? ReactDOM.createPortal(
+          <ul
+            ref={this.popupFieldListRef}
+            style={{
+              position: "fixed",
+              zIndex: 100000,
+              left: frame.left,
+              top: frame.top,
+              width: frame.width,
+              margin: 0,
+              padding: 4,
+              listStyle: "none",
+              maxHeight: frame.maxHeight,
+              overflowY: "auto",
+              background: "#2b2b2b",
+              color: "#f3f3f3",
+              border: "1px solid #4a4a4a",
+              borderRadius: 4,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+            }}
+          >
+            {order.map((name, index) => {
+              const field = byName.get(name);
+              const label = field ? this.formatFieldLabel(field) : name;
+              return (
+                <li
+                  key={name}
+                  draggable
+                  onDragStart={(event) => {
+                    this.popupFieldDragFrom = index;
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", name);
+                  }}
+                  onDragEnd={() => {
+                    this.popupFieldDragFrom = null;
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const from = this.popupFieldDragFrom;
+                    this.popupFieldDragFrom = null;
+                    if (from == null) return;
+                    this.reorderPopupOptions(from, index);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 8px",
+                    borderRadius: 3,
+                    fontSize: 13,
+                    cursor: "grab",
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      color: "#b7b7b7",
+                      letterSpacing: -1,
+                      userSelect: "none",
+                    }}
+                  >
+                    ⋮⋮
+                  </span>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      flex: 1,
+                      margin: 0,
+                      cursor: "pointer",
+                      color: "#f3f3f3",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(name)}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onChange={() => this.togglePopupField(name)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>,
+          document.body,
+        )
+        : null;
+
+    return (
+      <div ref={this.popupFieldMenuRef}>
+        <button
+          ref={this.popupFieldButtonRef}
+          type="button"
+          onClick={() =>
+            this.setState((s) => ({ popupFieldMenuOpen: !s.popupFieldMenuOpen }))
+          }
+          style={{
+            width: "100%",
+            textAlign: "left",
+            padding: "6px 28px 6px 10px",
+            border: "1px solid #6a6a6a",
+            borderRadius: 4,
+            background: "#fff",
+            color: "#1a1a1a",
+            fontSize: 13,
+            cursor: "pointer",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {summary}
+        </button>
+        {menu}
+      </div>
+    );
   };
 
   private onChartFieldsMultiSelect = (
@@ -363,8 +609,23 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
     }
 
     if (token !== this.fieldsExtractToken) return;
-    this.setState({ allFields: Array.from(merged.values()) });
+    const allFields = Array.from(merged.values());
+    this.setState((s) => ({
+      allFields,
+      fieldOrder: this.mergeFieldOrder(
+        allFields,
+        s.fieldOrder.length ? s.fieldOrder : this.getAgriConfig().fieldOrder || []
+      ),
+    }));
   };
+
+  private mergeFieldOrder(fields: FieldInfo[], saved: string[]): string[] {
+    const names = fields.map((field) => field.name);
+    const known = new Set(names);
+    const base = (saved || []).filter((name) => known.has(name));
+    const rest = names.filter((name) => !base.includes(name));
+    return [...base, ...rest];
+  }
 
   private onChartEnabledToggle = (e: any) => {
     this.updateAgriConfig({ chartEnabled: !!e?.target?.checked });
@@ -487,12 +748,7 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
             <p style={{ margin: "0 0 8px", color: "#666", fontSize: 12 }}>
               Polygon bosilganda ko&apos;rsatiladigan atributlarni tanlang.
             </p>
-            {this.renderFieldsMultiSelect(
-              fieldsToShow,
-              this.onFieldsMultiSelect,
-              "Maydonlarni tanlang...",
-              { menuZIndex: 99999, selectKey: "popup-fields-multiselect" },
-            )}
+            {this.renderPopupFieldSelect(fieldsToShow)}
           </section>
         )}
 

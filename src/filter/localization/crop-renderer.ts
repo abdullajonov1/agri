@@ -38,6 +38,8 @@ export const CROP_RENDERER_ITEMS: Array<{
   { value: "noxat", label: "No'xat", color: "#C48A3A" },
   { value: "no'xat", label: "No'xat", color: "#C48A3A" },
   { value: "novot", label: "No'xat", color: "#C48A3A" },
+  { value: "noxot", label: "No'xat", color: "#C48A3A" },
+  { value: "no'xot", label: "No'xat", color: "#C48A3A" },
   { value: "kartoshka", label: "Kartoshka", color: "#C4B08A" },
   { value: "piyoz", label: "Piyoz", color: "#8E6BB5" },
   { value: "issiqxona", label: "Issiqxona", color: "#78909C" },

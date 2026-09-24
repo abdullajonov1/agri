@@ -24,6 +24,8 @@ export const CROP_CANONICAL_KEYS: Record<string, string> = {
   "baliq hovuz": "baliqxovuz",
   "no'xat": "noxat",
   noxat: "noxat",
+  noxot: "noxat",
+  "no'xot": "noxat",
   novot: "noxat",
   "нўхат": "noxat",
   нут: "noxat",
