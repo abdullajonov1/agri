@@ -41,6 +41,8 @@ const {
   escapeArcGIS,
   sanitizeLikeInput,
   normalizeApos,
+  normalizeAposKey,
+  isExactArcGisYmd,
   eqAposSmart,
   buildTumanEqualsSql,
 } = mod;
@@ -74,6 +76,10 @@ assert.equal(dateEqualsClause("raster_date;drop", "2024-01-01"), "1=0");
 assert.equal(normalizeApos("Yakkabog\u2018"), "Yakkabog'");
 assert.equal(normalizeApos("Farg\u02BBona"), "Farg'ona");
 assert.equal(normalizeApos("  trim  "), "  trim  "); // no trim in shared helper
+assert.equal(normalizeAposKey("  Farg\u02BBona  "), "Farg'ona");
+assert.equal(isExactArcGisYmd("2024-01-01"), true);
+assert.equal(isExactArcGisYmd("2024-01-01' OR '1'='1"), false);
+assert.equal(isExactArcGisYmd("2024-1-1"), false);
 
 assert.equal(eqAposSmart("viloyat", ""), "");
 assert.equal(eqAposSmart("viloyat", "Toshkent"), "viloyat='Toshkent'");
@@ -84,6 +90,86 @@ assert.ok(tumanSql.includes("tuman="));
 assert.ok(!tumanSql.includes("ESCAPE"));
 // Must stay compact — no cartesian apostrophe × suffix explosion
 assert.ok(tumanSql.length < 800, `tuman SQL too large: ${tumanSql.length}`);
+
+function transpileRel(rel, outName) {
+  const srcPath = path.join(widgetRoot, "src", ...rel.split("/"));
+  const source = fs.readFileSync(srcPath, "utf8");
+  let { outputText } = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2020,
+      esModuleInterop: true,
+    },
+    fileName: path.basename(srcPath),
+  });
+  const sqlHref = JSON.stringify(pathToFileURL(tmpFile).href);
+  const whereHref = JSON.stringify(
+    pathToFileURL(path.join(tmpDir, "agri-where-builder.mjs")).href,
+  );
+  const vhHref = JSON.stringify(
+    pathToFileURL(path.join(tmpDir, "vh-constants.mjs")).href,
+  );
+  outputText = outputText
+    .replace(/from\s+["'](?:\.\.\/)+data\/agri-sql["']/g, `from ${sqlHref}`)
+    .replace(
+      /from\s+["'](?:\.\.\/)+controller\/agri-where-builder["']/g,
+      `from ${whereHref}`,
+    )
+    .replace(/from\s+["']\.\/vh-constants["']/g, `from ${vhHref}`);
+  const out = path.join(tmpDir, outName);
+  fs.writeFileSync(out, outputText, "utf8");
+  return out;
+}
+
+fs.writeFileSync(
+  path.join(tmpDir, "vh-constants.mjs"),
+  "export const VH_TO_NDVI_STATUS = {};\n",
+  "utf8",
+);
+fs.writeFileSync(
+  path.join(tmpDir, "agri-where-builder.mjs"),
+  "export const extractYearDigits = () => '';\n",
+  "utf8",
+);
+const whereOut = transpileRel(
+  "filter/localization/map-where-clauses.ts",
+  "map-where-clauses.mjs",
+);
+const whereMod = await import(pathToFileURL(whereOut).href);
+assert.equal(
+  whereMod.buildTableDateEqualsWhere("ndvi_date", "2024-01-01"),
+  "ndvi_date = '2024-01-01'",
+);
+assert.equal(
+  whereMod.buildTableDateEqualsWhere("ndvi_date", "2024-01-01' OR '1'='1"),
+  null,
+);
+assert.equal(whereMod.buildTableDateEqualsWhere("ndvi_date", "2024-1-1"), null);
+assert.equal(whereMod.buildTableDateEqualsWhere("", "2024-01-01"), null);
+
+const vhWhere = (vhUniqueIds) =>
+  whereMod.assembleLocalizationWhere({
+    yearClause: "yil LIKE '2026%'",
+    includeViloyat: true,
+    viloyatClause: "region = '1724'",
+    includeTuman: true,
+    tumanClause: "district = '1724216'",
+    includeTuri: true,
+    cropClause: "turi='Paxta'",
+    includeVh: true,
+    vhCategory: "3-O'rta",
+    vhUniqueIds,
+    uniqueIdClause: "",
+    buildSpatialJoinWhere: (ids) =>
+      ids.length ? `uniqueid IN ('${ids[0]}')` : "1=0",
+    withAccessWhere: (where) => where,
+  });
+assert.equal(
+  vhWhere(null),
+  "yil LIKE '2026%' AND region = '1724' AND district = '1724216' AND turi='Paxta'",
+);
+assert.equal(vhWhere([]), "1=0");
+assert.ok(vhWhere(["abc"]).includes("uniqueid IN ('abc')"));
 
 try {
   fs.rmSync(tmpDir, { recursive: true, force: true });

@@ -46,9 +46,42 @@ import {
 import { queryIndicatorOutStat } from "../../../data/agri-indicator-stats";
 import { normalizeTurlarListSql } from "../../../data/agri-turlar";
 import "./KadastrIndicator.css";
+import {
+  labelNoValue,
+  translateKnownError,
+  handleLanguageChange,
+  normalizeUzbekForApi,
+  getFieldType,
+  nz,
+  makeApostropheVariants,
+  makeDistrictSuffixVariants,
+  makeRegionSuffixVariants,
+  normalizeTurlar,
+  buildTurlarClause,
+  shouldFetchForViloyat,
+  prepareVhJoinIds,
+} from "./components/text-helpers";
+import {
+  componentDidMount,
+  handleMasterFilterChanged,
+  componentWillUnmount,
+  componentDidUpdate,
+  handleExternalCategory,
+  handleConstructionYearChanged,
+  handleRegionChange,
+  handleYilChange,
+  handleWaterSupplyFilterChange,
+  handleCategorySelection,
+  handleKadastrFiltersChanged,
+  handleKadastrFiltersReset,
+  handleVegetationStatusChange,
+  handleCropTypeChange,
+  refreshData,
+  readFiltersFromUrl,
+} from "./components/filter-handlers";
 
-// cross-iframe event bus so widgets inside builder/preview/iframe can talk
-const BUS: Document = window.top?.document ?? document;
+
+
 
 const WIDGET_EVENTS = {
   YIL_CHANGED: "yilChanged",
@@ -58,7 +91,7 @@ const WIDGET_EVENTS = {
   RESET_ALL: "resetAllWidgets",
 };
 
-interface IndicatorConfig {
+export interface IndicatorConfig {
   useApiDataSource?: boolean;
 
   attributeField?: string; // numeric field to aggregate (for sum/avg/min/max/first)
@@ -111,19 +144,9 @@ interface IndicatorConfig {
   refreshInterval?: number; // minutes
 }
 
-const FILTER_FIELDS = {
-  YIL: "yil",
-  VILOYAT: "viloyat",
-  TUMAN: "tuman",
-  F_INN: "f_inn",
-  EKIN: "ekin",
-  VH: "vh",
-  VEG_M: "veg_m",
-  // ✅ CHANGED
-  TURI: "turi",
-};
+import { FILTER_FIELDS } from "./indicator-constants";
 
-interface VegetationStatsWidgetState {
+export interface VegetationStatsWidgetState {
   vegetationArea: number | null;
   loading: boolean;
   error: string | null;
@@ -177,6 +200,36 @@ interface VegetationStatsWidgetState {
   language: AgriLanguage;
 }
 
+import {
+  ensureInitialization,
+  retryMapConnection,
+  onActiveViewChange,
+  makeViloyatKeyForRouting,
+  getFeatureLayerForViloyat,
+  isRepublicLayer,
+  getDefaultFeatureLayer,
+  buildViloyatLayerIndex,
+  initializeMapConnection,
+  initializeMapConnectionOnce,
+  onDataSourceCreated,
+  onDataSourceInfoChange,
+} from "./components/map-handlers";
+import {
+  buildWhereClause,
+  buildApiUrl,
+  fetchGroupedStats,
+  fetchGroupedFirst,
+  fetchApiData,
+  fetchData,
+  setupAutoRefresh,
+  initializeTheme,
+  handleThemeChange,
+  getCustomStyles,
+} from "./components/data-handlers";
+import {
+  render,
+} from "./components/render-panel";
+import type { IndicatorWidgetHost } from "./indicator-host";
 export default class VegetationStatsWidget extends React.PureComponent<
   AllWidgetProps<any>,
   VegetationStatsWidgetState
@@ -205,64 +258,15 @@ export default class VegetationStatsWidget extends React.PureComponent<
   private _resizeObserver: ResizeObserver | null = null;
 
   private labelNoValue = (): string => {
-    const L = this.state.language;
-    if (L === "en") return "No value";
-    if (L === "ru") return "Нет значения";
-    if (L === "uz_lat") return "Qiymat yo‘q";
-    return "Қиймат йўқ";
+    return labelNoValue(this as unknown as IndicatorWidgetHost);
   };
 
   private translateKnownError = (msg: string): string => {
-    if (this.state.language === "en") return msg;
-    const L = this.state.language;
-    const pick = (ru: string, uzLat: string, uzCyr: string) =>
-      L === "ru" ? ru : L === "uz_lat" ? uzLat : uzCyr;
-
-    const table: Record<string, [string, string, string]> = {
-      "Map view has no map": [
-        "У карты нет вида карты",
-        "Xarita ko‘rinishi yo‘q",
-        "Харита кўриниши йўқ",
-      ],
-      "No suitable feature layers found in the map.": [
-        "На карте нет подходящих векторных слоёв",
-        "Xaritada mos feature layer topilmadi",
-        "Харитада мос feature layer топилмади",
-      ],
-      "No feature layer available": [
-        "Нет доступного векторного слоя",
-        "Feature layer mavjud emas",
-        "Feature layer мавжуд эмас",
-      ],
-      "Select attribute field for this aggregation": [
-        "Выберите поле атрибутов для агрегации",
-        "Agregatsiya uchun attribut maydonini tanlang",
-        "Агрегация учун атрибут майдонини танланг",
-      ],
-      "Failed to fetch data from API": [
-        "Не удалось получить данные по API",
-        "API dan ma’lumot olinmadi",
-        "API дан маълумот олинмади",
-      ],
-      "Query failed": [
-        "Ошибка запроса",
-        "So‘rov xatosi",
-        "Сўров хатоси",
-      ],
-    };
-
-    const row = table[msg];
-    if (row) return pick(row[0], row[1], row[2]);
-    return msg;
+    return translateKnownError(this as unknown as IndicatorWidgetHost, msg);
   };
 
   private handleLanguageChange = (event: Event) => {
-    if (!this._isMounted || this._isResetting) return;
-    const d: any = (event as CustomEvent)?.detail || {};
-    const raw = d.lang ?? d.language ?? d.code;
-    const next = normalizeLanguage(raw);
-    if (next === this.state.language) return;
-    this.setState({ language: next });
+    return handleLanguageChange(this as unknown as IndicatorWidgetHost, event);
   };
 
   constructor(props: AllWidgetProps<any>) {
@@ -377,360 +381,47 @@ export default class VegetationStatsWidget extends React.PureComponent<
     };
   }
 
-  // ── API-side canonicalization (ASCII apostrophe; normalize o'/g')
   private normalizeUzbekForApi = (s: string): string => {
-    if (!s) return "";
-    let out = s.trim();
-
-    // unify apostrophe-like marks to ASCII '
-    out = out.replace(/[\u02BB\u02BC\u2019\u2018\u2032\u2035`´ˊˋ]/g, "'");
-
-    // normalize o'/g' combos no matter which apostrophe variant was used
-    out = out
-      .replace(/o['\u02BB\u02BC\u2019\u2018`´ˊˋ]/gi, "o'")
-      .replace(/g['\u02BB\u02BC\u2019\u2018`´ˊˋ]/gi, "g'");
-
-    return out.replace(/\s+/g, " ");
+    return normalizeUzbekForApi(this as unknown as IndicatorWidgetHost, s);
   };
 
-  // Find field type on the active feature layer (if available)
   private getFieldType = (name: string): string | null => {
-    const fl = this.state.featureLayer;
-    if (!fl?.fields) return null;
-    const f = fl.fields.find(
-      (ff) => ff.name.toLowerCase() === (name || "").toLowerCase(),
-    );
-    return f?.type || null;
+    return getFieldType(this as unknown as IndicatorWidgetHost, name);
   };
 
-  // Zero-like filter that works for numeric *and* string fields
   private nz = (field: string) => {
-    const f = (field || "").trim();
-    if (!f) return "(1=1)";
-
-    const t = (this.getFieldType(f) || "").toLowerCase();
-    if (/(smallinteger|integer|double|single|float)/.test(t)) {
-      return `(${f} > 0)`;
-    }
-    return `(${f} IS NOT NULL AND ${f} <> '' AND ${f} NOT IN ('0','00','0.0','0,0','-'))`;
+    return nz(this as unknown as IndicatorWidgetHost, field);
   };
 
-  // Variants generator for retries (API **only**). Cap glyph fan-out —
-  // ASCII-normalized first, then at most 2 extra apostrophe forms.
   private makeApostropheVariants = (s: string): string[] => {
-    if (!s) return [""];
-    const baseAscii = this.normalizeUzbekForApi(s);
-    if (!/['\u02BB\u02BC\u2019\u2018\u2032\u2035`´ˊˋ]/.test(s)) {
-      return [baseAscii];
-    }
-    const variants = ["'", "\u02BB", "\u2019"]; // ASCII, ʻ, ’
-    const set = new Set<string>();
-
-    for (const a of variants) {
-      let v = s
-        .replace(/[\u02BB\u02BC\u2019\u2018\u2032\u2035`´ˊˋ]/g, a)
-        .replace(/o['\u02BB\u02BC\u2019\u2018`´ˊˋ]/gi, "o" + a)
-        .replace(/g['\u02BB\u02BC\u2019\u2018`´ˊˋ]/gi, "g" + a)
-        .replace(/\s+/g, " ")
-        .trim();
-      set.add(v);
-    }
-
-    set.delete(baseAscii);
-    return [baseAscii, ...Array.from(set)].slice(0, 3);
+    return makeApostropheVariants(this as unknown as IndicatorWidgetHost, s);
   };
 
-  // District/city suffix variants for API tries
   private makeDistrictSuffixVariants = (raw: string): string[] => {
-    if (!raw) return [""];
-    const s = raw.trim();
-    const hasTumani = /\btumani$/i.test(s);
-    const hasShahar = /\bshahar$|\bshahri$/i.test(s);
-
-    const bases = this.makeApostropheVariants(s);
-    const out = new Set<string>();
-
-    for (const b of bases) {
-      const n = this.normalizeUzbekForApi(b);
-      out.add(n);
-      if (!hasTumani && !hasShahar) {
-        out.add(`${n} tumani`);
-        out.add(`${n} shahar`);
-        out.add(`${n} shahri`);
-      }
-    }
-    return Array.from(out);
+    return makeDistrictSuffixVariants(this as unknown as IndicatorWidgetHost, raw);
   };
 
-  // Region suffix variants for API tries (viloyat vs shahar)
   private makeRegionSuffixVariants = (raw: string): string[] => {
-    if (!raw) return [""];
-    const s = raw.trim();
-    const bases = this.makeApostropheVariants(s);
-
-    const looksVil = /\bviloyati$/i.test(s);
-    const looksSh = /\bshahar$/i.test(s);
-
-    const out = new Set<string>();
-    for (const b of bases) {
-      const n = this.normalizeUzbekForApi(b);
-      out.add(n);
-      if (!looksVil && !looksSh) {
-        out.add(`${n} viloyati`);
-        out.add(`${n} shahar`);
-      }
-    }
-    return Array.from(out);
+    return makeRegionSuffixVariants(this as unknown as IndicatorWidgetHost, raw);
   };
 
   private normalizeTurlar(raw: unknown, fallback = ""): string[] {
-    return normalizeTurlarListSql(raw, fallback);
+    return normalizeTurlar(this as unknown as IndicatorWidgetHost, raw, fallback);
   }
 
   private buildTurlarClause(field: string, values: string[]): string {
-    return buildTurlarSqlClause(field, values);
+    return buildTurlarClause(this as unknown as IndicatorWidgetHost, field, values);
   }
   componentDidMount() {
-    this._isMounted = true;
-
-    // connection mode
-    if (!this.props.config?.useApiDataSource)
-      this.setState({ connectionStatus: "connecting" });
-    else
-      this.setState({ connectionStatus: "connected" }, () =>
-        this.fetchApiData(),
-      );
-
-    this._unbindMasterFilter = bindMasterFilter(this.handleMasterFilterChanged);
-
-    // keep reset support
-    BUS.addEventListener("resetAllFilters", this._onReset as EventListener);
-    BUS.addEventListener("resetAllWidgets", this._onReset as EventListener);
-
-    // optional: url hydration if you still want it
-    window.addEventListener("popstate", this.readFiltersFromUrl);
-
-    // initial hydration (if url has values)
-    this.readFiltersFromUrl();
-
-    this.setupAutoRefresh();
-
-    // theme
-    this.initializeTheme();
-    BUS.addEventListener(
-      "agriV11ThemeToggled",
-      this.handleThemeChange as EventListener,
-    );
-    if (BUS !== document) {
-      document.addEventListener(
-        "agriV11ThemeToggled",
-        this.handleThemeChange as EventListener,
-      );
-    }
-
-    // responsive sizing (deferred to ensure DOM is ready)
-    setTimeout(() => {
-      if (
-        this._isMounted &&
-        this._containerRef.current &&
-        typeof ResizeObserver !== "undefined"
-      ) {
-        this._resizeObserver = new ResizeObserver((entries) => {
-          const w = entries[0]?.contentRect?.width ?? 0;
-          const next: "xs" | "sm" | "md" | "lg" =
-            w < 180 ? "xs" : w < 260 ? "sm" : w < 340 ? "md" : "lg";
-          if (next !== this.state.widgetSize)
-            this.setState({ widgetSize: next });
-        });
-        this._resizeObserver.observe(this._containerRef.current);
-      }
-    }, 0);
-
-    // init guard
-    this.initializationTimer = setTimeout(
-      () => this.ensureInitialization(),
-      3000,
-    );
+    return componentDidMount(this as unknown as IndicatorWidgetHost);
   }
 
   private shouldFetchForViloyat(): boolean {
-    // Allow republic-wide fetch when year is set; viloyat not required.
-    return !!(this.state.selectedYil || "").trim();
+    return shouldFetchForViloyat(this as unknown as IndicatorWidgetHost);
   }
 
   private handleMasterFilterChanged = (event: Event) => {
-    if (!this._isMounted) return;
-    if (this._isResetting) return;
-
-    const d: any = (event as CustomEvent)?.detail || {};
-    if (!d?.filters) return;
-
-    // ignore self if ever dispatched (defensive)
-    if (d?.source === "VegetationStatsWidget") return;
-
-    const eventTs =
-      typeof d?.meta?.timestamp === "number" && Number.isFinite(d.meta.timestamp)
-        ? d.meta.timestamp
-        : 0;
-    const eventGen =
-      typeof d?.meta?.broadcastGeneration === "number" &&
-      Number.isFinite(d.meta.broadcastGeneration)
-        ? d.meta.broadcastGeneration
-        : 0;
-    if (
-      eventGen > 0 &&
-      this._lastMasterFilterBroadcastGeneration > 0 &&
-      eventGen < this._lastMasterFilterBroadcastGeneration
-    ) {
-      return;
-    }
-    if (
-      eventTs > 0 &&
-      this._lastMasterFilterTs > 0 &&
-      eventTs < this._lastMasterFilterTs
-    ) {
-      return;
-    }
-    if (eventGen > 0) this._lastMasterFilterBroadcastGeneration = eventGen;
-    if (eventTs > 0) this._lastMasterFilterTs = eventTs;
-
-    const filters = d.filters || {};
-    const scope = d.scope || {};
-
-    const hasField = (k: string) =>
-      Object.prototype.hasOwnProperty.call(filters, k);
-    const nextLanguage = hasField("language")
-      ? normalizeLanguage(
-          (filters.language as string | null | undefined) ??
-            this.state.language,
-        )
-      : this.state.language;
-
-    // ✅ IMPORTANT: if AgriFilter locked viloyat, we must use it
-    const effectiveViloyat = normalizeApos(
-      scope.lockedViloyat || filters.viloyat || "",
-    );
-
-    const nextYil = (filters.yil ?? "").toString();
-    const nextVil = effectiveViloyat;
-    const nextTum = normalizeApos(filters.tuman || "");
-    const nextTurlar = this.normalizeTurlar(
-      filters.turlar,
-      filters.turi || filters.tur || "",
-    );
-    const nextTuri = nextTurlar.length === 1 ? nextTurlar[0] : "";
-    const nextVh = normalizeApos(filters.vh || "");
-    const normalizeIdList = (raw: unknown): string[] | null => {
-      if (!Array.isArray(raw)) return null;
-      return Array.from(
-        new Set<string>(
-          raw
-            .map((value: unknown) => String(value || "").trim())
-            .filter(Boolean),
-        ),
-      );
-    };
-    const nextVhUniqueids: string[] | null = !nextVh
-      ? null
-      : normalizeIdList((event as CustomEvent).detail?.vhUniqueids);
-    const nextBarField = filters.barCategoryField ?? null;
-    const nextBarValue = filters.barCategoryValue ?? null;
-    const nextUniqueid = filters.polygonMode
-      ? String(filters.uniqueid || "").trim()
-      : "";
-
-    // NDVI date (e.g. picked by clicking a point on AgriGraff's chart) is
-    // intentionally NEVER applied as a filter on this indicator — same as
-    // the Vegetatsiya Holati (AgriBar) selection below. Selecting a date
-    // elsewhere in the dashboard must not change what this widget shows,
-    // so filters.ndviDate / filters.ndviDateLocked are not even read here.
-
-    // VH selection filters this indicator via resolved uniqueids from Localization.
-    const vhChanged =
-      nextVh !== this.state.selectedVegetationStatus ||
-      JSON.stringify(nextVhUniqueids) !==
-        JSON.stringify(this.state.vhUniqueids);
-
-    const filterChanged =
-      nextYil !== this.state.selectedYil ||
-      nextVil !== this.state.selectedViloyat ||
-      nextTum !== this.state.selectedTuman ||
-      nextTuri !== this.state.selectedYerToifas ||
-      JSON.stringify(nextTurlar) !== JSON.stringify(this.state.selectedYerToifalari) ||
-      nextUniqueid !== this.state.selectedUniqueid ||
-      vhChanged;
-
-    const languageChanged = nextLanguage !== this.state.language;
-
-    if (!filterChanged && !languageChanged) {
-      // Still sync VH/bar tracking without a refetch.
-      if (
-        nextVh !== this.state.selectedVegetationStatus ||
-        nextBarField !== this.state.barCategoryField ||
-        nextBarValue !== this.state.barCategoryValue ||
-        JSON.stringify(nextVhUniqueids) !==
-          JSON.stringify(this.state.vhUniqueids)
-      ) {
-        void this.prepareVhJoinIds(nextVhUniqueids);
-        this.setState({
-          selectedVegetationStatus: nextVh,
-          vhUniqueids: nextVhUniqueids,
-          barCategoryField: nextBarField,
-          barCategoryValue: nextBarValue,
-        });
-      }
-      return;
-    }
-
-    if (!filterChanged && languageChanged) {
-      this.setState({ language: nextLanguage });
-      return;
-    }
-
-    // Mark the time of this filter event so setupAutoRefresh can avoid
-    // firing a duplicate refreshData() shortly after this immediate fetch.
-    this._lastFilterEventMs = Date.now();
-
-    
-
-    this.setState(
-      {
-        language: nextLanguage,
-        selectedYil: nextYil,
-        selectedViloyat: nextVil,
-        selectedTuman: nextTum,
-        selectedYerToifas: nextTuri,
-        selectedYerToifalari: nextTurlar,
-        selectedVegetationStatus: nextVh,
-        vhUniqueids: nextVhUniqueids,
-        barCategoryField: nextBarField,
-        barCategoryValue: nextBarValue,
-        selectedUniqueid: nextUniqueid,
-        // Keep a single canonical layer for all scopes.
-        // Only WHERE changes when viloyat/tuman changes.
-        featureLayer:
-          this._canonicalFeatureLayer ||
-          this.getDefaultFeatureLayer(this.state.featureLayers),
-
-        // Soft refresh: keep previous number visible; only cold-start uses spinner.
-        loading: this.state.vegetationArea == null,
-        lastFilterEventTimestamp: Date.now(),
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        // Adapt VH uniqueids to Agri_table_data's id style before querying —
-        // vegetation ids are lower-case unbraced GUIDs and PostgreSQL string
-        // equality is case-sensitive, so a raw IN (...) join can miss rows.
-        void this.prepareVhJoinIds(nextVhUniqueids).finally(() => {
-          if (!this._isMounted) return;
-          this.refreshData();
-        });
-        setTimeout(() => {
-          if (this._isMounted)
-            this.setState({ isHandlingExternalEvent: false });
-        }, 150);
-      },
-    );
+    return handleMasterFilterChanged(this as unknown as IndicatorWidgetHost, event);
   };
 
   /**
@@ -742,96 +433,18 @@ export default class VegetationStatsWidget extends React.PureComponent<
   private _vhJoinExpanded: string[] | null = null;
 
   private prepareVhJoinIds = async (ids: string[] | null): Promise<void> => {
-    if (!Array.isArray(ids) || !ids.length) {
-      this._vhJoinSource = ids ?? null;
-      this._vhJoinExpanded = null;
-      return;
-    }
-    try {
-      const expanded = await expandUniqueIdsForAgriTable(ids);
-      this._vhJoinSource = ids;
-      this._vhJoinExpanded = expanded;
-    } catch {
-      this._vhJoinSource = ids;
-      this._vhJoinExpanded = null;
-    }
+    return prepareVhJoinIds(this as unknown as IndicatorWidgetHost, ids);
   };
 
   componentWillUnmount() {
-    this._isMounted = false;
-
-    this._unbindMasterFilter?.();
-    this._unbindMasterFilter = null;
-
-    BUS.removeEventListener("resetAllFilters", this._onReset as EventListener);
-    BUS.removeEventListener("resetAllWidgets", this._onReset as EventListener);
-
-    window.removeEventListener("popstate", this.readFiltersFromUrl);
-    BUS.removeEventListener(
-      "agriV11ThemeToggled",
-      this.handleThemeChange as EventListener,
-    );
-    if (BUS !== document) {
-      document.removeEventListener(
-        "agriV11ThemeToggled",
-        this.handleThemeChange as EventListener,
-      );
-    }
-
-    if (this._resizeObserver) {
-      this._resizeObserver.disconnect();
-      this._resizeObserver = null;
-    }
-
-    if (this.throttledFetchData?.cancel) this.throttledFetchData.cancel();
-    if (this.initializationTimer) clearTimeout(this.initializationTimer);
-    if (this.refreshTimer) clearInterval(this.refreshTimer);
-
-    if (this._abortController) {
-      this._abortController.abort();
-      this._abortController = null;
-    }
+    return componentWillUnmount(this as unknown as IndicatorWidgetHost);
   }
 
   componentDidUpdate(
     prevProps: AllWidgetProps<any>,
     prevState: VegetationStatsWidgetState,
   ) {
-    const { connectionStatus, mapConnectionAttempts } = this.state;
-    const { useMapWidgetIds, config } = this.props;
-
-    if (prevProps.config !== config) {
-      if (prevProps.config?.useApiDataSource !== config?.useApiDataSource) {
-        if (config?.useApiDataSource) {
-          this.setState({ connectionStatus: "connected" }, () =>
-            this.fetchApiData(),
-          );
-        } else {
-          this.setState({ connectionStatus: "connecting" });
-        }
-      }
-      this.setupAutoRefresh();
-    }
-
-    if (
-      !config?.useApiDataSource &&
-      connectionStatus === "connecting" &&
-      useMapWidgetIds &&
-      useMapWidgetIds.length > 0 &&
-      !this.state.activeMapView &&
-      mapConnectionAttempts !== prevState.mapConnectionAttempts
-    ) {
-      if (mapConnectionAttempts < this.MAX_CONNECTION_ATTEMPTS) {
-        setTimeout(() => {
-          
-          this.setState((ps) => ({
-            mapConnectionAttempts: ps.mapConnectionAttempts + 1,
-          }));
-        }, MAP_CONNECTION_RETRY_MS);
-      } else {
-        this.setState({ connectionStatus: "failed" });
-      }
-    }
+    return componentDidUpdate(this as unknown as IndicatorWidgetHost, prevProps, prevState);
   }
 
   // =========================
@@ -839,310 +452,46 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   private handleExternalCategory = async (event: CustomEvent) => {
-    if (!this._isMounted) return;
-    const d = event?.detail || {};
-    if (d.source === "VegetationStatsWidget") return;
-
-    const nextTuri = normalizeApos(
-      d.turi || d.tur || d.category || d.yerToifas || "",
-    );
-    const nextYil = (d.yil ?? this.state.selectedYil ?? "").toString();
-    const nextVil = normalizeApos(
-      d.viloyat ?? this.state.selectedViloyat ?? "",
-    );
-    const nextTum = normalizeApos(
-      d.tuman ?? this.state.selectedTuman ?? "",
-    );
-
-    this.setState(
-      {
-        selectedYil: nextYil,
-        selectedViloyat: nextVil,
-        selectedTuman: nextTum,
-        selectedYerToifas: nextTuri,
-        loading: true,
-        lastFilterEventTimestamp: Date.now(),
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        this.refreshData();
-        setTimeout(
-          () =>
-            this._isMounted &&
-            this.setState({ isHandlingExternalEvent: false }),
-          200,
-        );
-      },
-    );
+    return handleExternalCategory(this as unknown as IndicatorWidgetHost, event);
   };
 
   handleConstructionYearChanged = (event: any) => {
-    if (this._isResetting) return;
-    const { detail } = event || {};
-    if (detail?.source === "VegetationStatsWidget") return;
-
-    this.setState(
-      {
-        selectedYil: detail?.year ? detail.year.toString() : "",
-        loading: true,
-        lastFilterEventTimestamp: Date.now(),
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        this.refreshData();
-        setTimeout(
-          () =>
-            this._isMounted &&
-            this.setState({ isHandlingExternalEvent: false }),
-          200,
-        );
-      },
-    );
+    return handleConstructionYearChanged(this as unknown as IndicatorWidgetHost, event);
   };
 
   handleRegionChange = (event: any): void => {
-    if (this._isResetting) return;
-    if (!event?.detail) return;
-
-    const { viloyat, tuman, source } = event.detail;
-    if (source === "VegetationStatsWidget") return;
-
-    this.setState(
-      {
-        selectedViloyat: normalizeApos(viloyat || ""),
-        selectedTuman: normalizeApos(tuman || ""),
-        loading: true,
-        lastFilterEventTimestamp: Date.now(),
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        this.refreshData();
-        setTimeout(
-          () =>
-            this._isMounted &&
-            this.setState({ isHandlingExternalEvent: false }),
-          200,
-        );
-      },
-    );
+    return handleRegionChange(this as unknown as IndicatorWidgetHost, event);
   };
 
   handleYilChange = (event: any): void => {
-    if (this._isResetting) return;
-    if (!event?.detail) return;
-
-    const { yil, source } = event.detail;
-    if (source === "VegetationStatsWidget") return;
-
-    this.setState(
-      {
-        selectedYil: yil ? yil.toString() : "",
-        loading: true,
-        lastFilterEventTimestamp: Date.now(),
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        this.refreshData();
-        setTimeout(
-          () =>
-            this._isMounted &&
-            this.setState({ isHandlingExternalEvent: false }),
-          200,
-        );
-      },
-    );
+    return handleYilChange(this as unknown as IndicatorWidgetHost, event);
   };
 
   handleWaterSupplyFilterChange = (event: CustomEvent) => {
-    if (this._isResetting) return;
-
-    const d = event?.detail || {};
-    if (d.source === "VegetationStatsWidget") return;
-
-    const now = Date.now();
-    if (now - this.state.lastFilterEventTimestamp < 200) return;
-
-    // ✅ CHANGED: support turi + old tur
-    const turi = d.turi || d.tur || d.yerToifas || "";
-
-    this.setState(
-      {
-        selectedViloyat: normalizeApos(d.massivNom || d.viloyat || ""),
-        selectedTuman: normalizeApos(d.tumanNomi || d.tuman || ""),
-        selectedYil: d.yil || "",
-        selectedYerToifas: normalizeApos(turi),
-        loading: true,
-        lastFilterEventTimestamp: now,
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        this.refreshData();
-        setTimeout(
-          () =>
-            this._isMounted &&
-            this.setState({ isHandlingExternalEvent: false }),
-          200,
-        );
-      },
-    );
+    return handleWaterSupplyFilterChange(this as unknown as IndicatorWidgetHost, event);
   };
 
   handleCategorySelection = (event: CustomEvent) => {
-    if (this._isResetting) return;
-
-    const d = event?.detail || {};
-    if (d.source === "VegetationStatsWidget") return;
-
-    // ✅ CHANGED: support turi + old tur
-    const turi = d.turi || d.tur || d.category || "";
-
-    this.setState(
-      {
-        selectedYerToifas: normalizeApos(turi),
-        selectedYil: d.yil || this.state.selectedYil,
-        selectedViloyat: normalizeApos(
-          d.viloyat || this.state.selectedViloyat,
-        ),
-        selectedTuman: normalizeApos(d.tuman || this.state.selectedTuman),
-        loading: true,
-        lastFilterEventTimestamp: Date.now(),
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        this.refreshData();
-        setTimeout(
-          () =>
-            this._isMounted &&
-            this.setState({ isHandlingExternalEvent: false }),
-          200,
-        );
-      },
-    );
+    return handleCategorySelection(this as unknown as IndicatorWidgetHost, event);
   };
 
   handleKadastrFiltersChanged = (event: any) => {
-    if (this._isResetting) return;
-
-    const d = event?.detail || {};
-    if (d.source === "VegetationStatsWidget") return;
-
-    // ✅ CHANGED: support turi + old tur
-    const turi = d.turi || d.tur || "";
-
-    this.setState(
-      {
-        selectedViloyat: normalizeApos(d.viloyat || ""),
-        selectedTuman: normalizeApos(d.tuman || ""),
-        selectedYil: d.yil || "",
-        selectedYerToifas: normalizeApos(turi),
-        loading: true,
-        lastFilterEventTimestamp: Date.now(),
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        this.refreshData();
-        setTimeout(
-          () =>
-            this._isMounted &&
-            this.setState({ isHandlingExternalEvent: false }),
-          200,
-        );
-      },
-    );
+    return handleKadastrFiltersChanged(this as unknown as IndicatorWidgetHost, event);
   };
 
-  handleKadastrFiltersReset = () => this._onReset();
+  handleKadastrFiltersReset = () =>
+    handleKadastrFiltersReset(this as unknown as IndicatorWidgetHost);
 
   handleVegetationStatusChange = (event: CustomEvent) => {
-    if (this._isResetting) return;
-
-    const d = event?.detail || {};
-    if (d.source === "VegetationStatsWidget") return;
-
-    this.setState(
-      {
-        selectedVegetationStatus: d.status || d.vh || "",
-        loading: true,
-        lastFilterEventTimestamp: Date.now(),
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        this.refreshData();
-        setTimeout(
-          () =>
-            this._isMounted &&
-            this.setState({ isHandlingExternalEvent: false }),
-          200,
-        );
-      },
-    );
+    return handleVegetationStatusChange(this as unknown as IndicatorWidgetHost, event);
   };
 
   handleCropTypeChange = (event: CustomEvent) => {
-    if (this._isResetting) return;
-
-    const d = event?.detail || {};
-    if (d.source === "VegetationStatsWidget") return;
-
-    this.setState(
-      {
-        selectedCropType: normalizeApos(d.cropType || d.ekin_turi || ""),
-        loading: true,
-        lastFilterEventTimestamp: Date.now(),
-        isHandlingExternalEvent: true,
-      },
-      () => {
-        this.refreshData();
-        setTimeout(
-          () =>
-            this._isMounted &&
-            this.setState({ isHandlingExternalEvent: false }),
-          200,
-        );
-      },
-    );
+    return handleCropTypeChange(this as unknown as IndicatorWidgetHost, event);
   };
 
   refreshData = () => {
-    if (this.props.config?.useApiDataSource) {
-      if (!this.shouldFetchForViloyat()) {
-        // Keep the spinner until Localization publishes a year — do not
-        // flash "-" / empty between map-connect and the first aggregate.
-        this.setState({
-          loading: true,
-          error: null,
-          vegetationArea: null,
-          totalArea: null,
-          featureCount: 0,
-        });
-        return;
-      }
-      this.fetchApiData();
-    } else {
-      if (this.state.connectionStatus === "connected") {
-        if (!this.shouldFetchForViloyat()) {
-          this.setState({
-            loading: true,
-            error: null,
-            vegetationArea: null,
-            totalArea: null,
-            featureCount: 0,
-          });
-          return;
-        }
-        this.throttledFetchData();
-      } else {
-        this.setState({ loading: true });
-        setTimeout(() => {
-          if (
-            this._isMounted &&
-            this.state.connectionStatus === "connected" &&
-            this.shouldFetchForViloyat()
-          )
-            this.throttledFetchData();
-        }, 1000);
-      }
-    }
+    return refreshData(this as unknown as IndicatorWidgetHost);
   };
 
   // =========================
@@ -1150,49 +499,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   readFiltersFromUrl(): void {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-
-      const yil = urlParams.get("yil") || "";
-      const viloyat = urlParams.get("viloyat") || "";
-      const tuman = urlParams.get("tuman") || "";
-      const turi = urlParams.get("turi") || urlParams.get("tur") || "";
-      const vh = urlParams.get("vh") || "";
-      const ekin = urlParams.get("ekin_turi") || "";
-
-      const nextVil = normalizeApos(viloyat);
-      const nextTum = normalizeApos(tuman);
-      const nextTuri = normalizeApos(turi);
-
-      const changed =
-        yil !== this.state.selectedYil ||
-        nextVil !== this.state.selectedViloyat ||
-        nextTum !== this.state.selectedTuman ||
-        nextTuri !== this.state.selectedYerToifas ||
-        normalizeApos(vh) !== this.state.selectedVegetationStatus ||
-        normalizeApos(ekin) !== this.state.selectedCropType;
-
-      if (!changed) return;
-
-      this.setState(
-        {
-          selectedYil: yil,
-          selectedViloyat: nextVil,
-          selectedTuman: nextTum,
-          selectedYerToifas: nextTuri,
-          selectedVegetationStatus: normalizeApos(vh),
-          selectedCropType: normalizeApos(ekin),
-        },
-        () => {
-          // if something is already connected, refresh immediately
-          if (this.props.config?.useApiDataSource) this.fetchApiData();
-          else if (this.state.connectionStatus === "connected")
-            this.throttledFetchData();
-        },
-      );
-    } catch (error) {
-
-    }
+    return readFiltersFromUrl(this as unknown as IndicatorWidgetHost);
   }
 
   // =========================
@@ -1200,236 +507,58 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   ensureInitialization = () => {
-    const { dataSource, connectionStatus } = this.state;
-    const { config } = this.props;
-
-    if (config?.useApiDataSource) {
-      if (!this.shouldFetchForViloyat()) {
-        this.setState({
-          loading: true,
-          error: null,
-          vegetationArea: null,
-          totalArea: null,
-          featureCount: 0,
-        });
-        return;
-      }
-      this.fetchApiData();
-    } else if (dataSource && connectionStatus === "connected") {
-      if (!this.shouldFetchForViloyat()) {
-        this.setState({
-          loading: true,
-          error: null,
-          vegetationArea: null,
-          totalArea: null,
-          featureCount: 0,
-        });
-        return;
-      }
-      this.fetchData();
-    } else if (
-      connectionStatus === "failed" ||
-      connectionStatus === "connecting"
-    ) {
-      this.retryMapConnection();
-    }
+    return ensureInitialization(this as unknown as IndicatorWidgetHost);
   };
 
   retryMapConnection() {
-    this.setState({
-      connectionStatus: "connecting",
-      mapConnectionAttempts: 0,
-      error: null,
-    });
+    return retryMapConnection(this as unknown as IndicatorWidgetHost);
   }
 
   onActiveViewChange = (jimuMapView: JimuMapView) => {
-    if (!jimuMapView) {
-      this.setState({ activeMapView: null, featureLayer: null });
-      return;
-    }
-
-    this.setState({ activeMapView: jimuMapView }, () => {
-      if (jimuMapView.view && jimuMapView.view.ready) {
-        this.initializeMapConnection(jimuMapView);
-      } else {
-        const readyWatch = jimuMapView.view.watch("ready", (isReady) => {
-          if (isReady) {
-            readyWatch.remove();
-            this.initializeMapConnection(jimuMapView);
-          }
-        });
-      }
-    });
+    return onActiveViewChange(this as unknown as IndicatorWidgetHost, jimuMapView);
   };
 
   private makeViloyatKeyForRouting = (viloyat: string): string => {
-    return normalizeApos(viloyat || "")
-      .replace(/['ʻʼ`´]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
+    return makeViloyatKeyForRouting(this as unknown as IndicatorWidgetHost, viloyat);
   };
 
   private getFeatureLayerForViloyat = (
     viloyat: string,
     layersOverride?: __esri.FeatureLayer[],
   ): __esri.FeatureLayer | undefined => {
-    const key = this.makeViloyatKeyForRouting(viloyat);
-    const idx = this._viloyatKeyToLayerIndex[key];
-    const layers = layersOverride ?? this.state.featureLayers ?? [];
-    if (typeof idx === "number" && layers[idx]) return layers[idx];
-    return this.state.featureLayer || layers[0];
+    return getFeatureLayerForViloyat(this as unknown as IndicatorWidgetHost, viloyat, layersOverride);
   };
 
   private isRepublicLayer = (layer?: __esri.FeatureLayer): boolean => {
-    if (!layer) return false;
-    const text =
-      `${(layer as any)?.title || ""} ${(layer as any)?.id || ""} ${(layer as any)?.url || ""}`.toLowerCase();
-    return /\brepublic\b|respublika/.test(text);
+    return isRepublicLayer(this as unknown as IndicatorWidgetHost, layer);
   };
 
   private getDefaultFeatureLayer = (
     layersOverride?: __esri.FeatureLayer[],
   ): __esri.FeatureLayer | undefined => {
-    const layers =
-      (layersOverride && layersOverride.length
-        ? layersOverride
-        : this.state.featureLayers) || [];
-    if (!layers.length) return this.state.featureLayer;
-
-    const republic = layers.find((l) => this.isRepublicLayer(l));
-    if (republic) return republic;
-
-    return layers[0] || this.state.featureLayer;
+    return getDefaultFeatureLayer(this as unknown as IndicatorWidgetHost, layersOverride);
   };
 
   private buildViloyatLayerIndex = async (
     layers: __esri.FeatureLayer[],
   ): Promise<void> => {
-    this._viloyatKeyToLayerIndex = {};
-
-    const vilField = FILTER_FIELDS.VILOYAT;
-    for (let i = 0; i < layers.length; i++) {
-      const layer = layers[i];
-      if (!layer) continue;
-      try {
-        if (!layer.loaded && (layer as any).load) await layer.load();
-
-        const q = layer.createQuery();
-        (q as any).where = "1=1";
-        (q as any).outFields = [vilField];
-        (q as any).returnGeometry = false;
-        (q as any).returnDistinctValues = true;
-        // PostgreSQL DISTINCT requires ORDER BY fields to be selected too.
-        (q as any).orderByFields = [`${vilField} ASC`];
-        (q as any).num = 5000;
-
-        const res = await layer.queryFeatures(q);
-        const feats = res?.features ?? [];
-        for (const f of feats) {
-          const v = (f.attributes as any)?.[vilField];
-          const key = this.makeViloyatKeyForRouting(String(v ?? ""));
-          if (key && this._viloyatKeyToLayerIndex[key] === undefined) {
-            this._viloyatKeyToLayerIndex[key] = i;
-          }
-        }
-      } catch (e) {
-
-      }
-    }
-    
+    return buildViloyatLayerIndex(this as unknown as IndicatorWidgetHost, layers);
   };
 
   initializeMapConnection = (jimuMapView: JimuMapView): Promise<void> => {
-    if (this.state.connectionStatus === 'connected') return Promise.resolve();
-    if (this._mapConnectionPromise) return this._mapConnectionPromise;
-    const run = this.initializeMapConnectionOnce(jimuMapView).finally(() => {
-      if (this._mapConnectionPromise === run) this._mapConnectionPromise = null;
-    });
-    this._mapConnectionPromise = run;
-    return run;
+    return initializeMapConnection(this as unknown as IndicatorWidgetHost, jimuMapView);
   };
 
   private initializeMapConnectionOnce = async (jimuMapView: JimuMapView) => {
-    // Agri_table_data is an external Table, not part of the map — it is
-    // loaded directly by URL instead of scanned from the map's layers.
-    let featureLayers: __esri.FeatureLayer[];
-    try {
-      const { layer } = await getAgriTableDataLayer();
-      featureLayers = [layer];
-    } catch {
-      this.setState({
-        connectionStatus: "failed",
-        error: "Agri_table_data external layer failed to load.",
-      });
-      return;
-    }
-
-    await this.buildViloyatLayerIndex(featureLayers);
-
-    const routed = this.getDefaultFeatureLayer(featureLayers);
-    this._canonicalFeatureLayer = routed;
-
-    
-
-    this.setState(
-      {
-        featureLayers,
-        featureLayer: routed,
-        connectionStatus: "connected",
-        error: null,
-      },
-      () => {
-        // No builder-assigned Data Source is required — Agri_table_data is
-        // loaded directly by URL above, independent of useDataSources.
-        if (this.shouldFetchForViloyat()) this.fetchData();
-        else {
-          this.setState({
-            loading: true,
-            error: null,
-            vegetationArea: null,
-            totalArea: null,
-            featureCount: 0,
-          });
-        }
-      },
-    );
+    return initializeMapConnectionOnce(this as unknown as IndicatorWidgetHost, jimuMapView);
   };
 
   onDataSourceCreated = (dataSource: DataSource) => {
-    this.setState(
-      {
-        dataSource: dataSource as QueriableDataSource,
-        error: null,
-      },
-      () => {
-        if (
-          !this.props.config?.useApiDataSource &&
-          this.state.connectionStatus === "connected"
-        ) {
-          if (this.shouldFetchForViloyat()) this.fetchData();
-          else
-            this.setState({
-              loading: true,
-              error: null,
-              vegetationArea: null,
-              totalArea: null,
-              featureCount: 0,
-            });
-        }
-      },
-    );
+    return onDataSourceCreated(this as unknown as IndicatorWidgetHost, dataSource);
   };
 
   onDataSourceInfoChange = (info: any) => {
-    if (this.props.config?.useApiDataSource) return;
-    if (this.state.connectionStatus !== "connected") return;
-
-    if (info && info.status === DataSourceStatus.Loaded) {
-      const isSelectionChange = info.selectIds && info.selectIds.length > 0;
-      if (!isSelectionChange) this.throttledFetchData();
-    }
+    return onDataSourceInfoChange(this as unknown as IndicatorWidgetHost, info);
   };
 
   // =========================
@@ -1437,132 +566,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   buildWhereClause(includeViloyat = true): string {
-    const {
-      selectedYil,
-      selectedViloyat,
-      selectedTuman,
-      selectedCropType,
-      selectedYerToifas,
-      selectedYerToifalari,
-      selectedUniqueid,
-      selectedVegetationStatus,
-      vhUniqueids,
-    } = this.state;
-
-    // VH / uniqueid path stays fully local — pack never owns these queries.
-    if (selectedVegetationStatus) {
-      const vhClauses: string[] = [];
-      if (selectedYil) {
-        const yDigits =
-          String(selectedYil).match(/\b(18|19|20)\d{2}\b/)?.[0] ??
-          String(selectedYil).replace(/[^\d]/g, "");
-        if (yDigits)
-          vhClauses.push(
-            `${FILTER_FIELDS.YIL} LIKE '${escapeLikeLiteral(yDigits)}%'`,
-          );
-        else
-          vhClauses.push(
-            `${FILTER_FIELDS.YIL} LIKE '%${escapeLikeLiteral(String(selectedYil))}%'`,
-          );
-      }
-      const vhScoped =
-        !!String(selectedVegetationStatus || "").trim() &&
-        Array.isArray(vhUniqueids) &&
-        vhUniqueids.length > 0;
-      if (includeViloyat && selectedViloyat && !vhScoped)
-        vhClauses.push(eqAposSmart(FILTER_FIELDS.VILOYAT, selectedViloyat));
-      if (selectedTuman && !vhScoped)
-        vhClauses.push(eqAposSmart(FILTER_FIELDS.TUMAN, selectedTuman));
-
-      const yerToifasFieldVh = (
-        this.props.config?.yerToifasField || FILTER_FIELDS.TURI
-      ).trim();
-      const selectedTurlarVh = this.normalizeTurlar(
-        selectedYerToifalari,
-        selectedYerToifas,
-      );
-      const cropClauseVh = this.buildTurlarClause(
-        yerToifasFieldVh,
-        selectedTurlarVh,
-      );
-      if (cropClauseVh) vhClauses.push(cropClauseVh);
-
-      if (!Array.isArray(vhUniqueids)) {
-        // Pending Localization resolve — not confirmed empty.
-        // fetchData() already keeps the spinner when !Array.isArray; this
-        // blocks any other caller from querying unscoped geography as "0".
-        return "1=0";
-      }
-      if (!vhUniqueids.length) return "1=0";
-      const joinIds =
-        this._vhJoinSource === vhUniqueids && this._vhJoinExpanded
-          ? this._vhJoinExpanded
-          : vhUniqueids;
-      vhClauses.push(buildSpatialJoinWhere(joinIds));
-
-      if (selectedCropType)
-        vhClauses.push(eqAposSmart(FILTER_FIELDS.EKIN, selectedCropType));
-      if (selectedUniqueid)
-        vhClauses.push(eqAposSmart("uniqueid", selectedUniqueid));
-
-      const configFilterExpressionVh = this.props.config?.filterExpression;
-      if (
-        configFilterExpressionVh &&
-        configFilterExpressionVh.trim() !== "" &&
-        configFilterExpressionVh !== "1=1" &&
-        !vhClauses.some((c) => c.includes(configFilterExpressionVh))
-      ) {
-        vhClauses.push(`(${configFilterExpressionVh})`);
-      }
-
-      return withAgriAccessWhere(
-        vhClauses.length > 0 ? vhClauses.join(" AND ") : "1=1",
-      );
-    }
-
-    const yerToifasField = (
-      this.props.config?.yerToifasField || FILTER_FIELDS.TURI
-    ).trim();
-    const selectedTurlar = this.normalizeTurlar(
-      selectedYerToifalari,
-      selectedYerToifas,
-    );
-
-    let where = buildIndicatorStatsWhere(
-      {
-        yil: selectedYil || "",
-        viloyat: selectedViloyat || "",
-        tuman: selectedTuman || "",
-        turi: selectedYerToifas || "",
-        turlar: selectedTurlar,
-      },
-      {
-        includeViloyat,
-        yearField: FILTER_FIELDS.YIL,
-        turiField: yerToifasField,
-      },
-    );
-
-    const extras: string[] = [];
-    if (selectedCropType)
-      extras.push(eqAposSmart(FILTER_FIELDS.EKIN, selectedCropType));
-    if (selectedUniqueid) extras.push(eqAposSmart("uniqueid", selectedUniqueid));
-
-    const configFilterExpression = this.props.config?.filterExpression;
-    if (
-      configFilterExpression &&
-      configFilterExpression.trim() !== "" &&
-      configFilterExpression !== "1=1" &&
-      !String(where).includes(configFilterExpression)
-    ) {
-      extras.push(`(${configFilterExpression})`);
-    }
-
-    if (extras.length) {
-      where = `(${where}) AND (${extras.join(" AND ")})`;
-    }
-
-    return where;
+    return buildWhereClause(this as unknown as IndicatorWidgetHost, includeViloyat);
   }
 
   // =========================
@@ -1570,56 +574,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   private buildApiUrl(): string {
-    const cfg = (this.props.config || {}) as IndicatorConfig;
-
-    let endpoint: string = (
-      cfg.apiEndpoint ??
-      cfg.apiUrl ??
-      cfg.endpoint ??
-      cfg.url ??
-      ""
-    )
-      .toString()
-      .trim();
-
-    if (!endpoint)
-      throw new Error(
-        "Missing API endpoint: set config.apiEndpoint (or apiUrl/endpoint/url).",
-      );
-
-    endpoint = endpoint.split("?")[0].replace(/[?&]$/, "");
-
-    const {
-      selectedYil,
-      selectedViloyat,
-      selectedTuman,
-      selectedYerToifas,
-      selectedCropType,
-    } = this.state;
-
-    const enc = (v: string) =>
-      encodeURIComponent(this.normalizeUzbekForApi(v || ""));
-
-    const replacements: Record<string, string> = {
-      "{yil}": enc(selectedYil),
-      "{viloyat}": enc(selectedViloyat),
-      "{tuman}": enc(selectedTuman),
-
-      // ✅ CHANGED: support {turi} and old {tur}
-      "{turi}": enc(selectedYerToifas),
-      "{tur}": enc(selectedYerToifas),
-
-      // Vegetatsiya Holati (AgriBar) never filters this indicator.
-      "{vh}": "",
-      "{ekin_turi}": enc(selectedCropType),
-    };
-
-    endpoint = endpoint.replace(
-      /\{(yil|viloyat|tuman|turi|tur|vh|ekin_turi)\}/g,
-      (m) => replacements[m] ?? "",
-    );
-
-    return endpoint;
+    return buildApiUrl(this as unknown as IndicatorWidgetHost);
   }
 
   // =========================
@@ -1627,177 +582,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   private async fetchGroupedStats(): Promise<void> {
-    const { featureLayer, connectionStatus } = this.state;
-    const cfg = (this.props.config || {}) as IndicatorConfig;
-
-    const groupField = (cfg.groupByField || "").trim();
-    const statOp = (cfg.statOperation ||
-      "count") as IndicatorConfig["statOperation"];
-    const valueField = cfg.attributeField || "*";
-    const outName = cfg.outStatName || "agg";
-
-    if (!featureLayer || connectionStatus !== "connected" || !groupField) {
-      return this.fetchData();
-    }
-
-    if (statOp === "first") {
-      return this.fetchGroupedFirst(
-        featureLayer,
-        groupField,
-        valueField,
-        outName,
-      );
-    }
-
-    const requestId = ++this._requestId;
-
-    this.setState({
-      loading: this.state.vegetationArea == null,
-      error: null,
-    });
-
-    const baseWhere = this.buildWhereClause();
-
-    const oidField = featureLayer.objectIdField || "objectid";
-    const onField = statOp === "count" ? oidField : valueField;
-    const outStatistics = [
-      {
-        onStatisticField: onField,
-        statisticType: (
-          {
-            count: "count",
-            sum: "sum",
-            avg: "avg",
-            min: "min",
-            max: "max",
-          } as any
-        )[statOp],
-        outStatisticFieldName: outName,
-      },
-    ] as any;
-
-    let nonNullWhere = `${baseWhere} AND ${groupField} IS NOT NULL`;
-
-    if (cfg.excludeZeroValues) {
-      if (statOp === "count" && (cfg.attributeField || "").trim()) {
-        nonNullWhere += ` AND ${this.nz((cfg.attributeField as string).trim())}`;
-      }
-      if (statOp !== "count" && valueField && valueField !== "*") {
-        nonNullWhere += ` AND ${this.nz(valueField)}`;
-      }
-      nonNullWhere += ` AND ${groupField} <> 0 AND ${groupField} <> '0'`;
-    }
-
-    const qGrouped = featureLayer.createQuery();
-    qGrouped.where = nonNullWhere;
-    (qGrouped as any).groupByFieldsForStatistics = [groupField];
-    qGrouped.outStatistics = outStatistics as any;
-    qGrouped.returnGeometry = false;
-    (qGrouped as any).num = 2000;
-
-    const grouped = await featureLayer.queryFeatures(qGrouped);
-    if (!this._isMounted || requestId !== this._requestId) return;
-    const rows: Array<{ key: string | number; value: number }> = (
-      grouped?.features || []
-    ).map((f: any) => {
-      const d = f?.attributes as Record<string, any>;
-      return { key: d[groupField], value: Number(d[outName] ?? 0) };
-    });
-
-    if (cfg.includeNullCategory) {
-      let whereNull = `${baseWhere} AND ${groupField} IS NULL`;
-      if (cfg.excludeZeroValues) {
-        if (statOp === "count" && (cfg.attributeField || "").trim()) {
-          whereNull += ` AND ${this.nz((cfg.attributeField as string).trim())}`;
-        }
-        if (statOp !== "count" && valueField && valueField !== "*") {
-          whereNull += ` AND ${this.nz(valueField)}`;
-        }
-      }
-
-      const qNull = featureLayer.createQuery();
-      qNull.where = whereNull;
-      qNull.outStatistics = outStatistics as any;
-      qNull.returnGeometry = false;
-      (qNull as any).num = 1;
-
-      const nullRes = await featureLayer.queryFeatures(qNull);
-      if (!this._isMounted || requestId !== this._requestId) return;
-      const nullVal = Number(
-        nullRes?.features?.[0]?.attributes?.[outName] ?? 0,
-      );
-      rows.push({ key: null as any, value: nullVal });
-    }
-
-    let final: Array<{ key: any; label: string; value: number }>;
-
-    if (
-      (cfg.categoryMode || "AUTO") === "ENUM" &&
-      Array.isArray(cfg.enumCategories) &&
-      cfg.enumCategories.length
-    ) {
-      const asMap = new Map<any, number>();
-      rows.forEach((r) => {
-        const k = r.key == null ? null : String(r.key);
-        asMap.set(k, (asMap.get(k) || 0) + r.value);
-      });
-
-      final = cfg.enumCategories.map((c) => {
-        const k = c.value == null ? null : String(c.value);
-        return {
-          key: c.value,
-          label: c.label,
-          value: Number(asMap.get(k) || 0),
-        };
-      });
-    } else {
-      final = rows
-        .sort((a, b) => {
-          if (a.key == null && b.key == null) return 0;
-          if (a.key == null) return -1;
-          if (b.key == null) return 1;
-          return String(a.key).localeCompare(String(b.key), undefined, {
-            numeric: true,
-          });
-        })
-        .map((r) => ({
-          key: r.key,
-          label: r.key == null ? this.labelNoValue() : String(r.key),
-          value: r.value,
-        }));
-    }
-
-    const dp = Number(cfg.decimalPlaces || 0);
-    const rounded = final.map((x) => ({
-      ...x,
-      value: formatIndicatorStatValue(x.value, dp),
-    }));
-
-    const total = rounded.reduce(
-      (s, r) => s + (isNaN(r.value) ? 0 : r.value),
-      0,
-    );
-
-    const displayKey = cfg.displayGroupValue as any;
-    const displayVal =
-      displayKey !== undefined
-        ? (rounded.find(
-            (r) =>
-              (r.key == null && displayKey == null) ||
-              String(r.key) === String(displayKey),
-          )?.value ?? 0)
-        : total;
-
-    if (!this._isMounted || requestId !== this._requestId) return;
-
-    this.setState({
-      groupResults: rounded,
-      vegetationArea: displayVal,
-      totalArea: total,
-      loading: false,
-      lastUpdate: new Date(),
-      error: null,
-    });
+    return fetchGroupedStats(this as unknown as IndicatorWidgetHost);
   }
 
   private async fetchGroupedFirst(
@@ -1806,97 +591,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
     valueField: string,
     _outName: string,
   ): Promise<void> {
-    const cfg = (this.props.config || {}) as IndicatorConfig;
-
-    const requestId = ++this._requestId;
-
-    this.setState({ loading: true, error: null });
-
-    const baseWhere = this.buildWhereClause();
-
-    let where1 = `${baseWhere} AND ${groupField} IS NOT NULL`;
-    if (cfg.excludeZeroValues && valueField)
-      where1 += ` AND ${this.nz(valueField)}`;
-
-    const q = featureLayer.createQuery();
-    q.where = where1;
-    q.outFields = [groupField, valueField];
-    q.orderByFields = [`${groupField} ASC`];
-    q.returnGeometry = false;
-    (q as any).num = 3000;
-
-    const res = await featureLayer.queryFeatures(q);
-    if (!this._isMounted || requestId !== this._requestId) return;
-
-    const firstMap = new Map<any, number>();
-    for (const f of res?.features || []) {
-      const d = f?.attributes as any;
-      const k = d[groupField];
-      if (!firstMap.has(k)) firstMap.set(k, Number(d[valueField]));
-    }
-
-    const rows: Array<{ key: any; value: number }> = Array.from(
-      firstMap.entries(),
-    ).map(([key, v]) => ({
-      key,
-      value: Number.isFinite(Number(v)) ? Number(v) : 0,
-    }));
-
-    if (cfg.includeNullCategory) {
-      let whereNull = `${baseWhere} AND ${groupField} IS NULL`;
-      if (cfg.excludeZeroValues && valueField)
-        whereNull += ` AND ${this.nz(valueField)}`;
-
-      const qNull = featureLayer.createQuery();
-      qNull.where = whereNull;
-      qNull.outFields = [valueField];
-      qNull.returnGeometry = false;
-      (qNull as any).num = 1;
-
-      const resNull = await featureLayer.queryFeatures(qNull);
-      if (!this._isMounted || requestId !== this._requestId) return;
-
-      const v = Number(resNull?.features?.[0]?.attributes?.[valueField] ?? 0);
-      rows.push({ key: null as any, value: Number.isFinite(v) ? v : 0 });
-    }
-
-    const dp = Number(cfg.decimalPlaces || 0);
-    const final = rows
-      .sort((a, b) => {
-        if (a.key == null && b.key == null) return 0;
-        if (a.key == null) return -1;
-        if (b.key == null) return 1;
-        return String(a.key).localeCompare(String(b.key), undefined, {
-          numeric: true,
-        });
-      })
-      .map((r) => ({
-        key: r.key,
-        label: r.key == null ? this.labelNoValue() : String(r.key),
-        value: formatIndicatorStatValue(r.value, dp),
-      }));
-
-    const total = final.reduce((s, r) => s + (isNaN(r.value) ? 0 : r.value), 0);
-    const displayKey = cfg.displayGroupValue as any;
-    const displayVal =
-      displayKey !== undefined
-        ? (final.find(
-            (r) =>
-              (r.key == null && displayKey == null) ||
-              String(r.key) === String(displayKey),
-          )?.value ?? 0)
-        : total;
-
-    if (!this._isMounted || requestId !== this._requestId) return;
-
-    this.setState({
-      groupResults: final,
-      vegetationArea: displayVal,
-      totalArea: total,
-      loading: false,
-      lastUpdate: new Date(),
-      error: null,
-    });
+    return fetchGroupedFirst(this as unknown as IndicatorWidgetHost, featureLayer, groupField, valueField, _outName);
   }
 
   // =========================
@@ -1904,173 +599,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   fetchApiData = async () => {
-    if (!this._isMounted) return;
-    if (!this.shouldFetchForViloyat()) {
-      this.setState({
-        loading: true,
-        error: null,
-        vegetationArea: null,
-        totalArea: null,
-        featureCount: 0,
-      });
-      return;
-    }
-
-    const requestId = ++this._requestId;
-
-    try {
-      if (this._abortController) this._abortController.abort();
-      this._abortController = new AbortController();
-      const signal = this._abortController.signal;
-
-      this.setState({
-        loading: this.state.vegetationArea == null,
-        error: null,
-      });
-
-      const {
-        selectedYil,
-        selectedViloyat,
-        selectedTuman,
-        selectedYerToifas,
-        selectedCropType,
-      } = this.state;
-
-      const endpoint = this.buildApiUrl();
-
-      const baseParams = new URLSearchParams();
-      if (selectedYil) baseParams.set("yil", selectedYil);
-      if (selectedCropType)
-        baseParams.set(
-          "ekin_turi",
-          this.normalizeUzbekForApi(selectedCropType),
-        );
-      // Vegetatsiya Holati (AgriBar) never filters this indicator — no
-      // "vh" query param is sent regardless of the current bar selection.
-
-      // ✅ CHANGED: API param default now 'turi'
-      const ytfParamName = (
-        this.props.config?.yerToifasParam || FILTER_FIELDS.TURI
-      ).trim();
-      if (selectedYerToifas)
-        baseParams.set(
-          ytfParamName,
-          this.normalizeUzbekForApi(selectedYerToifas),
-        );
-
-      // Cap cartesian fan-out (F-18): prefer normalized forms first.
-      const MAX_TUM_VARIANTS = 6;
-      const MAX_VIL_VARIANTS = 4;
-      const tumList = (
-        selectedTuman
-          ? this.makeDistrictSuffixVariants(selectedTuman)
-          : [""]
-      ).slice(0, MAX_TUM_VARIANTS);
-      const vilList = (
-        selectedViloyat
-          ? this.makeRegionSuffixVariants(selectedViloyat)
-          : [""]
-      ).slice(0, MAX_VIL_VARIANTS);
-
-      let finalValue = 0;
-      let matched = false;
-
-      outer: for (const tum of tumList) {
-        for (const vil of vilList) {
-          const qp = new URLSearchParams(baseParams.toString());
-          if (tum) qp.set("tuman", tum);
-          if (vil) qp.set("viloyat", vil);
-
-          const url = `${endpoint}?${qp.toString()}`;
-
-          const opts: RequestInit = {
-            method: "GET",
-            headers: { Accept: "application/json" },
-            signal,
-          };
-
-          // apiKey / useAuthentication were never declared on IMConfig — the
-          // Bearer branch was unreachable schema drift. Do not resurrect a
-          // browser-delivered secret here.
-
-          const resp = await fetch(url, opts);
-          if (!this._isMounted || requestId !== this._requestId) return;
-          if (signal.aborted) {
-            this.setState({ loading: false });
-            return;
-          }
-          if (!resp.ok)
-            throw new Error(`API request failed with status ${resp.status}`);
-
-          const data = await resp.json();
-          if (!this._isMounted || requestId !== this._requestId) return;
-
-          const cfgField = (this.props.config?.responseField || "").trim();
-          const candidates = [
-            cfgField,
-            "total",
-            "value",
-            "count",
-            "maydon",
-          ].filter(Boolean) as string[];
-
-          let value: number | null = null;
-          for (const key of candidates) {
-            if (key && data && typeof data === "object" && key in data) {
-              const v = Number(data[key]);
-              if (!Number.isNaN(v)) {
-                value = v;
-                break;
-              }
-            }
-            if (
-              key &&
-              data?.result &&
-              typeof data.result === "object" &&
-              key in data.result
-            ) {
-              const v = Number(data.result[key]);
-              if (!Number.isNaN(v)) {
-                value = v;
-                break;
-              }
-            }
-          }
-          if (value == null && typeof data === "number") value = Number(data);
-
-          if (value != null && !Number.isNaN(value)) {
-            finalValue = value;
-            matched = true;
-            break outer;
-          }
-        }
-      }
-
-      const rounded = formatIndicatorStatValue(
-        finalValue,
-        this.props.config?.decimalPlaces || 0,
-      );
-
-      if (!this._isMounted || requestId !== this._requestId) return;
-
-      this.setState({
-        vegetationArea: rounded,
-        totalArea: rounded,
-        loading: false,
-        lastUpdate: new Date(),
-        error: null,
-      });
-    } catch (err: any) {
-      if (err?.name === "AbortError") return;
-      if (!this._isMounted || requestId !== this._requestId) return;
-
-      this.setState({
-        error: err?.message || "Failed to fetch data from API",
-        loading: false,
-      });
-    } finally {
-      this._abortController = null;
-    }
+    return fetchApiData(this as unknown as IndicatorWidgetHost);
   };
 
   // =========================
@@ -2078,276 +607,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   fetchData = async (_forceRefresh?: boolean) => {
-    if (this.props.config?.useApiDataSource) return this.fetchApiData();
-
-    if (!this.shouldFetchForViloyat()) {
-      // Year not published yet — stay in loading, never paint "0"/"-".
-      this.setState({
-        loading: true,
-        error: null,
-        vegetationArea: null,
-        totalArea: null,
-        featureCount: 0,
-      });
-      return;
-    }
-
-    if (
-      String(this.state.selectedVegetationStatus || "").trim() &&
-      !Array.isArray(this.state.vhUniqueids)
-    ) {
-      this.setState({ loading: true, error: null });
-      return;
-    }
-
-    if (this.props.config?.groupByField) return this.fetchGroupedStats();
-
-    if (this.state.connectionStatus !== "connected") return;
-
-    const requestId = ++this._requestId;
-
-    try {
-      if (this._abortController) this._abortController.abort();
-      this._abortController = new AbortController();
-
-      this.setState({
-        loading: this.state.vegetationArea == null,
-        error: null,
-      });
-
-      const fl = this._canonicalFeatureLayer || this.state.featureLayer;
-      if (!fl) {
-        this.setState({ loading: false, error: "No feature layer available" });
-        return;
-      }
-      const oidField = fl.objectIdField || "objectid";
-
-      const op = (this.props.config?.statOperation || "count") as
-        | "count"
-        | "sum"
-        | "avg"
-        | "min"
-        | "max"
-        | "first";
-      const field = (this.props.config?.attributeField || "").trim();
-
-      let where = this.buildWhereClause();
-
-      if (this.props.config?.excludeZeroValues && field) {
-        where += ` AND ${this.nz(field)}`;
-      }
-
-      // Shared DashboardPack hit — default sum(maydon), no VH / uniqueid.
-      if (
-        canConsumeIndicatorDashboardPack({
-          op,
-          field,
-          selectedVegetationStatus: this.state.selectedVegetationStatus,
-          selectedUniqueid: this.state.selectedUniqueid,
-        })
-      ) {
-        await waitForDashboardPackReady(2500);
-        if (!this._isMounted || requestId !== this._requestId) return;
-        const indicatorPack = matchIndicatorDashboardPack(getDashboardPack(), {
-          where,
-          hasVh: false,
-          attributeField: "maydon",
-        });
-        if (indicatorPack) {
-          const totalVal = formatIndicatorStatValue(
-            indicatorPack.value,
-            this.props.config?.decimalPlaces || 0,
-          );
-          if (!this._isMounted || requestId !== this._requestId) return;
-          this.setState({
-            vegetationArea: totalVal,
-            totalArea: totalVal,
-            loading: false,
-            lastUpdate: new Date(),
-            error: null,
-          });
-          return;
-        }
-      }
-
-      if (op === "first") {
-        const q = fl.createQuery();
-        q.where = where;
-        q.outFields = [field];
-        q.orderByFields = [`${field} ASC`];
-        q.returnGeometry = false;
-        q.num = 1;
-
-        const res = await fl.queryFeatures(q);
-        if (!this._isMounted || requestId !== this._requestId) return;
-        const v = Number(res?.features?.[0]?.attributes?.[field] ?? 0);
-        const val = formatIndicatorStatValue(
-          v,
-          this.props.config?.decimalPlaces || 0,
-        );
-
-        if (!this._isMounted || requestId !== this._requestId) return;
-
-        this.setState({
-          vegetationArea: val,
-          totalArea: val,
-          featureCount: res?.features?.length || 0,
-          loading: false,
-          lastUpdate: new Date(),
-          error: null,
-        });
-        return;
-      }
-
-      const statMap: Record<
-        "count" | "sum" | "avg" | "min" | "max",
-        __esri.StatisticDefinition["statisticType"]
-      > = {
-        count: "count",
-        sum: "sum",
-        avg: "avg",
-        min: "min",
-        max: "max",
-      };
-
-      if (op !== "count" && !field) {
-        this.setState({
-          loading: false,
-          error: "Select attribute field for this aggregation",
-        });
-        return;
-      }
-
-      const onField = op === "count" ? oidField : field;
-
-      // In Agri3, overall "sum" should reflect totals across regional layers.
-      // If regional layers exist, use them (excluding republic layer to avoid overlap).
-      if (op === "sum") {
-        const allLayers = (this.state.featureLayers || []).filter(Boolean);
-        const selectedVil = (this.state.selectedViloyat || "").trim();
-        const selectedTum = (this.state.selectedTuman || "").trim();
-
-        let layersForSum: __esri.FeatureLayer[] = [];
-        let whereForSum = where;
-
-        if (selectedVil) {
-          // Prefer a routed regional layer when multi-layer setups exist,
-          // but always keep viloyat/tuman in WHERE — Agri_table_data is a
-          // single table for all regions (legacy "drop viloyat predicate"
-          // only worked with per-region layers).
-          const routed =
-            this.getFeatureLayerForViloyat(selectedVil, allLayers) || fl;
-          layersForSum = [routed];
-          whereForSum = this.buildWhereClause(true);
-          if (this.props.config?.excludeZeroValues && field) {
-            whereForSum += ` AND ${this.nz(field)}`;
-          }
-        } else {
-          // Republic overview: Agri_table_data is one national table — summing
-          // every non-republic layer duplicates the same FeatureServer query.
-          const sameUrlAsCanonical = (layer: __esri.FeatureLayer) => {
-            const a = String((layer as any)?.url || "").replace(/\/+$/, "");
-            const b = String((fl as any)?.url || "").replace(/\/+$/, "");
-            return !!a && !!b && a === b;
-          };
-          const nonRepublicLayers = allLayers.filter(
-            (l) => !this.isRepublicLayer(l),
-          );
-          const distinctLayerUrls = new Set(
-            nonRepublicLayers
-              .map((l) => String((l as any)?.url || "").replace(/\/+$/, ""))
-              .filter(Boolean),
-          );
-          if (
-            !nonRepublicLayers.length ||
-            distinctLayerUrls.size <= 1 ||
-            nonRepublicLayers.every(sameUrlAsCanonical)
-          ) {
-            layersForSum = [fl];
-          } else {
-            layersForSum = nonRepublicLayers;
-          }
-        }
-
-        let totalRaw = 0;
-
-        for (const layer of layersForSum) {
-          const layerFields = (layer.fields || []).map((f) =>
-            (f?.name || "").toLowerCase(),
-          );
-          if (!layerFields.includes(onField.toLowerCase())) continue;
-
-          const rawLayer = await queryIndicatorOutStat({
-            layer,
-            where: whereForSum,
-            statisticType: "sum",
-            onStatisticField: onField,
-          });
-          if (!this._isMounted || requestId !== this._requestId) return;
-          totalRaw += Number(rawLayer) || 0;
-        }
-
-        
-
-        const totalVal = formatIndicatorStatValue(
-          totalRaw,
-          this.props.config?.decimalPlaces || 0,
-        );
-
-        if (!this._isMounted || requestId !== this._requestId) return;
-
-        this.setState({
-          vegetationArea: totalVal,
-          totalArea: totalVal,
-          loading: false,
-          lastUpdate: new Date(),
-          error: null,
-        });
-        return;
-      }
-
-      
-
-      const q = fl.createQuery();
-      q.where = where;
-      q.outStatistics = [
-        {
-          onStatisticField: onField,
-          statisticType: statMap[op],
-          outStatisticFieldName: "agg",
-        },
-      ] as any;
-      q.returnGeometry = false;
-
-      const stats = await fl.queryFeatures(q);
-      if (!this._isMounted || requestId !== this._requestId) return;
-      const raw = Number(stats?.features?.[0]?.attributes?.agg ?? 0);
-      const val = formatIndicatorStatValue(
-        raw,
-        this.props.config?.decimalPlaces || 0,
-      );
-
-      if (!this._isMounted || requestId !== this._requestId) return;
-
-      this.setState({
-        vegetationArea: val,
-        totalArea: val,
-        loading: false,
-        lastUpdate: new Date(),
-        error: null,
-      });
-    } catch (e: any) {
-      if (e?.name === "AbortError") {
-        if (!this._isMounted || requestId !== this._requestId) return;
-        this.setState({ loading: false });
-        return;
-      }
-
-      if (!this._isMounted || requestId !== this._requestId) return;
-      this.setState({ loading: false, error: e?.message || "Query failed" });
-    } finally {
-      this._abortController = null;
-    }
+    return fetchData(this as unknown as IndicatorWidgetHost, _forceRefresh);
   };
 
   // =========================
@@ -2355,47 +615,15 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   setupAutoRefresh() {
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-      this.refreshTimer = null;
-    }
-
-    const { autoRefresh, refreshInterval } = (this.props.config ||
-      {}) as IndicatorConfig;
-    if (autoRefresh !== false && refreshInterval) {
-      const intervalMs = (refreshInterval || 5) * 60 * 1000;
-      // Restart the interval each time this is called so that a filter
-      // change (which already triggers refreshData immediately) resets the
-      // countdown — avoiding a redundant server round-trip shortly after.
-      this.refreshTimer = setInterval(() => {
-        if (!this._isMounted) return;
-        // Only auto-refresh when the user is not actively interacting
-        // (filter changes already trigger refreshData via masterFilterChanged).
-        const idleMs = Date.now() - (this._lastFilterEventMs ?? 0);
-        if (idleMs >= intervalMs) this.refreshData();
-      }, intervalMs);
-    }
+    return setupAutoRefresh(this as unknown as IndicatorWidgetHost);
   }
 
   private initializeTheme = (): void => {
-    const saved = window.localStorage?.getItem("agri_v11_app_theme");
-    const dom = document.documentElement.getAttribute("data-theme");
-    let isDarkTheme = true;
-    if (saved !== null && saved !== undefined) {
-      isDarkTheme = saved === "dark";
-    } else if (dom === "light" || dom === "dark") {
-      isDarkTheme = dom === "dark";
-    }
-    this.setState({ isDarkTheme });
+    return initializeTheme(this as unknown as IndicatorWidgetHost);
   };
 
   handleThemeChange = (event: any): void => {
-    const detail = (event as CustomEvent)?.detail;
-    if (detail?.theme) {
-      this.setState({ isDarkTheme: detail.theme === "dark" });
-    } else {
-      this.initializeTheme();
-    }
+    return handleThemeChange(this as unknown as IndicatorWidgetHost, event);
   };
 
   // =========================
@@ -2403,72 +631,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   getCustomStyles = () => {
-    const cfg = (this.props.config || {}) as IndicatorConfig;
-
-    const backgroundColorRaw = (cfg.backgroundColor ?? "").toString().trim();
-    const hasBgOverride = backgroundColorRaw.length > 0;
-
-    const textColorRaw = (cfg.textColor ?? "").toString().trim();
-    const labelColorRaw = (cfg.labelColor ?? "").toString().trim();
-
-    const borderRadiusCfg =
-      typeof cfg.borderRadius === "number"
-        ? cfg.borderRadius
-        : typeof cfg.borderRadius === "string" && cfg.borderRadius.trim() !== ""
-          ? Number(cfg.borderRadius)
-          : null;
-
-    const iconSizeCfg =
-      typeof cfg.iconSize === "number"
-        ? cfg.iconSize
-        : typeof cfg.iconSize === "string" && cfg.iconSize.trim() !== ""
-          ? Number(cfg.iconSize)
-          : null;
-
-    const iconOpacityCfg =
-      typeof cfg.iconOpacity === "number"
-        ? cfg.iconOpacity
-        : typeof cfg.iconOpacity === "string" && cfg.iconOpacity.trim() !== ""
-          ? Number(cfg.iconOpacity)
-          : null;
-
-    const containerStyles: any = {};
-
-    if (borderRadiusCfg != null && Number.isFinite(borderRadiusCfg))
-      containerStyles.borderRadius = `${borderRadiusCfg}px`;
-    if (textColorRaw) containerStyles.color = textColorRaw;
-
-    if (hasBgOverride) {
-      const isGradient = /gradient/i.test(backgroundColorRaw);
-      if (isGradient) containerStyles.background = backgroundColorRaw;
-      else containerStyles.backgroundColor = backgroundColorRaw;
-    }
-
-    const statLabel: any = {};
-    if (labelColorRaw) statLabel.color = labelColorRaw;
-
-    const statValue: any = {};
-    if (textColorRaw) statValue.color = textColorRaw;
-
-    const iconContainer: any = {};
-    if (iconSizeCfg != null && Number.isFinite(iconSizeCfg)) {
-      iconContainer.width = `${iconSizeCfg}px`;
-      iconContainer.height = `${iconSizeCfg}px`;
-    }
-
-    const icon: any = {};
-    if (iconOpacityCfg != null && Number.isFinite(iconOpacityCfg)) {
-      icon.opacity = Math.max(0, Math.min(1, iconOpacityCfg / 100));
-    }
-
-    return {
-      container: containerStyles,
-      statLabel,
-      statValue,
-      iconContainer,
-      icon,
-      hasBgOverride,
-    };
+    return getCustomStyles(this as unknown as IndicatorWidgetHost);
   };
 
   // =========================
@@ -2476,195 +639,6 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   render() {
-    const {
-      vegetationArea,
-      loading,
-      error,
-      connectionStatus,
-      lastUpdate,
-      selectedYil,
-      selectedViloyat,
-      selectedTuman,
-      selectedYerToifas,
-      groupResults,
-      language,
-    } = this.state;
-
-    const { config, useDataSources, useMapWidgetIds } = this.props;
-    const useApiDataSource = !!config?.useApiDataSource;
-
-    const defaultStatLabel =
-      language === "en"
-        ? "Crop area"
-        : language === "ru"
-          ? "Площадь посевов"
-        : language === "uz_lat"
-          ? "Ekin maydonlari"
-          : "Экин майдонлари";
-
-    const configuredLabel = String(config?.label || "").trim();
-    const usesDefaultLabel =
-      !configuredLabel ||
-      ["Ekin maydonlari", "Площадь посевов", "Экин майдонлари", "Crop area"].includes(
-        configuredLabel,
-      );
-    const label = usesDefaultLabel ? defaultStatLabel : configuredLabel;
-
-    const defaultUnit = language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
-    const configuredUnit = String(config?.unitLabel || "").trim();
-    const usesDefaultUnit =
-      !configuredUnit || ["ga", "га"].includes(configuredUnit.toLowerCase());
-    const unitLabel = usesDefaultUnit ? defaultUnit : configuredUnit;
-
-    const groupByField = (config?.groupByField || "").trim();
-    const isGrouped = !!groupByField;
-    const statOp = (config?.statOperation || (isGrouped ? "count" : "sum")) as
-      | "count"
-      | "sum"
-      | "avg"
-      | "min"
-      | "max"
-      | "first";
-    const isCountMode = isGrouped && statOp === "count";
-    const effectiveUnit = isCountMode ? "" : unitLabel || "";
-
-    const resolveCategoryLabel = (
-      v: string | number | null | undefined,
-    ): string => {
-      if (v == null) return this.labelNoValue();
-      if (
-        (config?.categoryMode || "AUTO") === "ENUM" &&
-        Array.isArray(config?.enumCategories)
-      ) {
-        const hit = config.enumCategories.find(
-          (c: { label: string; value: string | number | null }) =>
-            (c.value == null && v == null) || String(c.value) === String(v),
-        );
-        if (hit?.label) return hit.label;
-      }
-      return String(v);
-    };
-
-    const dVal = config?.displayGroupValue as any;
-    const bucketCaption = isGrouped
-      ? dVal === undefined
-        ? language === "en"
-          ? `Total (${groupByField})`
-          : language === "ru"
-          ? `Итого по полю ${groupByField}`
-          : language === "uz_lat"
-            ? `Jami (${groupByField})`
-            : `Жами (${groupByField})`
-        : `${groupByField} = ${resolveCategoryLabel(dVal)}`
-      : null;
-
-    const isInitializing =
-      !useApiDataSource &&
-      (connectionStatus === "connecting" || connectionStatus === "idle");
-
-    const customStyles = this.getCustomStyles();
-
-    const themeClass = this.state.isDarkTheme ? "dark-theme" : "light-theme";
-
-    const { widgetSize } = this.state;
-
-    // Show republic-wide data when no viloyat is selected (removed hideUntilViloyat gate).
-    // The indicator now renders its aggregate value for the whole country when only yil is set.
-
-    const mapOverlayMode = !!(config as any)?.mapOverlayMode;
-    // One continuous spinner until the first aggregate arrives. Do not drop
-    // the loader while waiting for year/connect (that caused spinner → "-" →
-    // spinner → value). Soft refreshes keep the previous number visible.
-    const waitingForYear = !(selectedYil || "").trim();
-    const showBlockingLoader =
-      !error &&
-      vegetationArea == null &&
-      (isInitializing || loading || waitingForYear);
-
-    return (
-      <div
-        ref={this._containerRef}
-        className={`vegetation-stats-widget ${themeClass}${mapOverlayMode ? " map-overlay-mode" : ""}`}
-        data-ind-size={widgetSize}
-        style={customStyles.container}
-      >
-        {!useApiDataSource && useDataSources && useDataSources.length > 0 && (
-          <DataSourceComponent
-            useDataSource={useDataSources[0]}
-            onDataSourceCreated={this.onDataSourceCreated}
-            onDataSourceInfoChange={this.onDataSourceInfoChange}
-          />
-        )}
-
-        {!useApiDataSource && useMapWidgetIds?.length > 0 && (
-          <JimuMapViewComponent
-            useMapWidgetId={useMapWidgetIds[0]}
-            onActiveViewChange={this.onActiveViewChange}
-          />
-        )}
-
-        {/* Body */}
-        {showBlockingLoader ? (
-          <div className="loading-indicator">
-            <AgriDashboardSpinner compact size={40} />
-          </div>
-        ) : error && vegetationArea == null ? (
-          <div className="error-container">
-            <div className="error-icon">⚠️</div>
-            <p>{this.translateKnownError(String(error || ""))}</p>
-            {!useApiDataSource && connectionStatus === "failed" && (
-              <button
-                className="retry-button"
-                onClick={this.retryMapConnection}
-              >
-                {language === "en"
-                  ? "Reconnect"
-                  : language === "ru"
-                  ? "Повторить подключение"
-                  : language === "uz_lat"
-                    ? "Qayta ulanish"
-                    : "Қайта уланиш"}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="widget-content">
-            <div className="stat-main">
-              <div
-                className="stat-label"
-                style={
-                  Object.keys(customStyles.statLabel).length
-                    ? customStyles.statLabel
-                    : undefined
-                }
-              >
-                {label}
-              </div>
-
-              <div
-                className="stat-value"
-                style={
-                  Object.keys(customStyles.statValue).length
-                    ? customStyles.statValue
-                    : undefined
-                }
-              >
-                <AgriAnimatedCount
-                  value={vegetationArea}
-                  emptyFallback="-"
-                />
-                {effectiveUnit && <span className="unit">{effectiveUnit}</span>}
-              </div>
-
-              {isGrouped && (
-                <div className="group-caption" title={bucketCaption || ""}>
-                  <small>{bucketCaption}</small>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
+    return render(this as unknown as IndicatorWidgetHost);
   }
 }

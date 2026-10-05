@@ -83,6 +83,8 @@ const AGRI_QUERY_MAX_PAGES = 200;
  *
  * While false: returns [] immediately (no network). Do not flip to true without
  * verifying MapImage-owned layers stay owned by Localization DE sync.
+ * Kept as a constant, not a builder toggle, so it cannot be enabled from settings
+ * before that pass. UNIQUEID_QUERY_LAYER_GUIDE.md is not in this widget.
  */
 const AGRI_UNIQUEID_QUERY_ENABLED = false;
 
@@ -159,6 +161,14 @@ async function pageAgriUniqueIdsForWhere(where: string): Promise<string[]> {
 let agriTableUniqueIdSamplesPromise: Promise<string[]> | null = null;
 
 /**
+ * Sample WHERE for id-style detection. Includes the access clause so a
+ * restricted session does not read uniqueids from outside its rows.
+ */
+export function agriTableUniqueIdSampleWhere(): string {
+  return combineAccessWhere(`${AGRI_TABLE_JOIN_FIELD} IS NOT NULL`);
+}
+
+/**
  * A few live uniqueid values from Agri_table_data (cached for the session) —
  * used to detect the id style (braces / letter case) of this deployment.
  */
@@ -167,7 +177,7 @@ export async function getAgriTableUniqueIdSamples(): Promise<string[]> {
     agriTableUniqueIdSamplesPromise = (async () => {
       const { layer } = await getAgriTableDataLayer();
       const query = layer.createQuery();
-      query.where = `${AGRI_TABLE_JOIN_FIELD} IS NOT NULL`;
+      query.where = agriTableUniqueIdSampleWhere();
       query.outFields = [AGRI_TABLE_JOIN_FIELD];
       query.returnGeometry = false;
       (query as any).num = 5;
@@ -211,7 +221,9 @@ export async function getAgriTableUniqueIdStyle(): Promise<AgriTableUniqueIdStyl
           ? "lower"
           : "mixed";
     return { braced, letterCase };
-  } catch {
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[AgroV5] uniqueid style sample failed", err);
     return null;
   }
 }

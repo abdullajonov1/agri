@@ -1,0 +1,9 @@
+{
+  "src": "../src/panels/GraffPanel/runtime/components/graph-handlers.tsx",
+  "outDir": "../src/panels/GraffPanel/runtime/components/graph",
+  "groups": [
+    { "file": "graph-view.tsx", "from": 1, "to": 432 },
+    { "file": "graph-dates.tsx", "from": 433, "to": 747 },
+    { "file": "graph-series.tsx", "from": 748, "to": 5000 }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "src": "../src/filter/LocalizationPanel/runtime/components/VhBar/vh-bar-service.ts",
+  "outDir": "../src/filter/LocalizationPanel/runtime/components/VhBar/vh-bar",
+  "groups": [
+    { "file": "vh-bar-prep.ts", "from": 1, "to": 352 },
+    { "file": "vh-bar-resolve.ts", "from": 353, "to": 796 },
+    { "file": "vh-bar-load.ts", "from": 797, "to": 5000 }
+  ]
+}

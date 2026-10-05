@@ -16,6 +16,7 @@ import {
   removeAgriPersistentCache,
   setAgriPersistentCache,
 } from "../data/agri-persistent-cache";
+import { agroV5Log } from "../gis/agri-debug-log";
 
 type PackListener = (pack: DashboardPack) => void;
 
@@ -111,8 +112,12 @@ export function setDashboardPack(next: DashboardPack): void {
   listeners.forEach((listener) => {
     try {
       listener(pack);
-    } catch {
-      /* panel must not break store */
+    } catch (error) {
+      // Panel must not break the store or sibling listeners.
+      agroV5Log("dashboardPack:listener-error", {
+        phase: pack?.phase,
+        error: String((error as any)?.message ?? error),
+      });
     }
   });
 }

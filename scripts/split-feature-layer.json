@@ -1,0 +1,11 @@
+{
+  "src": "../src/gis/feature-layer-data.ts",
+  "outDir": "../src/gis/feature-layer",
+  "mode": "rank",
+  "groups": [
+    { "file": "primitives.ts", "min": 0, "max": 1 },
+    { "file": "layer-lookup.ts", "min": 2, "max": 4 },
+    { "file": "map-and-stats.ts", "min": 5, "max": 6 },
+    { "file": "where-and-resolve.ts", "min": 7, "max": 8 }
+  ]
+}

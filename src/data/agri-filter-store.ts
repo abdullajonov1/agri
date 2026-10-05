@@ -9,6 +9,7 @@
  * multi-key store for 1 hour so re-selecting a prior filter reuses data.
  */
 import { scheduleDashboardOrchestrator } from "../controller/agri-dashboard-orchestrator";
+import { agroV5Log } from "../gis/agri-debug-log";
 
 export type MasterFilterSnapshot = Record<string, unknown>;
 
@@ -26,8 +27,11 @@ export function syncMasterFilterSnapshot(
   listeners.forEach((listener) => {
     try {
       listener(detail);
-    } catch {
-      /* panel handler must not break store */
+    } catch (error) {
+      // Panel handler must not break the store or sibling listeners.
+      agroV5Log("masterFilter:listener-error", {
+        error: String((error as any)?.message ?? error),
+      });
     }
   });
 }

@@ -2,7 +2,11 @@
  * Pure map / table WHERE fragments for LocalizationPanel.
  * Side-effect free — panel supplies maps, layers, and apostrophe helpers.
  */
-import { escapeArcGIS, escapeLikeLiteral } from "../../data/agri-sql";
+import {
+  escapeArcGIS,
+  escapeLikeLiteral,
+  isExactArcGisYmd,
+} from "../../data/agri-sql";
 import { extractYearDigits } from "../../controller/agri-where-builder";
 import { VH_TO_NDVI_STATUS } from "./vh-constants";
 
@@ -183,7 +187,7 @@ export function assembleLocalizationWhere(opts: {
   cropClause: string;
   includeVh: boolean;
   vhCategory: string;
-  /** null = still resolving; string[] = ready (may be empty → 1=0 via join). */
+  /** null = still resolving (omit the join); string[] = ready (empty → 1=0). */
   vhUniqueIds: string[] | null;
   uniqueIdClause: string;
   /** Exact STIR from header search (`f_inn='…'`). */
@@ -212,12 +216,10 @@ export function assembleLocalizationWhere(opts: {
     clauses.push(opts.farmerInnClause);
   }
 
-  if (opts.includeVh && opts.vhCategory) {
-    if (Array.isArray(opts.vhUniqueIds)) {
-      clauses.push(opts.buildSpatialJoinWhere(opts.vhUniqueIds));
-    } else {
-      return "1=0";
-    }
+  if (opts.includeVh && opts.vhCategory && Array.isArray(opts.vhUniqueIds)) {
+    const join = opts.buildSpatialJoinWhere(opts.vhUniqueIds);
+    if (!join || join === "1=0") return "1=0";
+    clauses.push(join);
   }
 
   if (opts.uniqueIdClause) {
@@ -265,13 +267,20 @@ export function buildYearClauseForLayerFields(
   return `yil LIKE '${escapeLikeLiteral(yDigits)}%'`;
 }
 
-/** NDVI table date equality: dateField = 'YYYY-MM-DD'. */
+/**
+ * NDVI table date equality: dateField = 'YYYY-MM-DD'.
+ * Kept as string equality (not agri-sql dateEqualsClause's DATE range) because
+ * the NDVI table date field may be a string column, where `DATE '...'` fails.
+ * Invalid dates return null so the caller drops the query instead of interpolating them.
+ */
 export function buildTableDateEqualsWhere(
   dateField: string,
   ndviDate: string,
 ): string | null {
   if (!dateField || !ndviDate) return null;
-  return `${dateField} = '${escapeArcGIS(ndviDate)}'`;
+  const safe = String(ndviDate).trim();
+  if (!isExactArcGisYmd(safe)) return null;
+  return `${dateField} = '${escapeArcGIS(safe)}'`;
 }
 
 /**

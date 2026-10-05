@@ -1,0 +1,9 @@
+{
+  "src": "../src/panels/RegionPanel/runtime/components/region-handlers.tsx",
+  "outDir": "../src/panels/RegionPanel/runtime/components/region",
+  "groups": [
+    { "file": "region-filter.tsx", "from": 1, "to": 481 },
+    { "file": "region-query.tsx", "from": 482, "to": 798 },
+    { "file": "region-nav.tsx", "from": 799, "to": 5000 }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "src": "../src/filter/LocalizationPanel/runtime/components/Connection/connection-service.ts",
+  "outDir": "../src/filter/LocalizationPanel/runtime/components/Connection/connection",
+  "groups": [
+    { "file": "connection-init.ts", "from": 1, "to": 402 },
+    { "file": "connection-layer.ts", "from": 403, "to": 944 },
+    { "file": "connection-selection.ts", "from": 945, "to": 5000 }
+  ]
+}

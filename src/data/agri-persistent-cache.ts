@@ -64,8 +64,9 @@ export function pruneAgriPersistentCache(now = Date.now()): void {
     if (!env || env.expiresAt <= now) {
       try {
         store.removeItem(key);
-      } catch {
-        /* ignore */
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[AgroV5] persistent cache prune failed", err);
       }
       continue;
     }
@@ -80,8 +81,9 @@ export function pruneAgriPersistentCache(now = Date.now()): void {
     try {
       store.removeItem(meta.key);
       total -= meta.size;
-    } catch {
-      /* ignore */
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[AgroV5] persistent cache prune failed", err);
     }
   }
 }
@@ -138,7 +140,9 @@ export function setAgriPersistentCache<T>(
       pruneAgriPersistentCache(now);
       store.setItem(fk, raw);
       return true;
-    } catch {
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[AgroV5] persistent cache write failed", err);
       return false;
     }
   }
@@ -152,8 +156,9 @@ export function removeAgriPersistentCache(
   if (!store || !key) return;
   try {
     store.removeItem(fullKey(namespace, key));
-  } catch {
-    /* ignore */
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[AgroV5] persistent cache remove failed", err);
   }
 }
 
@@ -166,8 +171,9 @@ export function clearAgriPersistentNamespace(namespace: string): void {
     if (!key || !key.startsWith(prefix)) continue;
     try {
       store.removeItem(key);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[AgroV5] persistent cache namespace clear failed", err);
     }
   }
 }

@@ -16,7 +16,7 @@
   /* Total width of the indicator row (3 additional indicators + the existing one,
      each 220px — see .agri-dashboard-indicator-slot — plus 3 8px gaps). */
   --agri-dashboard-indicator-width: 904px;
-  --agri-dashboard-indicator-height: 72px;
+  --agri-dashboard-indicator-height: 74px;
   --agri-dashboard-date-index-top: 12px;
   --agri-dashboard-date-index-bottom: 12px;
   --agri-dashboard-popup-width: 340px;
@@ -710,10 +710,10 @@ html.agri-dashboard-active,
   --agri-dashboard-indicator-toggle-width: 46px;
   --agri-dashboard-indicator-panel-gap: 8px;
   --agri-dashboard-indicator-slot-gap: 8px;
-  --agri-dashboard-indicator-slot-width: 176px;
-  --agri-dashboard-indicator-panel-width: 728px;
-  --agri-dashboard-indicator-height: 72px;
-  --agri-dashboard-indicator-drawer-width: 782px;
+  --agri-dashboard-indicator-slot-width: 208px;
+  --agri-dashboard-indicator-panel-width: 856px;
+  --agri-dashboard-indicator-height: 74px;
+  --agri-dashboard-indicator-drawer-width: 910px;
 }
 
 .agri-dashboard-indicator-drawer,
@@ -1162,7 +1162,8 @@ body.light-theme
   padding-left: 0 !important;
 }
 
-.agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-label {
+.agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-label,
+.agri-dashboard-indicator-overlay--compact .vegetation-stats-widget.map-overlay-mode .stat-label {
   font-size: 12px !important;
   line-height: 1.25 !important;
   margin-bottom: 0 !important;
@@ -1178,10 +1179,11 @@ body.light-theme
   max-width: 100%;
 }
 
-.agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-value {
+.agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-value,
+.agri-dashboard-indicator-overlay--compact .vegetation-stats-widget.map-overlay-mode .stat-value {
   font-size: 18px !important;
-  line-height: 1.2 !important;
-  padding-bottom: 2px !important;
+  line-height: 1.1 !important;
+  padding-bottom: 0 !important;
   font-weight: 600 !important;
   letter-spacing: -0.4px !important;
   color: var(--ind-text) !important;
@@ -1192,7 +1194,8 @@ body.light-theme
   max-width: 100%;
 }
 
-.agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .unit {
+.agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .unit,
+.agri-dashboard-indicator-overlay--compact .vegetation-stats-widget.map-overlay-mode .unit {
   display: inline-block;
   font-size: 18px !important;
   line-height: 1.2 !important;
@@ -1467,7 +1470,7 @@ html.agri-dashboard-active body.agri-app-bg-light {
     --agri-dashboard-indicator-toggle-width: 40px;
     --agri-dashboard-indicator-slot-width: 140px;
     --agri-dashboard-indicator-panel-width: 584px;
-    --agri-dashboard-indicator-height: 60px;
+    --agri-dashboard-indicator-height: 62px;
     --agri-dashboard-indicator-drawer-width: 632px;
   }
 
@@ -1508,7 +1511,8 @@ html.agri-dashboard-active body.agri-app-bg-light {
     padding: 3px 4px 5px !important;
   }
 
-  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-label {
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-label,
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget.map-overlay-mode .stat-label {
     font-size: 10px !important;
     line-height: 1.15 !important;
     white-space: normal !important;
@@ -1522,7 +1526,9 @@ html.agri-dashboard-active body.agri-app-bg-light {
   }
 
   .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-value,
-  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .unit {
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget.map-overlay-mode .stat-value,
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .unit,
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget.map-overlay-mode .unit {
     font-size: 13px !important;
     margin-top: auto !important;
     padding-bottom: 0 !important;
@@ -1932,7 +1938,7 @@ html.agri-dashboard-active body.agri-app-bg-light {
     --agri-dashboard-indicator-toggle-width: 36px;
     --agri-dashboard-indicator-slot-width: 128px;
     --agri-dashboard-indicator-panel-width: 536px;
-    --agri-dashboard-indicator-height: 56px;
+    --agri-dashboard-indicator-height: 58px;
     --agri-dashboard-indicator-drawer-width: 580px;
   }
 
@@ -1950,7 +1956,8 @@ html.agri-dashboard-active body.agri-app-bg-light {
     padding: 2px 3px 4px !important;
   }
 
-  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-label {
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-label,
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget.map-overlay-mode .stat-label {
     font-size: 9px !important;
     line-height: 1.15 !important;
     white-space: normal !important;
@@ -1963,7 +1970,9 @@ html.agri-dashboard-active body.agri-app-bg-light {
   }
 
   .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-value,
-  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .unit {
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget.map-overlay-mode .stat-value,
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .unit,
+  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget.map-overlay-mode .unit {
     font-size: 12px !important;
     margin-top: auto !important;
     padding-bottom: 0 !important;
@@ -2011,19 +2020,10 @@ html.agri-dashboard-active body.agri-app-bg-light {
   }
 
   .agri-dashboard-indicator-drawer {
-    --agri-dashboard-indicator-height: 88px;
-    --agri-dashboard-indicator-slot-width: 196px;
-    --agri-dashboard-indicator-panel-width: 808px;
-    --agri-dashboard-indicator-drawer-width: 862px;
-  }
-
-  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-label {
-    font-size: 14px !important;
-  }
-
-  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .stat-value,
-  .agri-dashboard-indicator-overlay--compact .vegetation-stats-widget .unit {
-    font-size: 22px !important;
+    --agri-dashboard-indicator-height: 90px;
+    --agri-dashboard-indicator-slot-width: 228px;
+    --agri-dashboard-indicator-panel-width: 936px;
+    --agri-dashboard-indicator-drawer-width: 990px;
   }
 
   /* Pie legend labels + values: force 14px (beats 11/12px locks) */
@@ -2408,22 +2408,18 @@ body.light-theme .agri-dashboard-v3 .land-category-card.light-theme {
 }
 
 .agri-dashboard-v3 .category-legend {
-  --ekin-legend-visible-rows: 6;
-  --ekin-legend-row-height: 28px;
-  --ekin-legend-gap: 0px;
+  --ekin-legend-row-height: 34px;
+  --ekin-legend-gap: 4px;
   display: flex !important;
   flex-direction: column !important;
-  align-self: center !important;
+  align-self: stretch !important;
   justify-content: flex-start !important;
   width: 100% !important;
   min-width: 0 !important;
   max-width: none !important;
-  /* Exactly 6 crop rows visible; remainder scrolls */
-  max-height: calc(
-    var(--ekin-legend-visible-rows) * var(--ekin-legend-row-height) +
-      (var(--ekin-legend-visible-rows) - 1) * var(--ekin-legend-gap)
-  ) !important;
-  height: auto !important;
+  /* Fill the donut column; extra crop names scroll */
+  height: 100% !important;
+  max-height: 100% !important;
   gap: var(--ekin-legend-gap) !important;
   padding: 1px 3px 1px 0 !important;
   margin: 0 !important;
@@ -3110,19 +3106,17 @@ body.light-theme .agri-dashboard-v3 :is(
   }
 }
 
-/* Ekin Turi legend: 6 compact rows, vertically centered beside the donut. */
+/* Ekin Turi legend: full donut height, extra names scroll. */
 .agri-dashboard-v3 .land-category-card .category-legend,
 .agri-dashboard-v3 .land-category-card.light-theme .category-legend,
 .agri-dashboard-v3 .land-category-card.dark-theme .category-legend {
-  --ekin-legend-visible-rows: 6;
-  --ekin-legend-row-height: 28px;
-  --ekin-legend-gap: 0px;
-  align-self: center !important;
+  --ekin-legend-row-height: 34px;
+  --ekin-legend-gap: 4px;
+  align-self: stretch !important;
   justify-content: flex-start !important;
-  max-height: calc(
-    var(--ekin-legend-visible-rows) * var(--ekin-legend-row-height) +
-      (var(--ekin-legend-visible-rows) - 1) * var(--ekin-legend-gap)
-  ) !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  gap: var(--ekin-legend-gap) !important;
   overflow-y: auto !important;
 }
 

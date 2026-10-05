@@ -1,0 +1,15 @@
+{
+  "src": "../src/gis/vegetation/veg-status.ts",
+  "outDir": "../src/gis/vegetation/status",
+  "groups": [
+    { "file": "status-counts.ts", "from": 1, "to": 316 },
+    { "file": "status-by-status.ts", "from": 317, "to": 419 },
+    { "file": "status-uniqueids.ts", "from": 420, "to": 585 },
+    { "file": "status-crop-stats.ts", "from": 586, "to": 686 },
+    { "file": "status-crop-breakdown.ts", "from": 687, "to": 833 },
+    { "file": "status-calendar.ts", "from": 834, "to": 872 },
+    { "file": "status-region-parallel.ts", "from": 873, "to": 920 },
+    { "file": "status-regions-day.ts", "from": 921, "to": 961 },
+    { "file": "status-oid-cursor.ts", "from": 962, "to": 2000 }
+  ]
+}

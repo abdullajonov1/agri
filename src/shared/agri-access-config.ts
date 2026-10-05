@@ -1,11 +1,12 @@
 import { getAppStore } from "jimu-core";
-import { normalizeApos as normalizeAposSql } from "../data/agri-sql";
+import { normalizeAposKey } from "../data/agri-sql";
 
 /**
  * Client-side access WHERE is UX-only. Real enforcement must mirror these rules
  * on the FeatureServer / Portal (definition query, hosted view, or item sharing).
  * Bypass via direct REST remains possible until server-side controls exist.
- * Empty access stays fail-open (1=1) by design — do not flip to 1=0 here.
+ * Before setAccessConfig, access is fail-closed (1=0). After setAccessConfig,
+ * an empty config stays fail-open (1=1) so public dashboards keep working.
  */
 
 export type RuleOperator = "equal" | "range" | "include" | "like";
@@ -51,10 +52,10 @@ const MAX_ACCESS_FIELDS = 64;
 const MAX_INCLUDE_VALUES = 200;
 
 let activeAccessConfig: AccessConfig = emptyAccessConfig;
-let accessWhere = "1=1";
+let accessWhere = "1=0";
 let accessConfigProvided = false;
 
-export let fullAccess = true;
+export let fullAccess = false;
 export let lockedViloyat = "";
 
 const escapeSqlString = (value: string): string =>
@@ -368,9 +369,8 @@ const deriveLockedViloyatFromConfig = (config: AccessConfig): string => {
   return allowed.length === 1 ? allowed[0] : "";
 };
 
-/** Shared agri-sql normalize + trim (access keys are dictionary lookups). */
-const normalizeApos = (value: string): string =>
-  normalizeAposSql(value).trim();
+/** Shared agri-sql key form (normalize + trim). Access keys are dictionary lookups. */
+const normalizeApos = normalizeAposKey;
 
 const extractViloyatValuesFromRule = (
   field: string,

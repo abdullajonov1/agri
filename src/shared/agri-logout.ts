@@ -145,7 +145,9 @@ function replaceTopOrSelf(url: string): void {
   window.location.replace(url);
 }
 
-export async function logoutFromAccount(): Promise<void> {
+export async function logoutFromAccount(
+  navigate: (url: string) => void = replaceTopOrSelf,
+): Promise<void> {
   const failures: string[] = [];
 
   try {
@@ -216,5 +218,5 @@ export async function logoutFromAccount(): Promise<void> {
   const afterSignOut = buildSgmPortalExperienceReauthorizeUrl({
     forceLogin: true,
   });
-  replaceTopOrSelf(buildPortalOAuthSignOutUrl(afterSignOut));
+  navigate(buildPortalOAuthSignOutUrl(afterSignOut));
 }

@@ -126,6 +126,31 @@ assert.deepEqual(
   [],
 );
 
+assert.equal(getAccessWhere(), "1=0");
+assert.equal(isAccessDenied(), true);
+
+const spaceLock = {
+  fullAccessGroups: [],
+  rules: [
+    {
+      id: "r1",
+      title: "Viloyat",
+      field: "viloyat",
+      rules: [
+        {
+          id: "a1",
+          operator: "equal",
+          value: "Toshkent viloyati",
+          groups: ["g1"],
+        },
+      ],
+    },
+  ],
+};
+assert.deepEqual(resolveAllowedViloyatsForGroups([{ id: "g1" }], spaceLock), [
+  "Toshkent viloyati",
+]);
+
 setAccessConfig(emptyConfig);
 assert.equal(getAccessWhere(), "1=1");
 assert.equal(isAccessDenied(), false);

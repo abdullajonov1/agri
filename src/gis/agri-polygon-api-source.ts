@@ -624,14 +624,6 @@ export function pickExportRasterDate(
   );
 }
 
-/** Latest YYYY-MM-DD whose month is in `months` (all dates when months empty). */
-export function pickLatestDateInMonths(
-  dates: string[] | null | undefined,
-  months: number[],
-): string | null {
-  return pickLatestUsableExportDate(dates, { months });
-}
-
 /**
  * `/available-dates` lists dates that have *index records*, but export-image
  * also needs the region's raster scene for that day. Missing scenes answer:

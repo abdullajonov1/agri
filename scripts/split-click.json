@@ -1,0 +1,8 @@
+{
+  "src": "../src/panels/PopupPanel/runtime/components/click-handlers.ts",
+  "outDir": "../src/panels/PopupPanel/runtime/components/click",
+  "groups": [
+    { "file": "click-resolve.ts", "from": 1, "to": 873 },
+    { "file": "click-view.ts", "from": 874, "to": 5000 }
+  ]
+}

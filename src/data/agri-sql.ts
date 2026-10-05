@@ -53,6 +53,28 @@ export function normalizeApos(value: unknown): string {
     .replace(new RegExp(APOSTROPHE_CLASS, "g"), "'");
 }
 
+/** Dictionary-key form. Access lookups depend on trim; normalizeApos itself does not trim. */
+export function normalizeAposKey(value: unknown): string {
+  return normalizeApos(value).trim();
+}
+
+/** Exact YYYY-MM-DD. Rejects SQL metacharacters and unpadded dates. */
+export function isExactArcGisYmd(ymd: unknown): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd ?? "").trim());
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return (
+    year >= 1000 &&
+    year <= 9999 &&
+    month >= 1 &&
+    month <= 12 &&
+    day >= 1 &&
+    day <= 31
+  );
+}
+
 /**
  * Build OR of equals for a field when the value may use different apostrophe glyphs.
  */

@@ -1,0 +1,10 @@
+{
+  "src": "../src/panels/IndicatorPanel/runtime/components/data-handlers.ts",
+  "outDir": "../src/panels/IndicatorPanel/runtime/components/indicator-data",
+  "groups": [
+    { "file": "indicator-where.ts", "from": 1, "to": 194 },
+    { "file": "indicator-grouped.ts", "from": 195, "to": 462 },
+    { "file": "indicator-fetch.ts", "from": 463, "to": 905 },
+    { "file": "indicator-style.ts", "from": 906, "to": 5000 }
+  ]
+}

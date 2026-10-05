@@ -45,9 +45,9 @@ import {
 } from "../shared/map-connection-service";
 import { agroV5Log } from "../gis/agri-debug-log";
 
-const mountedAgriDashboardIds = new Set<string>();
 
-type ChildSuffix =
+
+export type ChildSuffix =
   | "localization"
   | "region"
   | "indicator"
@@ -60,7 +60,7 @@ type ChildSuffix =
   | "bar"
   | "popup";
 
-interface AgriDashboardState {
+export interface AgriDashboardState {
   indicatorsOpen: boolean;
   indicatorsAnimPhase: IndicatorAnimPhase;
   mapLoading: boolean;
@@ -75,6 +75,55 @@ interface AgriDashboardState {
   mapPopupPinned: boolean;
 }
 
+import {
+  syncConfigSideEffects,
+  isBuilderDesignMode,
+  getUiLanguage,
+  componentDidMount,
+  componentDidUpdate,
+  toggleIndicatorsDrawer,
+  componentWillUnmount,
+  handleMapSurfaceLoading,
+  handleMapNoData,
+  handleMapPopupVisibility,
+  createPortalHost,
+  ensurePortalHost,
+  removePortalHost,
+  bringPortalHostToFront,
+  toPlainConfig,
+  toPlainPopup,
+  getIndicatorConfig,
+  getPopupConfig,
+  childProps,
+  getStableIndicatorChildProps,
+  getLeftPanelWidth,
+  getRowFrValues,
+  getActiveMapWidgetId,
+  getActiveJimuMapView,
+  detachMapLoadingWatchers,
+  setMapLoading,
+  getMapLoadingState,
+  updateMapLoadingState,
+  attachMapLoadingWatchers,
+  scheduleMapLoadingWatchers,
+  getDashboardLoadingState,
+  updateDashboardLoadingState,
+  onWindowResize,
+  ensureLayoutObservers,
+  setupMapSlotObserver,
+  scheduleMapSlotLayout,
+  findSharedLayoutSurface,
+  readDashboardCssPx,
+  applyIndicatorOverlayBounds,
+  applyDateIndexOverlayBounds,
+  syncIndicatorOverlayLayout,
+  clearOverlayLayout,
+  clearIndicatorOverlayLayout,
+} from "./components/dashboard-handlers";
+import {
+  render,
+} from "./components/render-panel";
+import type { DashboardWidgetHost } from "./dashboard-host";
 export default class AgriDashboard extends React.PureComponent<
   AllWidgetProps<IMConfig>,
   AgriDashboardState
@@ -130,421 +179,92 @@ export default class AgriDashboard extends React.PureComponent<
     this.syncConfigSideEffects();
   }
 
-  /**
-   * Access + service URL module state. Idempotent; safe on every config change.
-   * Kept out of render() (React purity) but applied in constructor so the first
-   * paint of Localization/Graff already sees the correct access WHERE.
-   */
   private syncConfigSideEffects = (): void => {
-    setAccessConfig(this.props.config?.accessConfig);
-    setAgriServiceUrls((this.props.config as any)?.serviceUrls);
+    return syncConfigSideEffects(this as unknown as DashboardWidgetHost);
   };
 
   private isBuilderDesignMode(): boolean {
-    return getAppStore().getState().appRuntimeInfo?.appMode === AppMode.Design;
+    return isBuilderDesignMode(this as unknown as DashboardWidgetHost);
   }
 
   private getUiLanguage(): string {
-    try {
-      const fromUrl = new URLSearchParams(window.location.search).get("lang");
-      const fromStorage =
-        localStorage.getItem("app_lang") ||
-        localStorage.getItem("agri_app_lang");
-      return String(fromUrl || fromStorage || "uz_lat");
-    } catch {
-      return "uz_lat";
-    }
+    return getUiLanguage(this as unknown as DashboardWidgetHost);
   }
 
   componentDidMount(): void {
-    // Re-apply in case Builder mutated config between construct and mount.
-    this.syncConfigSideEffects();
-    // The Builder settings surface only needs the lightweight render preview.
-    // Do not start map retries, document-wide observers or portal layout work.
-    if (this.isBuilderDesignMode()) return;
-
-    if (mountedAgriDashboardIds.size > 0) {
-      agroV5Log("AgriDashboard:single-instance-warn", {
-        existingIds: Array.from(mountedAgriDashboardIds),
-        widgetId: this.props.id,
-      });
-    }
-    mountedAgriDashboardIds.add(String(this.props.id));
-
-    document.documentElement.classList.add("agri-dashboard-active");
-    this.setupMapSlotObserver();
-    this.scheduleMapSlotLayout(true);
-    this.scheduleMapLoadingWatchers();
-    document.addEventListener(
-      "agriMapSurfaceLoading",
-      this.handleMapSurfaceLoading as EventListener,
-    );
-    document.addEventListener(
-      "agriMapNoData",
-      this.handleMapNoData as EventListener,
-    );
-    document.addEventListener(
-      "agriMapPopupVisibility",
-      this.handleMapPopupVisibility as EventListener,
-    );
-    requestAnimationFrame(() => {
-      this.ensurePortalHost();
-      this.forceUpdate(() => {
-        this.syncIndicatorOverlayLayout();
-      });
-    });
+    return componentDidMount(this as unknown as DashboardWidgetHost);
   }
 
   componentDidUpdate(
     prevProps: AllWidgetProps<IMConfig>,
     prevState: AgriDashboardState,
   ): void {
-    if (prevProps.config !== this.props.config) {
-      this.syncConfigSideEffects();
-    }
-    if (this.isBuilderDesignMode()) return;
-    this.ensurePortalHost();
-    this.ensureLayoutObservers();
-
-    const prevCfg = prevProps.config as any;
-    const nextCfg = this.props.config as any;
-    const layoutSizeChanged =
-      prevCfg?.leftPanelWidthPercent !== nextCfg?.leftPanelWidthPercent ||
-      prevCfg?.bottomRowFraction !== nextCfg?.bottomRowFraction;
-    const layoutChromeChanged =
-      prevState.mapPopupOpen !== this.state.mapPopupOpen ||
-      prevState.mapPopupPinned !== this.state.mapPopupPinned ||
-      prevState.indicatorsOpen !== this.state.indicatorsOpen ||
-      prevState.indicatorsAnimPhase !== this.state.indicatorsAnimPhase ||
-      prevState.mapLoading !== this.state.mapLoading ||
-      prevState.mapSurfaceLoading !== this.state.mapSurfaceLoading;
-    // Never resize on every React render — that used to couple with map DOM
-    // paints and keep Chromium at ~100% CPU.
-    if (layoutSizeChanged || layoutChromeChanged) {
-      this.scheduleMapSlotLayout(true);
-    }
-
-    // Only re-bind map watchers when the active map id or loading state changes.
-    const nextMap = String(this.getActiveMapWidgetId() || "");
-    if (
-      nextMap !== this.lastMapWatchWidgetId ||
-      prevState.mapLoading !== this.state.mapLoading
-    ) {
-      this.scheduleMapLoadingWatchers();
-    }
-    if (
-      prevState.indicatorsOpen !== this.state.indicatorsOpen ||
-      prevState.indicatorsAnimPhase !== this.state.indicatorsAnimPhase
-    ) {
-      return;
-    }
-    this.syncIndicatorOverlayLayout();
+    return componentDidUpdate(this as unknown as DashboardWidgetHost, prevProps, prevState);
   }
 
   private toggleIndicatorsDrawer = (
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const now = Date.now();
-    if (now - this.lastIndicatorToggleAt < 750) return;
-    this.lastIndicatorToggleAt = now;
-
-    const opening = !this.state.indicatorsOpen;
-    if (this.indicatorAnimTimer) {
-      clearTimeout(this.indicatorAnimTimer);
-      this.indicatorAnimTimer = null;
-    }
-
-    this.setState({
-      indicatorsOpen: opening,
-      indicatorsAnimPhase: opening ? "expanding" : "collapsing",
-    });
-
-    this.indicatorAnimTimer = setTimeout(
-      () => {
-        this.indicatorAnimTimer = null;
-        if (!this.dashboardRootRef.current) return;
-        this.setState({
-          indicatorsAnimPhase: opening ? "expanded" : "collapsed",
-        });
-      },
-      opening ? 780 : 720,
-    );
+    return toggleIndicatorsDrawer(this as unknown as DashboardWidgetHost, event);
   };
 
   componentWillUnmount(): void {
-    mountedAgriDashboardIds.delete(String(this.props.id));
-
-    if (this.indicatorAnimTimer) {
-      clearTimeout(this.indicatorAnimTimer);
-      this.indicatorAnimTimer = null;
-    }
-    document.documentElement.classList.remove("agri-dashboard-active");
-    document.removeEventListener(
-      "agriMapSurfaceLoading",
-      this.handleMapSurfaceLoading as EventListener,
-    );
-    document.removeEventListener(
-      "agriMapNoData",
-      this.handleMapNoData as EventListener,
-    );
-    document.removeEventListener(
-      "agriMapPopupVisibility",
-      this.handleMapPopupVisibility as EventListener,
-    );
-    this.dashboardRootRef.current?.classList.remove("agri-popup-open");
-    this.dashboardRootRef.current?.classList.remove("agri-popup-pinned");
-    this.dashboardResizeObserver?.disconnect();
-    this.dashboardResizeObserver = null;
-    this.layoutObserversReady = false;
-    window.removeEventListener("resize", this.onWindowResize);
-    if (this.mapLayoutRaf) cancelAnimationFrame(this.mapLayoutRaf);
-    if (this.mapSurfaceLoadingSafetyTimer) {
-      clearTimeout(this.mapSurfaceLoadingSafetyTimer);
-      this.mapSurfaceLoadingSafetyTimer = null;
-    }
-    this.detachMapLoadingWatchers();
-    this.clearIndicatorOverlayLayout();
-    this.removePortalHost();
-    clearDashboardCaches();
+    return componentWillUnmount(this as unknown as DashboardWidgetHost);
   }
 
   private handleMapSurfaceLoading = (event: Event): void => {
-    const detail = (event as CustomEvent)?.detail || {};
-    const loading = !!detail.loading;
-    if (this.mapSurfaceLoadingSafetyTimer) {
-      clearTimeout(this.mapSurfaceLoadingSafetyTimer);
-      this.mapSurfaceLoadingSafetyTimer = null;
-    }
-    if (loading) {
-      // Vegetation TIFF can take longer than map redraw; keep overlay up to
-      // the export-image client timeout (~25s), otherwise 12s for map ops.
-      const reason = String(detail.reason || "");
-      const safetyMs =
-        reason === "vegetation-raster" || reason === "vegetation-raster-cancel"
-          ? 28000
-          : 12000;
-      this.mapSurfaceLoadingSafetyTimer = setTimeout(() => {
-        this.mapSurfaceLoadingSafetyTimer = null;
-        if (this.state.mapSurfaceLoading) {
-          this.setState({ mapSurfaceLoading: false });
-        }
-      }, safetyMs);
-    }
-    if (loading && this.state.mapNoData) {
-      this.setState({ mapSurfaceLoading: true, mapNoData: false });
-    } else if (this.state.mapSurfaceLoading !== loading) {
-      this.setState({ mapSurfaceLoading: loading });
-    }
+    return handleMapSurfaceLoading(this as unknown as DashboardWidgetHost, event);
   };
 
   private handleMapNoData = (event: Event): void => {
-    const detail = (event as CustomEvent)?.detail || {};
-    const mapNoData = !!detail.noData;
-    if (this.state.mapNoData !== mapNoData) {
-      this.setState({ mapNoData });
-    }
+    return handleMapNoData(this as unknown as DashboardWidgetHost, event);
   };
 
   private handleMapPopupVisibility = (event: Event): void => {
-    const detail = (event as CustomEvent)?.detail || {};
-    const open = !!detail.open;
-    // Dock NDVI left of popup only when explicitly pinned.
-    const nextPinned = open && detail.pinned === true;
-    const openChanged = this.state.mapPopupOpen !== open;
-    const pinChanged = this.state.mapPopupPinned !== nextPinned;
-
-    if (!openChanged && !pinChanged) {
-      if (open) this.syncIndicatorOverlayLayout();
-      return;
-    }
-
-    // Popup open → auto-collapse indicator drawer so it doesn't cover the map/popup.
-    const shouldCollapseIndicators =
-      open &&
-      openChanged &&
-      (this.state.indicatorsOpen ||
-        this.state.indicatorsAnimPhase === "expanded" ||
-        this.state.indicatorsAnimPhase === "expanding");
-
-    if (shouldCollapseIndicators && this.indicatorAnimTimer) {
-      clearTimeout(this.indicatorAnimTimer);
-      this.indicatorAnimTimer = null;
-    }
-
-    this.setState(
-      ({
-        mapPopupOpen: open,
-        mapPopupPinned: nextPinned,
-        ...(shouldCollapseIndicators
-          ? {
-              indicatorsOpen: false,
-              indicatorsAnimPhase: "collapsing" as const,
-            }
-          : {}),
-      } as any),
-      () => {
-        this.dashboardRootRef.current?.classList.toggle("agri-popup-open", open);
-        this.dashboardRootRef.current?.classList.toggle(
-          "agri-popup-pinned",
-          nextPinned,
-        );
-        this.syncIndicatorOverlayLayout();
-        if (open) {
-          requestAnimationFrame(() => this.syncIndicatorOverlayLayout());
-          window.setTimeout(() => this.syncIndicatorOverlayLayout(), 80);
-        }
-        if (shouldCollapseIndicators) {
-          this.indicatorAnimTimer = setTimeout(() => {
-            this.indicatorAnimTimer = null;
-            if (!this.dashboardRootRef.current) return;
-            this.setState({ indicatorsAnimPhase: "collapsed" });
-          }, 720);
-        }
-      },
-    );
+    return handleMapPopupVisibility(this as unknown as DashboardWidgetHost, event);
   };
 
   private createPortalHost(): HTMLElement {
-    const surface = this.findSharedLayoutSurface() || document.body;
-    let host = surface.querySelector(
-      ":scope > .agri-dashboard-portal-host",
-    ) as HTMLElement | null;
-
-    if (!host) {
-      host = document.createElement("div");
-      host.className = "agri-dashboard-portal-host";
-      surface.appendChild(host);
-    } else if (host.parentElement !== surface) {
-      surface.appendChild(host);
-    }
-
-    if (surface !== document.body) {
-      const surfaceStyle = getComputedStyle(surface);
-      if (surfaceStyle.position === "static") {
-        surface.style.setProperty("position", "relative");
-      }
-    }
-
-    return host;
+    return createPortalHost(this as unknown as DashboardWidgetHost);
   }
 
   private ensurePortalHost(): HTMLElement {
-    if (!this.portalHost || !this.portalHost.isConnected) {
-      this.portalHost = this.createPortalHost();
-      this.portalReady = true;
-    }
-    return this.portalHost;
+    return ensurePortalHost(this as unknown as DashboardWidgetHost);
   }
 
   private removePortalHost(): void {
-    this.portalHost?.remove();
-    this.portalHost = null;
-    this.portalReady = false;
+    return removePortalHost(this as unknown as DashboardWidgetHost);
   }
 
   private bringPortalHostToFront(): void {
-    const host = this.portalHost;
-    const surface = this.findSharedLayoutSurface();
-    // Only move when not already last — appendChild on an existing last child
-    // still fires MutationObserver / layout work for no visual gain.
-    if (
-      host &&
-      surface &&
-      host.parentElement === surface &&
-      surface.lastElementChild !== host
-    ) {
-      surface.appendChild(host);
-    }
+    return bringPortalHostToFront(this as unknown as DashboardWidgetHost);
   }
 
   private toPlainConfig(): Record<string, unknown> {
-    const cfg = this.props.config;
-    if (cfg && typeof (cfg as any).asMutable === "function") {
-      return (cfg as any).asMutable({ deep: true });
-    }
-    return { ...(cfg as any) };
+    return toPlainConfig(this as unknown as DashboardWidgetHost);
   }
 
   private toPlainPopup(value: unknown): AgriPopupConfig {
-    if (!value) return {};
-    if (typeof (value as any).asMutable === "function") {
-      return (value as any).asMutable({ deep: true });
-    }
-    return { ...(value as AgriPopupConfig) };
+    return toPlainPopup(this as unknown as DashboardWidgetHost, value);
   }
 
   private getIndicatorConfig(
     baseConfig: Record<string, unknown>,
   ): Record<string, unknown> {
-    const indicator = (baseConfig.indicator || {}) as IndicatorChildConfig;
-    const endpoint = String(
-      indicator.apiEndpoint || indicator.apiUrl || "",
-    ).trim();
-    const useApiDataSource =
-      indicator.useApiDataSource === true && endpoint.length > 0;
-
-    return {
-      useApiDataSource,
-      apiEndpoint: endpoint,
-      responseField: indicator.responseField || "total",
-      statOperation: indicator.statOperation || "sum",
-      attributeField: indicator.attributeField || "maydon",
-      label: indicator.label || "Ekin maydonlari",
-      unitLabel: indicator.unitLabel || "ga",
-      decimalPlaces: indicator.decimalPlaces ?? 0,
-      excludeZeroValues: indicator.excludeZeroValues !== false,
-      mapOverlayMode: true,
-    };
+    return getIndicatorConfig(this as unknown as DashboardWidgetHost, baseConfig);
   }
 
   private getPopupConfig(
     baseConfig: Record<string, unknown>,
   ): Record<string, unknown> {
-    const popup = this.toPlainPopup(baseConfig.agriPopup);
-    return {
-      fieldsToShow: popup.fieldsToShow || [],
-      titleField: popup.titleField || "",
-      labels: popup.labels || {},
-      settings: {
-        zoomToSelection: popup.settings?.zoomToSelection !== false,
-        showMapPopup: !!popup.settings?.showMapPopup,
-        showAttachments: popup.settings?.showAttachments !== false,
-      },
-      selectedFieldsMap: popup.selectedFieldsMap,
-      chartEnabled: !!popup.chartEnabled,
-      chartType: popup.chartType || "bar",
-      chartTitle: popup.chartTitle || "",
-      chartFields: popup.chartFields || [],
-      chartColor: popup.chartColor || "#00a8e8",
-    };
+    return getPopupConfig(this as unknown as DashboardWidgetHost, baseConfig);
   }
 
   private childProps(
     suffix: ChildSuffix,
     config?: Record<string, unknown>,
   ): AllWidgetProps<any> {
-    const mapWidgetId = this.getActiveMapWidgetId();
-    const mapIds = Immutable.from([mapWidgetId]);
-    const webMapDataSourceId = String(
-      (this.toPlainConfig() as any).webMapDataSourceId || "",
-    );
-    const dataSources = (this.props.useDataSources as any)?.asMutable
-      ? (this.props.useDataSources as any).asMutable({ deep: true })
-      : Array.from((this.props.useDataSources as any) || []);
-    const featureDataSources = dataSources.filter(
-      (source: any) => source?.dataSourceId !== webMapDataSourceId,
-    );
-
-    return {
-      ...this.props,
-      id: `${this.props.id}-${suffix}`,
-      config: config || this.toPlainConfig(),
-      useMapWidgetIds: mapIds,
-      useDataSources: Immutable.from(featureDataSources),
-    };
+    return childProps(this as unknown as DashboardWidgetHost, suffix, config);
   }
 
   private getStableIndicatorChildProps(
@@ -556,743 +276,108 @@ export default class AgriDashboard extends React.PureComponent<
     unused: AllWidgetProps<any>;
     reserve: AllWidgetProps<any>;
   } {
-    const mapWidgetId = this.getActiveMapWidgetId();
-    const webMapDataSourceId = String(
-      (baseConfig as any).webMapDataSourceId || "",
-    );
-    const dataSources = (this.props.useDataSources as any)?.asMutable
-      ? (this.props.useDataSources as any).asMutable({ deep: true })
-      : Array.from((this.props.useDataSources as any) || []);
-    const featureIds = dataSources
-      .filter((source: any) => source?.dataSourceId !== webMapDataSourceId)
-      .map((source: any) => String(source?.dataSourceId || ""))
-      .join(",");
-    const signature = [
-      this.props.id,
-      mapWidgetId,
-      webMapDataSourceId,
-      featureIds,
-      JSON.stringify(indicatorConfig || {}),
-      JSON.stringify({
-        useApiDataSource: (baseConfig as any)?.useApiDataSource,
-        apiEndpoint: (baseConfig as any)?.apiEndpoint,
-        apiUrl: (baseConfig as any)?.apiUrl,
-      }),
-    ].join("|");
-
-    if (
-      this.indicatorChildPropsCache &&
-      this.indicatorChildPropsCache.signature === signature
-    ) {
-      return this.indicatorChildPropsCache;
-    }
-
-    const next = {
-      signature,
-      indicator: this.childProps("indicator", indicatorConfig),
-      yield: this.childProps("indicator-yield", baseConfig),
-      unused: this.childProps("indicator-unused-land", baseConfig),
-      reserve: this.childProps("indicator-reserve-land", baseConfig),
-    };
-    this.indicatorChildPropsCache = next;
-    return next;
+    return getStableIndicatorChildProps(this as unknown as DashboardWidgetHost, indicatorConfig, baseConfig);
   }
 
   private getLeftPanelWidth(): string {
-    const raw = Number(this.props.config?.leftPanelWidthPercent ?? 26);
-    const pct = Number.isFinite(raw) ? Math.min(45, Math.max(18, raw)) : 26;
-    // Slight bump from base 25%; kept smaller than the earlier +1cm enlarge.
-    return `calc(${pct}% + 0.35cm)`;
+    return getLeftPanelWidth(this as unknown as DashboardWidgetHost);
   }
 
   private getRowFrValues(): { top: number; bottom: number } {
-    const raw = Number(this.props.config?.bottomRowFraction ?? 38);
-    const bottom = Number.isFinite(raw)
-      ? Math.min(55, Math.max(28, raw))
-      : 38;
-    return { top: 100 - bottom, bottom };
+    return getRowFrValues(this as unknown as DashboardWidgetHost);
   }
 
   private getActiveMapWidgetId(): string {
-    return `${this.props.id}-embedded-map`;
+    return getActiveMapWidgetId(this as unknown as DashboardWidgetHost);
   }
 
   private getActiveJimuMapView(): any | null {
-    return resolveJimuMapView(this.getActiveMapWidgetId());
+    return getActiveJimuMapView(this as unknown as DashboardWidgetHost);
   }
 
   private detachMapLoadingWatchers(): void {
-    this.mapReadyWatchHandle?.remove?.();
-    this.mapUpdatingWatchHandle?.remove?.();
-    this.mapReadyWatchHandle = null;
-    this.mapUpdatingWatchHandle = null;
-    this.watchedMapView = null;
-    if (this.mapLoadingRetryTimer) {
-      clearTimeout(this.mapLoadingRetryTimer);
-      this.mapLoadingRetryTimer = null;
-    }
+    return detachMapLoadingWatchers(this as unknown as DashboardWidgetHost);
   }
 
   private setMapLoading(mapLoading: boolean): void {
-    if (this.state.mapLoading !== mapLoading) {
-      this.setState({ mapLoading });
-    }
+    return setMapLoading(this as unknown as DashboardWidgetHost, mapLoading);
   }
 
   private getMapLoadingState(jimuMapView: any | null): boolean {
-    if (!this.getActiveMapWidgetId()) return false;
-    const view = jimuMapView?.view;
-    if (!view) return !this.embeddedMapReady;
-    // Initial boot only — ignore interactive zoom/pan redraws (`updating`).
-    return !isMapViewReady(jimuMapView);
+    return getMapLoadingState(this as unknown as DashboardWidgetHost, jimuMapView);
   }
 
   private updateMapLoadingState = (): void => {
-    this.setMapLoading(this.getMapLoadingState(this.getActiveJimuMapView()));
+    return updateMapLoadingState(this as unknown as DashboardWidgetHost);
   };
 
   private attachMapLoadingWatchers(): void {
-    const mapWidgetId = this.getActiveMapWidgetId();
-    if (!mapWidgetId) {
-      this.detachMapLoadingWatchers();
-      this.mapViewWatchAttempts = 0;
-      this.lastMapWatchWidgetId = "";
-      this.setMapLoading(false);
-      return;
-    }
-
-    if (mapWidgetId !== this.lastMapWatchWidgetId) {
-      this.mapViewWatchAttempts = 0;
-      this.lastMapWatchWidgetId = mapWidgetId;
-    }
-
-    const jimuMapView = this.getActiveJimuMapView();
-    const view = jimuMapView?.view as any;
-    if (!view) {
-      if (this.mapViewWatchAttempts >= MAP_VIEW_WATCH_MAX_ATTEMPTS) {
-        this.detachMapLoadingWatchers();
-        this.setMapLoading(false);
-        return;
-      }
-      this.mapViewWatchAttempts += 1;
-      this.detachMapLoadingWatchers();
-      this.setMapLoading(true);
-      this.scheduleMapLoadingWatchers(MAP_VIEW_WATCH_INTERVAL_MS);
-      return;
-    }
-
-    this.mapViewWatchAttempts = 0;
-
-    if (this.watchedMapView === view) {
-      this.updateMapLoadingState();
-      return;
-    }
-
-    this.detachMapLoadingWatchers();
-    this.watchedMapView = view;
-    const update = this.updateMapLoadingState;
-    if (typeof view.watch === "function") {
-      this.mapReadyWatchHandle = view.watch("ready", update);
-      // Do not watch `updating` — manual zoom/pan would flash the map loader.
-    }
-    if (typeof view.when === "function") {
-      void view.when(update, update);
-    }
-    update();
+    return attachMapLoadingWatchers(this as unknown as DashboardWidgetHost);
   }
 
   private scheduleMapLoadingWatchers = (delay = 0): void => {
-    if (this.mapLoadingRetryTimer) clearTimeout(this.mapLoadingRetryTimer);
-    this.mapLoadingRetryTimer = setTimeout(() => {
-      this.mapLoadingRetryTimer = null;
-      this.attachMapLoadingWatchers();
-    }, delay);
+    return scheduleMapLoadingWatchers(this as unknown as DashboardWidgetHost, delay);
   };
 
   private getDashboardLoadingState(): boolean {
-    const root = this.dashboardRootRef.current;
-    if (!root) return false;
-    return !!root.querySelector(
-      [
-        ".agri-v11-regional-stats-loading-container",
-        ".land-category-loading-container",
-        ".land-category-chart-container--loading",
-        ".kadastr-status-loading-container",
-        ".vegetation-graph-container--loading",
-        ".construction-years-loading-container",
-        ".agri-status-root--loading",
-        ".loading-indicator",
-      ].join(","),
-    );
+    return getDashboardLoadingState(this as unknown as DashboardWidgetHost);
   }
 
-  /** Kept for optional future UI; not driven by document MutationObserver. */
   private updateDashboardLoadingState(): void {
-    const dashboardLoading = this.getDashboardLoadingState();
-    if (this.state.dashboardLoading !== dashboardLoading) {
-      this.setState({ dashboardLoading });
-    }
+    return updateDashboardLoadingState(this as unknown as DashboardWidgetHost);
   }
 
   private onWindowResize = (): void => {
-    this.scheduleMapSlotLayout(true);
+    return onWindowResize(this as unknown as DashboardWidgetHost);
   };
 
   private ensureLayoutObservers(): void {
-    if (!this.resizeListenerAttached) {
-      window.addEventListener("resize", this.onWindowResize, {
-        passive: true,
-      });
-      this.resizeListenerAttached = true;
-    }
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const root = this.dashboardRootRef.current;
-    const slot = this.mapSlotRef.current;
-    if (!root && !slot) return;
-
-    // Create observer once; may attach root before slot exists on first paint.
-    if (!this.dashboardResizeObserver) {
-      this.dashboardResizeObserver = new ResizeObserver(() => {
-        this.scheduleMapSlotLayout(false);
-      });
-    }
-
-    // Observe only dashboard chrome size — never document.body. ArcGIS tile
-    // paints mutate the map DOM constantly; a document MutationObserver that
-    // called view.resize() created a CPU spin loop.
-    if (root) {
-      try {
-        this.dashboardResizeObserver.observe(root);
-      } catch {
-        /* already observing */
-      }
-    }
-    if (slot) {
-      try {
-        this.dashboardResizeObserver.observe(slot);
-      } catch {
-        /* already observing */
-      }
-    }
-    // Ready only when the map slot is watched — otherwise first paint with
-    // root-only would permanently skip slot size changes.
-    if (root && slot) {
-      this.layoutObserversReady = true;
-    }
+    return ensureLayoutObservers(this as unknown as DashboardWidgetHost);
   }
 
   private setupMapSlotObserver(): void {
-    this.ensureLayoutObservers();
+    return setupMapSlotObserver(this as unknown as DashboardWidgetHost);
   }
 
-  /**
-   * Ask the MapView to reflow. Skips when the map-slot pixel size is unchanged
-   * unless `force` (window resize, first mount, map ready).
-   */
   private scheduleMapSlotLayout = (force = false): void => {
-    if (this.mapLayoutRaf) cancelAnimationFrame(this.mapLayoutRaf);
-    this.mapLayoutRaf = requestAnimationFrame(() => {
-      this.mapLayoutRaf = 0;
-      const slot = this.mapSlotRef.current;
-      if (slot) {
-        const w = Math.round(slot.clientWidth);
-        const h = Math.round(slot.clientHeight);
-        if (
-          !force &&
-          w === this.lastMapSlotSize.w &&
-          h === this.lastMapSlotSize.h
-        ) {
-          return;
-        }
-        this.lastMapSlotSize = { w, h };
-      }
-      const view = this.getActiveJimuMapView()?.view as
-        | { resize?: () => void }
-        | undefined;
-      view?.resize?.();
-    });
+    return scheduleMapSlotLayout(this as unknown as DashboardWidgetHost, force);
   };
 
   private findSharedLayoutSurface(): HTMLElement | null {
-    const dashboardRoot = this.dashboardRootRef.current;
-    if (!dashboardRoot) return null;
-
-    const dashboardItem = dashboardRoot.closest(
-      ".layout-item, .builder-layout-item",
-    ) as HTMLElement | null;
-    return dashboardItem?.parentElement || null;
+    return findSharedLayoutSurface(this as unknown as DashboardWidgetHost);
   }
 
   private readDashboardCssPx(variable: string, fallback: number): number {
-    const root = this.dashboardRootRef.current;
-    if (!root) return fallback;
-    const raw = getComputedStyle(root).getPropertyValue(variable).trim();
-    const n = parseFloat(raw);
-    return Number.isFinite(n) ? n : fallback;
+    return readDashboardCssPx(this as unknown as DashboardWidgetHost, variable, fallback);
   }
 
   private applyIndicatorOverlayBounds(
     slotEl: HTMLElement,
     overlayEl: HTMLElement,
   ): void {
-    const slotRect = slotEl.getBoundingClientRect();
-    const surface = this.findSharedLayoutSurface();
-    const host = overlayEl.parentElement;
-    const onLayoutSurface =
-      !!surface &&
-      !!host &&
-      (host === surface || host.parentElement === surface);
-
-    const topOffset = this.readDashboardCssPx(
-      "--agri-dashboard-indicator-top",
-      10,
-    );
-    const leftOffset = this.readDashboardCssPx(
-      "--agri-dashboard-indicator-left",
-      10,
-    );
-    const height = this.readDashboardCssPx(
-      "--agri-dashboard-indicator-height",
-      58,
-    );
-
-    let top = slotRect.top + topOffset;
-    let left = slotRect.left + leftOffset;
-    let positionMode: "fixed" | "absolute" = "fixed";
-
-    if (onLayoutSurface && surface) {
-      const surfaceRect = surface.getBoundingClientRect();
-      top = slotRect.top - surfaceRect.top + surface.scrollTop + topOffset;
-      left = slotRect.left - surfaceRect.left + surface.scrollLeft + leftOffset;
-      positionMode = "absolute";
-    }
-
-    const entries: Array<[string, string]> = [
-      ["position", positionMode],
-      ["top", `${top}px`],
-      ["left", `${left}px`],
-      ["height", `${height}px`],
-      ["min-height", `${height}px`],
-      ["max-height", `${height}px`],
-      ["right", "auto"],
-      ["bottom", "auto"],
-      ["margin", "0"],
-      ["padding", "0"],
-      ["transform", "none"],
-      ["z-index", "40"],
-      ["box-sizing", "border-box"],
-    ];
-
-    entries.forEach(([key, value]) => {
-      overlayEl.style.setProperty(key, value, "important");
-    });
-    overlayEl.style.removeProperty("width");
-    overlayEl.style.removeProperty("min-width");
-    overlayEl.style.removeProperty("max-width");
-    overlayEl.style.removeProperty("overflow");
-    overlayEl.style.removeProperty("pointer-events");
-    overlayEl.classList.add("agri-dashboard-managed-indicator");
+    return applyIndicatorOverlayBounds(this as unknown as DashboardWidgetHost, slotEl, overlayEl);
   }
 
   private applyDateIndexOverlayBounds(
     slotEl: HTMLElement,
     overlayEl: HTMLElement,
   ): void {
-    const slotRect = slotEl.getBoundingClientRect();
-    const bottomOffset = this.readDashboardCssPx(
-      "--agri-dashboard-date-index-bottom",
-      12,
-    );
-    const popupWidth = this.readDashboardCssPx(
-      "--agri-dashboard-popup-width",
-      340,
-    );
-    const popupInsetX = this.readDashboardCssPx(
-      "--agri-dashboard-popup-inset-x",
-      16,
-    );
-    const dateIndexGap = this.readDashboardCssPx(
-      "--agri-dashboard-date-index-gap",
-      8,
-    );
-    const cardWidth = this.readDashboardCssPx(
-      "--agri-dashboard-date-index-width",
-      210,
-    );
-    const navSize = this.readDashboardCssPx(
-      "--agri-dashboard-date-index-nav-size",
-      34,
-    );
-    const navGap = this.readDashboardCssPx(
-      "--agri-dashboard-date-index-nav-gap",
-      6,
-    );
-    const hasDayNav = !!overlayEl.querySelector(
-      ".agri-date-index-shell.has-day-nav",
-    );
-    const width = hasDayNav
-      ? cardWidth + 2 * (navSize + navGap)
-      : cardWidth;
-    const height = this.readDashboardCssPx(
-      "--agri-dashboard-date-index-height",
-      66,
-    );
-
-    // Always use fixed + high z-index so the card is never trapped under the
-    // map-slot stacking context (popup lives in a higher portal layer).
-    // Default: bottom-right of the map slot.
-    let top = slotRect.bottom - height - bottomOffset;
-    let left = slotRect.right - width - 10;
-    let zIndex = "45";
-
-    // Left of popup only when pinned; unpinned keeps bottom-right.
-    // In pin mode also sit at the bottom edge of the popup (left of it).
-    if (this.state.mapPopupOpen && this.state.mapPopupPinned) {
-      const popupEl = document.querySelector(
-        ".agri-dashboard-agri-host .agri3-popup-direct, .agri3-popup-direct.is-pinned, .agri3-popup-direct",
-      ) as HTMLElement | null;
-      if (popupEl) {
-        const popupRect = popupEl.getBoundingClientRect();
-        left = Math.max(8, popupRect.left - width - dateIndexGap);
-        top = Math.max(8, popupRect.bottom - height);
-      } else {
-        left =
-          slotRect.right - width - (popupWidth + popupInsetX + dateIndexGap);
-        top = slotRect.bottom - height - bottomOffset;
-      }
-      zIndex = "10001";
-    } else if (this.state.mapPopupOpen) {
-      zIndex = "10001";
-    }
-
-    const entries: Array<[string, string]> = [
-      ["position", "fixed"],
-      ["top", `${Math.round(top)}px`],
-      ["left", `${Math.round(left)}px`],
-      ["width", `${width}px`],
-      ["height", `${height}px`],
-      ["max-width", `${width}px`],
-      ["min-width", `${width}px`],
-      ["min-height", `${height}px`],
-      ["max-height", `${height}px`],
-      ["right", "auto"],
-      ["bottom", "auto"],
-      ["margin", "0"],
-      ["padding", "0"],
-      ["transform", "none"],
-      ["overflow", "hidden"],
-      ["z-index", zIndex],
-      ["pointer-events", "auto"],
-      ["box-sizing", "border-box"],
-    ];
-
-    entries.forEach(([key, value]) => {
-      overlayEl.style.setProperty(key, value, "important");
-    });
-    overlayEl.classList.add("agri-dashboard-managed-indicator");
+    return applyDateIndexOverlayBounds(this as unknown as DashboardWidgetHost, slotEl, overlayEl);
   }
 
   private syncIndicatorOverlayLayout(): void {
-    this.ensurePortalHost();
-    this.bringPortalHostToFront();
-    const slot = this.mapSlotRef.current;
-    if (slot) this.mapIndicatorHost = slot;
-    const overlay = this.indicatorOverlayRef.current;
-    if (slot && overlay) {
-      if (slot.contains(overlay)) {
-        this.clearOverlayLayout(overlay);
-      } else {
-        this.applyIndicatorOverlayBounds(slot, overlay);
-      }
-    }
-    const dateIndexOverlay = this.dateIndexOverlayRef.current;
-    if (slot && dateIndexOverlay) {
-      // Always position via JS so the NDVI card can sit left of the pinned
-      // popup while it is open (CSS-only path was leaving it under the popup).
-      this.applyDateIndexOverlayBounds(slot, dateIndexOverlay);
-    }
+    return syncIndicatorOverlayLayout(this as unknown as DashboardWidgetHost);
   }
 
   private clearOverlayLayout(overlay: HTMLElement | null): void {
-    if (!overlay) return;
-    [
-      "position",
-      "top",
-      "left",
-      "right",
-      "bottom",
-      "width",
-      "height",
-      "max-width",
-      "min-width",
-      "min-height",
-      "max-height",
-      "z-index",
-      "margin",
-      "padding",
-      "transform",
-      "overflow",
-      "box-sizing",
-    ].forEach((key) => {
-      overlay.style.removeProperty(key);
-    });
-    overlay.classList.remove("agri-dashboard-managed-indicator");
+    return clearOverlayLayout(this as unknown as DashboardWidgetHost, overlay);
   }
 
   private clearIndicatorOverlayLayout(): void {
-    this.clearOverlayLayout(this.indicatorOverlayRef.current);
-    this.clearOverlayLayout(this.dateIndexOverlayRef.current);
+    return clearIndicatorOverlayLayout(this as unknown as DashboardWidgetHost);
   }
 
   render() {
-    const baseConfig = this.toPlainConfig();
-    const indicatorConfig = this.getIndicatorConfig(baseConfig);
-    const popupConfig = this.getPopupConfig(baseConfig);
-    const activeMapId = this.getActiveMapWidgetId();
-    const webMapDataSourceId = String((baseConfig as any).webMapDataSourceId || "");
-    const allDataSources = (this.props.useDataSources as any)?.asMutable
-      ? (this.props.useDataSources as any).asMutable({ deep: true })
-      : Array.from((this.props.useDataSources as any) || []);
-    const webMapUseDataSource = allDataSources.find(
-      (source: any) => String(source?.dataSourceId || "") === webMapDataSourceId,
-    );
-    const featureUseDataSources = allDataSources.filter(
-      (source: any) =>
-        !!String(source?.dataSourceId || "") &&
-        String(source.dataSourceId) !== webMapDataSourceId,
-    );
-    const isBuilderDesignPreview =
-      getAppStore().getState().appRuntimeInfo?.appMode === AppMode.Design;
-
-    // A newly dropped widget used to mount the map plus all ten embedded
-    // widgets immediately, starting their ArcGIS/API queries while Builder
-    // was still opening the settings panel. Keep that initial Builder state
-    // lightweight throughout Design mode. Preview/published runtime mounts the
-    // complete dashboard. This avoids resolving every configured map sublayer
-    // while the settings panel is being opened or edited.
-    if (isBuilderDesignPreview) {
-      return (
-        <div
-          className="agri-dashboard-v3"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: 240,
-            padding: 24,
-            background: "#1d2031",
-            color: "#e8edf7",
-            textAlign: "center",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-              {this.props.manifest?.label ||
-                this.props.manifest?.name ||
-                "Agro Space Monitoring"}
-            </div>
-            <div style={{ fontSize: 13, opacity: 0.78 }}>
-              {webMapDataSourceId || allDataSources.length > 0
-                ? "Data source ulangan. Natijani Preview rejimida ko‘ring."
-                : "Widget sozlamalaridan Web Map yoki data source ulang."}
-            </div>
-          </div>
-        </div>
-      );
-    }
-    const showMapLoader =
-      !!activeMapId &&
-      (this.state.mapLoading || this.state.mapSurfaceLoading);
-    const portalTarget =
-      this.portalReady && this.portalHost
-        ? this.portalHost
-        : typeof document !== "undefined"
-          ? document.body
-          : null;
-    // Keep map indicators in the map coordinate system during resize.
-    // Once attached to the map slot, never fall back to body (avoids remount).
-    if (this.mapSlotRef.current) {
-      this.mapIndicatorHost = this.mapSlotRef.current;
-    }
-    const mapIndicatorTarget = this.mapIndicatorHost || portalTarget;
-
-    const indicatorChildProps = this.getStableIndicatorChildProps(
-      indicatorConfig,
-      baseConfig,
-    );
-
-    const indicatorPortal = mapIndicatorTarget
-      ? ReactDOM.createPortal(
-          <AgriMapIndicatorDrawer
-            overlayRef={this.indicatorOverlayRef}
-            panelRef={this.indicatorPanelRef}
-            phase={this.state.indicatorsAnimPhase}
-            onToggle={this.toggleIndicatorsDrawer}
-            indicatorProps={indicatorChildProps.indicator}
-            yieldProps={indicatorChildProps.yield}
-            unusedLandProps={indicatorChildProps.unused}
-            reserveLandProps={indicatorChildProps.reserve}
-          />,
-          mapIndicatorTarget,
-        )
-      : null;
-
-    const dateIndexPortal = mapIndicatorTarget
-      ? ReactDOM.createPortal(
-          <div
-            ref={this.dateIndexOverlayRef}
-            className="agri-dashboard-date-index-overlay agri-dashboard-indicator-overlay--compact"
-            aria-label="Selected date and index indicator"
-          >
-            <DateIndexPanel
-              {...this.childProps("date-index", baseConfig)}
-            />
-          </div>,
-          mapIndicatorTarget,
-        )
-      : null;
-
-    const popupPortal = portalTarget
-      ? ReactDOM.createPortal(
-          <div
-            className="agri-dashboard-agri-host"
-            aria-label="Polygon attribute popup"
-          >
-            <PopupPanel {...this.childProps("popup", popupConfig)} />
-          </div>,
-          portalTarget,
-        )
-      : null;
-
-    const rowFr = this.getRowFrValues();
-
-    return (
-      <div
-        ref={this.dashboardRootRef}
-        className={`agri-dashboard-v3${this.state.mapPopupOpen ? " agri-popup-open" : ""}${this.state.mapPopupPinned ? " agri-popup-pinned" : ""}`}
-        style={
-          {
-            "--agri-dashboard-left-width": this.getLeftPanelWidth(),
-            "--agri-dashboard-top-fr": String(rowFr.top),
-            "--agri-dashboard-bottom-fr": String(rowFr.bottom),
-          } as React.CSSProperties
-        }
-      >
-        <section className="agri-dashboard-header" aria-label="Localization">
-          <LocalizationPanel {...this.childProps("localization", baseConfig)} />
-        </section>
-
-        <div
-          className="agri-dashboard-body"
-          style={{
-            gridTemplateRows: `minmax(0, ${rowFr.top}fr) minmax(220px, ${rowFr.bottom}fr)`,
-          }}
-        >
-          <div className="agri-dashboard-top-row">
-            <aside
-              className="agri-dashboard-left-panel"
-              aria-label="Regional statistics"
-            >
-              <div className="agri-dashboard-widget-slot">
-                <RegionPanel {...this.childProps("region", baseConfig)} />
-              </div>
-            </aside>
-
-            <section
-              ref={this.mapSlotRef}
-              className={`agri-dashboard-map-slot ${activeMapId ? "has-map" : "is-empty"}${showMapLoader ? " is-loading" : ""}`}
-              aria-label="Map area"
-            >
-              {false && (
-                <div className="agri-dashboard-map-slot-placeholder">
-                  <span
-                    className="agri-dashboard-map-slot-icon"
-                    aria-hidden="true"
-                  >
-                    🗺
-                  </span>
-                  <span className="agri-dashboard-map-slot-label">Xarita</span>
-                  <span className="agri-dashboard-map-slot-hint">
-                    Sahifaga Map widget qo&apos;shing — u avtomatik shu joyni
-                    egallaydi
-                  </span>
-                </div>
-              )}
-              <EmbeddedAgriMap
-                mapWidgetId={activeMapId}
-                webMapDataSourceId={webMapDataSourceId}
-                webMapUseDataSource={webMapUseDataSource}
-                featureUseDataSources={featureUseDataSources}
-                onViewReady={() => {
-                  this.embeddedMapReady = true;
-                  this.setMapLoading(false);
-                  this.setState({ mapError: "" });
-                  this.scheduleMapSlotLayout(true);
-                  this.forceUpdate();
-                }}
-                onLoadingChange={(mapLoading) => {
-                  if (!mapLoading) {
-                    this.embeddedMapReady = true;
-                  }
-                  this.setMapLoading(mapLoading);
-                }}
-                onError={(mapError) => this.setState({ mapError })}
-              />
-              {!!this.state.mapError && (
-                <div className="agri-dashboard-map-error" role="alert">
-                  {this.state.mapError}
-                </div>
-              )}
-              {showMapLoader && (
-                <div
-                  className="agri-dashboard-map-loading-overlay"
-                  aria-live="polite"
-                  aria-label="Map loading"
-                >
-                  <AgriChartLoader />
-                </div>
-              )}
-              {!showMapLoader && this.state.mapNoData && (
-                <div
-                  className="agri-dashboard-map-no-data"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div className="agri-dashboard-map-no-data-card">
-                    <TriangleAlert
-                      className="agri-empty-state-icon"
-                      strokeWidth={1.7}
-                      aria-hidden="true"
-                    />
-                    <div className="agri-dashboard-map-no-data-title">
-                      {agriNoDataLabel(this.getUiLanguage())}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </section>
-          </div>
-
-          <div className="agri-dashboard-bottom-row" aria-label="Charts">
-            <div className="agri-dashboard-widget-slot">
-              <PiePanel {...this.childProps("pie", baseConfig)} />
-            </div>
-            <div className="agri-dashboard-widget-slot">
-              <GraffPanel {...this.childProps("graff", baseConfig)} />
-            </div>
-            <div className="agri-dashboard-widget-slot">
-              <BarPanel {...this.childProps("bar", baseConfig)} />
-            </div>
-          </div>
-        </div>
-
-        {indicatorPortal}
-        {dateIndexPortal}
-        {popupPortal}
-      </div>
-    );
+    return render(this as unknown as DashboardWidgetHost);
   }
 }

@@ -1703,7 +1703,6 @@ body:not(.light-theme) .land-category-card.dark-theme .legend-value {
   max-width: 46% !important;
   min-height: 0 !important;
   height: auto !important;
-  /* Dashboard shell overrides to 6 visible rows when nested in .agri-dashboard-v3 */
   max-height: 100% !important;
   z-index: 2 !important;
   position: relative !important;
