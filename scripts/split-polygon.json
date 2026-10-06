@@ -1,0 +1,10 @@
+{
+  "src": "../src/gis/agri-polygon-api-source.ts",
+  "outDir": "../src/gis/polygon-api",
+  "mode": "rank",
+  "groups": [
+    { "file": "polygon-base.ts", "min": 0, "max": 2 },
+    { "file": "polygon-dates.ts", "min": 3, "max": 4 },
+    { "file": "polygon-fetch.ts", "min": 5, "max": 9 }
+  ]
+}

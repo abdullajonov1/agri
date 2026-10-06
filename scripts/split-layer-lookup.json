@@ -1,0 +1,14 @@
+{
+  "src": "../src/gis/feature-layer/layer-lookup.ts",
+  "outDir": "../src/gis/feature-layer/lookup",
+  "groups": [
+    { "file": "lookup-region.ts", "from": 1, "to": 19 },
+    { "file": "lookup-map-image.ts", "from": 20, "to": 64 },
+    { "file": "lookup-collect.ts", "from": 65, "to": 219 },
+    { "file": "lookup-sublayer.ts", "from": 220, "to": 399 },
+    { "file": "lookup-region-year.ts", "from": 400, "to": 489 },
+    { "file": "lookup-match.ts", "from": 490, "to": 582 },
+    { "file": "lookup-where.ts", "from": 583, "to": 710 },
+    { "file": "lookup-query.ts", "from": 711, "to": 2000 }
+  ]
+}

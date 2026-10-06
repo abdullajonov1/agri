@@ -1,0 +1,8 @@
+{
+  "src": "../src/panels/GraffPanel/runtime/graff-data-service.ts",
+  "outDir": "../src/panels/GraffPanel/runtime/graff-data",
+  "groups": [
+    { "file": "regional-timeseries.ts", "from": 1, "to": 559 },
+    { "file": "vegetation-data.ts", "from": 560, "to": 5000 }
+  ]
+}

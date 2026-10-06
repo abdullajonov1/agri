@@ -1,0 +1,9 @@
+{
+  "src": "../src/panels/PiePanel/runtime/components/data-handlers.ts",
+  "outDir": "../src/panels/PiePanel/runtime/components/pie-data",
+  "groups": [
+    { "file": "pie-data-events.ts", "from": 1, "to": 595 },
+    { "file": "pie-data-chart.ts", "from": 596, "to": 909 },
+    { "file": "pie-data-fetch.ts", "from": 910, "to": 5000 }
+  ]
+}

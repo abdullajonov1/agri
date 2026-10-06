@@ -1,0 +1,10 @@
+{
+  "src": "../src/gis/agri-admin-boundary-layer.ts",
+  "outDir": "../src/gis/admin-boundary",
+  "mode": "rank",
+  "groups": [
+    { "file": "admin-base.ts", "min": 0, "max": 1 },
+    { "file": "admin-draw.ts", "min": 2, "max": 3 },
+    { "file": "admin-sync.ts", "min": 4, "max": 9 }
+  ]
+}

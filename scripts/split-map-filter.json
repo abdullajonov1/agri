@@ -1,0 +1,9 @@
+{
+  "src": "../src/filter/LocalizationPanel/runtime/components/Map/map-filter-service.ts",
+  "outDir": "../src/filter/LocalizationPanel/runtime/components/Map/map-filter",
+  "groups": [
+    { "file": "map-filter-helpers.ts", "from": 1, "to": 484 },
+    { "file": "map-filter-apply.ts", "from": 485, "to": 1112 },
+    { "file": "map-filter-fetch.ts", "from": 1113, "to": 5000 }
+  ]
+}

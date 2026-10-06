@@ -1,0 +1,11 @@
+{
+  "src": "../src/gis/agri-vegetation-data-source.ts",
+  "outDir": "../src/gis/vegetation",
+  "mode": "rank",
+  "groups": [
+    { "file": "veg-base.ts", "min": 0, "max": 2 },
+    { "file": "veg-series.ts", "min": 3, "max": 3, "from": 1, "to": 1295 },
+    { "file": "veg-status.ts", "min": 3, "max": 3, "from": 1296, "to": 9999 },
+    { "file": "veg-top.ts", "min": 4, "max": 9 }
+  ]
+}

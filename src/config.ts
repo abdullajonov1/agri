@@ -1,0 +1,83 @@
+import { type ImmutableObject } from "jimu-core";
+
+export interface AgriPopupConfig {
+  fieldsToShow?: string[];
+  /** Dropdown option order. Popup shows checked names in this sequence. */
+  fieldOrder?: string[];
+  titleField?: string;
+  labels?: Record<string, string>;
+  settings?: {
+    zoomToSelection?: boolean;
+    showMapPopup?: boolean;
+    showAttachments?: boolean;
+  };
+  selectedFieldsMap?: unknown;
+  chartEnabled?: boolean;
+  chartType?: "bar" | "line";
+  chartTitle?: string;
+  chartFields?: string[];
+  chartColor?: string;
+}
+
+export interface IndicatorChildConfig {
+  useApiDataSource?: boolean;
+  apiEndpoint?: string;
+  apiUrl?: string;
+  responseField?: string;
+  statOperation?: "count" | "sum" | "avg" | "min" | "max" | "first";
+  attributeField?: string;
+  label?: string;
+  unitLabel?: string;
+  decimalPlaces?: number;
+  excludeZeroValues?: boolean;
+  mapOverlayMode?: boolean;
+}
+
+export interface AccessRule {
+  id: string;
+  operator: "equal" | "range" | "include" | "like";
+  value?: string;
+  from?: string;
+  to?: string;
+  values?: string[];
+  groups: string[];
+}
+
+export interface AccessFieldRule {
+  id: string;
+  title: string;
+  field: string;
+  rules: AccessRule[];
+}
+
+export interface AccessConfig {
+  fullAccessGroups: string[];
+  rules: AccessFieldRule[];
+}
+
+export interface AgriServiceUrlsConfig {
+  portalOrigin?: string;
+  portalUrl?: string;
+  arcgisServer?: string;
+  tableDataUrl?: string;
+  vegetationIndicesUrl?: string;
+  polygonApiBaseUrl?: string;
+  adminRegionsUrl?: string;
+  adminDistrictsUrl?: string;
+  reserveLandUrl?: string;
+  unusedLandUrl?: string;
+}
+
+export interface Config {
+  leftPanelWidthPercent?: number;
+  bottomRowFraction?: number;
+  /** Web Map data source used by the map rendered inside this widget. */
+  webMapDataSourceId?: string;
+  indicator?: IndicatorChildConfig;
+  agriPopup?: AgriPopupConfig;
+  accessConfig?: AccessConfig;
+  /** Optional overrides for hardcoded ArcGIS / REST endpoints. */
+  serviceUrls?: AgriServiceUrlsConfig;
+}
+
+export type IMConfig = ImmutableObject<Config>;
