@@ -82,7 +82,7 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
     return key ? this._turiToCropId[key] : undefined;
   };
 
-  protected getLayerKey(layer: __esri.FeatureLayer): string {
+  protected getLayerKey(layer: AgriMapLayer | null | undefined): string {
     return getFeatureLayerKey(layer);
   }
 

@@ -7,6 +7,7 @@ import { dispatchMapViewReady, dispatchMapClick } from "../../../../../../gis/ag
 import { MAX_DS_ONLY_RETRIES, DS_ONLY_RETRY_DELAY_MS } from "../../../../../../shared/map-connection-service";
 import { getAppStore } from "jimu-core";
 import { isAccessConfigured, isAccessDenied, resolveAllowedViloyatsForGroups, lockedViloyat as accessLockedViloyat } from "../../../../../../shared/agri-access-config";
+import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../../../../../shared/agri-http";
 
 const FAIL_OPEN_IF_NO_MATCH = false;
 /* ---------------------- Map / DataSource ---------------------- */
@@ -31,6 +32,7 @@ export const getPortalSelf = async (
         query: { f: "json" },
         responseType: "json",
         withCredentials: true,
+        timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
       },
     );
 
@@ -40,6 +42,7 @@ export const getPortalSelf = async (
       : [];
     return { username, groups, portalUrl };
   } catch (e) {
+    debugCatch("getPortalSelf", e);
     return { username: null, groups: [], portalUrl: "unknown" };
   }
 };

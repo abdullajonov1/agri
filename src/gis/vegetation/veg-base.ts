@@ -5,6 +5,7 @@ import { dedupedQueryFeatures } from "../../data/agri-query-gateway";
 import { escapeArcGIS, dateEqualsClause } from "../../data/agri-sql";
 import { loadArcGISJSAPIModules } from "jimu-arcgis";
 import { getAgriPersistentCache } from "../../data/agri-persistent-cache";
+import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../shared/agri-http";
 
 /** Fields present on agri_vegetation_indices — access rules using only these apply. */
 const VEG_LAYER_ACCESS_FIELDS = [
@@ -603,6 +604,7 @@ export async function queryDistinctFieldCount(
         returnGeometry: false,
       },
       responseType: "json",
+      timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
     });
     if (res?.data?.error) {
       throw new Error(String(res.data.error.message || "query error"));

@@ -170,7 +170,7 @@ export interface LocalizationHost {
   _vhUniqueIdsReadyForApply: boolean;
   setMapNoData: (noData: boolean, reason: string) => void;
   setMapSurfaceLoading: (loading: boolean, reason: string) => void;
-  getLayerKey: (layer: __esri.FeatureLayer) => string;
+  getLayerKey: (layer: AgriMapLayer | null | undefined) => string;
   buildWhereForLayer: (
     layer: __esri.FeatureLayer,
     includeVh?: boolean,

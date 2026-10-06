@@ -32,6 +32,9 @@ describe("parseIndicatorApiValue", () => {
     [{ maydon: 5 }, "", 5],
     [42, "", 42],
     [{ total: "abc" }, "", null],
+    [{ total: null, value: 5 }, "", 5],
+    [{ total: "", count: "8" }, "", 8],
+    [{ total: Infinity }, "", null],
     [null, "", null],
     ["text", "", null],
   ])("parses %j (field=%s) → %s", (data, field, expected) => {

@@ -9,6 +9,7 @@ import {
     validateAccessConfigImport,
 } from "../shared/agri-access-config";
 import "./agri-access-setting.css";
+import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../shared/agri-http";
 
 /** jimu-core re-exports seamless-immutable as a namespace; cast for callable use. */
 const Imm = Immutable as unknown as <T>(value: T) => any;
@@ -49,6 +50,7 @@ type EsriRequestFunction = (
     options?: {
         query?: Record<string, string | number>;
         responseType?: string;
+        timeout?: number;
     }
 ) => Promise<{ data: any }>;
 
@@ -168,6 +170,7 @@ const getPortalGroupInfo = async (
         const groupResponse = await esriRequest(groupUrl, {
             query: { f: "json" },
             responseType: "json",
+            timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
         });
 
         if (groupResponse.data?.error) {
@@ -184,6 +187,7 @@ const getPortalGroupInfo = async (
                     num: 1,
                 },
                 responseType: "json",
+                timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
             });
 
             if (

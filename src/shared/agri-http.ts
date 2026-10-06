@@ -10,6 +10,9 @@
 /** Explicit timeout for every esriRequest call in the widget. */
 export const AGRI_ESRI_REQUEST_TIMEOUT_MS = 30000;
 
+/** Attachment blobs (photos, PDFs) can be large on slow links. */
+export const AGRI_ESRI_BLOB_TIMEOUT_MS = 120000;
+
 /** Error bodies are cut to this length before they reach messages / UI state. */
 export const AGRI_HTTP_ERROR_BODY_MAX_CHARS = 512;
 

@@ -1,5 +1,6 @@
 import { pruneTimedCache, queryCountCache, queryStatsCache, queryJsonCache, getQueryUrl, cacheKey, stableCachePayload, getEsriRequest, QUERY_CACHE_TTL_MS, getExtentClass, isValidMapExtent, flLog, layerLabel } from "../primitives";
 import { getQueryableLayer } from "./lookup-collect";
+import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../../shared/agri-http";
 
 export function pruneAgriQueryCache(now = Date.now()): void {
   pruneTimedCache(queryCountCache, now);
@@ -33,6 +34,7 @@ export async function queryLayerJson(
     const res = await esriRequest(url, {
       query: { f: "json", ...params },
       responseType: "json",
+      timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
     });
     const data = res?.data;
     if (data?.error) {

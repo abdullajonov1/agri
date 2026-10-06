@@ -4,6 +4,7 @@ import {
   SessionManager,
 } from "jimu-core";
 import { getAgriServiceUrls } from "./agri-service-urls";
+import { clearAgriPersistentCache } from "../data/agri-persistent-cache";
 
 function trimPortalRestSuffix(url: string): string {
   return String(url || "")
@@ -193,6 +194,12 @@ export async function logoutFromAccount(
     extra.forEach((k) => localStorage.removeItem(k));
   } catch {
     failures.push("localStorage.esriSweep");
+  }
+
+  try {
+    clearAgriPersistentCache();
+  } catch {
+    failures.push("localStorage.agriStatsCache");
   }
 
   try {

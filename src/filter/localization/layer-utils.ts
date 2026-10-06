@@ -2,6 +2,7 @@
  * Pure layer identity / field / match helpers for LocalizationPanel.
  */
 import type { AgriMapLayer } from "./agri-map-layer";
+import type { AgriFieldLike } from "../../gis/agri-layer-types";
 
 export function getFeatureLayerKey(layer: AgriMapLayer | null | undefined): string {
   const id = (layer?.id || "").toString().trim();
@@ -16,7 +17,7 @@ export function findLayerFieldName(
   name: string,
 ): string | null {
   try {
-    const fields: Array<Partial<__esri.Field>> = layer?.fields || [];
+    const fields: AgriFieldLike[] = layer?.fields || [];
     if (!Array.isArray(fields) || !fields.length) return null;
     const exact = fields.find((f) => String(f?.name || "") === name);
     if (exact?.name) return exact.name;

@@ -12,11 +12,13 @@ import { AGRI_MAP_VIEW_READY_EVENT, AGRI_MAP_CLICK_EVENT, AGRI_XY_PAGE_CLOSED_EV
 import { agriMapClickDebug } from "../../../../gis/agri-map-click-debug";
 import { getSelectedDsIds } from "../../../../gis/agri-data-source-engine";
 import { AllWidgetProps, QueriableDataSource } from "jimu-core";
+import { AGRI_ESRI_BLOB_TIMEOUT_MS } from "../../../../shared/agri-http";
 
 export async function fetchAttachmentPreview(host: PopupWidgetHost, url: string): Promise<Blob> {
   const resp = await esriRequest(url, {
     responseType: "blob",
     query: {},
+    timeout: AGRI_ESRI_BLOB_TIMEOUT_MS,
   } as any);
   return resp?.data instanceof Blob ? resp.data : (resp as unknown as Blob);
 }
