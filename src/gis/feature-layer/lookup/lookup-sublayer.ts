@@ -1,9 +1,10 @@
 import { buildMapDistrictClause } from "./lookup-collect";
 import { escapeArcGIS } from "../../../data/agri-sql";
+import type { AgriFieldLike, AgriLayerLike } from "../../agri-layer-types";
 import { buildTuriMapClause, VH_CATEGORY_TO_STATUS, regionYearLog, isGroupSublayer, clearFieldLayerScaleLimits, guardSublayerDefinitionExpression, summarizeDefinitionExpression } from "../primitives";
 
 export function buildSublayerDefinitionExpression(
-  sublayer: any,
+  sublayer: AgriLayerLike | null | undefined,
   tuman: string,
   turi: string | string[],
   vh = "",
@@ -17,7 +18,7 @@ export function buildSublayerDefinitionExpression(
    */
   andTuriWithUniqueIds = false,
 ): string {
-  const fields: any[] = sublayer?.fields || [];
+  const fields: AgriFieldLike[] = sublayer?.fields || [];
   const findField = (name: string) =>
     fields.find((f) => String(f?.name || "").toLowerCase() === name);
 
@@ -108,7 +109,7 @@ export function buildSublayerDefinitionExpression(
  * services default to "1=0" (matches zero rows).
  */
 export function forceSublayersVisible(
-  layer: any,
+  layer: AgriLayerLike | null | undefined,
   tuman: string,
   turi: string | string[],
   vh = "",

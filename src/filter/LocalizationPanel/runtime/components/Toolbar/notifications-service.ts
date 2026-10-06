@@ -6,6 +6,7 @@ import {
 import { regionSoatoToDisplayName } from "../../../../../gis/feature-layer-data";
 import { translateAgriPlaceForDisplay } from "../../../../../shared/agri-place-display";
 import type { LocalizationHost } from "../host";
+import { agriLog } from "../localization-log";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 
 /** localStorage hit only — no layer load and no statistics request. */
@@ -106,12 +107,7 @@ export const loadNotificationFeed = async (host: LocalizationHost): Promise<void
     ]);
     const days = await queryVegetationRecentDayRegionCounts(5);
     if (!host._isMounted || token !== host._notificationLoadToken) return;
-    try {
-      // eslint-disable-next-line no-console
-      console.log("[AgriNotify] UI received days", days);
-    } catch {
-      /* ignore */
-    }
+    agriLog("notifications:ui-received-days", { days });
     host.setState({
       notificationDays: days,
       notificationLoading: false,

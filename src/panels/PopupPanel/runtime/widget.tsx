@@ -1,222 +1,43 @@
 // Polygon Attribute Inspector (AgriPolygon refactor)
 // ✅ UPDATED: supports MULTIPLE selected Feature Layers (e.g. yearly layers filtered by another widget)
+//
+// The class is a thin host: every method delegates to a handler module that
+// receives the instance as a PopupWidgetHost (see ./popup-host.ts).
 
-import Graphic from "esri/Graphic";
 import FeatureLayer from "esri/layers/FeatureLayer";
-import GraphicsLayer from "esri/layers/GraphicsLayer";
-import Point from "esri/geometry/Point";
 import { JimuMapView } from "jimu-arcgis";
 import { AllWidgetProps, QueriableDataSource, React } from "jimu-core";
 import { type AgriDataSourceEngine } from "../../../gis/agri-data-source-engine";
 import { getSharedAgriDataSourceEngine } from "../../../gis/agri-engine-registry";
 import { VEG_INDEX_FIELDS as popupVegIndexFields } from "./popup-constants";
-import { getInitialLang, type LangCode } from "./messages";
-import {
-  getPopupWidth,
-  getPinnedPopupHeight,
-  getPopupDimensions,
-  getResolvedTheme,
-  pruneFeatureQueryCache,
-  getFeatureQueryCacheKey,
-  tr,
-  isDashboardEmbedded,
-  getCropOverlayTop,
-  getMapAreaRect,
-  observeMapAreaResize,
-  getEffectiveMapBottom,
-  measurePopupHeight,
-  popupPositionsEqual,
-  applyPopupPosition,
-  schedulePopupLayout,
-  schedulePopupLayoutAfterContent,
-  calculatePinnedPosition,
-  repositionPinnedIfNeeded,
-  togglePinToCorner,
-  handleOutsideClick,
-  onPopupHeaderMouseDown,
-  onPopupDragMove,
-  onPopupDragEnd,
-  clampPopupToMapContainer,
-} from "./components/layout-handlers";
-
-export type Config = {
-  fieldsToShow?: string[];
-  titleField?: string;
-  labels?: Record<string, string>;
-  settings?: {
-    zoomToSelection?: boolean; // default true
-    showMapPopup?: boolean; // default false
-    showAttachments?: boolean; // default true (when undefined)
-  };
-  chartEnabled?: boolean;
-  chartType?: "bar" | "line";
-  chartTitle?: string;
-  chartFields?: string[];
-  chartColor?: string;
-};
-
-export type AttachmentItem = {
-  id: number;
-  name?: string;
-  size?: number;
-  contentType?: string;
-  url?: string; // direct download URL
-  previewObjectUrl?: string; // created via URL.createObjectURL for <img> previews
-};
-
-export interface State {
-  currentLang: LangCode;
-  isDarkTheme: boolean;
-
-  jimuMapView?: JimuMapView | null;
-
-  /** ✅ MULTI: all resolved layers from settings */
-  featureLayers: __esri.FeatureLayer[];
-  /** ✅ MULTI: map clicked layer => dsId (best-effort) */
-  layerKeyToDsId: Record<string, string>;
-
-  /** ✅ MULTI: store DS schemas per DS id */
-  dataSourcesById: Record<string, QueriableDataSource>;
-
-  /** which layer was last clicked (for aliases/field resolving) */
-  lastClickedDsId: string | null;
-  lastClickedLayerKey: string | null;
-
-  pinToCorner: boolean;
-
-  // attachments UI
-  loadingAttachments: boolean;
-  attachments: AttachmentItem[];
-  attachmentsError: string | null;
-  attachmentsExpanded: boolean;
-
-  loading: boolean;
-  error: string | null;
-
-  selectedAttrs: Record<string, any> | null;
-  selectedOID: number | null;
-  objectIdField: string | null;
-
-  showPopup: boolean;
-  /** X collapses the panel; selection + data stay until real deselect. */
-  popupMinimized: boolean;
-  popupPosition: { x: number; y: number } | null;
-  clickScreenPoint: { x: number; y: number } | null;
-
-  debugInfo: {
-    layerInfo?: any;
-    hitTestResults?: any;
-    queryResults?: any;
-    fieldMapping?: any;
-    availableLayers?: any;
-  };
-
-  chartExpanded: boolean;
-  chartHoverIndex: number | null;
-
-  // Latest-day vegetation index values (NDVI/SAVI/RVI/CI/EVI/NDWI) for the
-  // currently selected polygon, from agri_vegetation_indices.
-  loadingLatestIndices: boolean;
-  latestIndexDate: string | null;
-  latestIndexValues: Record<string, number> | null;
-}
-
+import { getInitialLang } from "./messages";
 import type { PopupWidgetHost } from "./popup-host";
-import {
-  getDetachedQueryLayer,
-  snapshotDefinitionExpressions,
-  restoreDriftedDefinitionExpressions,
-  queryFeatureByObjectIdCached,
-  setupThemeObserver,
-  handleThemeChange,
-  handleLanguageChange,
-  layerSupportsAttachments,
-  setupHighlightLayer,
-  highlightPolygon,
-  clearHighlight,
-  restoreExtentBeforeSelection,
-  cleanupHighlight,
-  getLinkedMapWidgetId,
-  getMapViewFromManager,
-  handleMapViewReady,
-  scheduleMapViewFallback,
-  scheduleMapInitRetry,
-  expandUseDataSourceEntries,
-  addResolvedLayer,
-  collectLayersFromDataSources,
-  onActiveViewChange,
-  initializeMapConnection,
-  toLiveMapLayer,
-  layerKeysMatch,
-  resolveFeatureLayerForUseDataSource,
-} from "./components/map-handlers";
-import {
-  attachMapClick,
-  ensureMapClickAttached,
-  handleXyPageClosed,
-  handleMasterFilterChanged,
-  handleWidgetSelectionChanged,
-  openPopupForUniqueid,
-  handleSharedMapClick,
-  detachMapClick,
-  toClickQueryGeometry,
-  findHitGraphic,
-  pickClickGraphic,
-  isHighlightLayer,
-  isLayerEffectivelyVisible,
-  isAgriculturalFieldLayer,
-  isAgriculturalFieldGraphic,
-  getClickTargetLayers,
-  resolveClickLayers,
-  resolveClickFeatureAt,
-  findAttributeValueCaseInsensitive,
-  notifyGraffPolygonSelection,
-  broadcastPopupVisibility,
-  fetchLatestVegetationIndices,
-  resolveDisplayAttrs,
-  onViewClick,
-} from "./components/click-handlers";
-import {
-  fetchAttachmentPreview,
-  revokeAllAttachmentUrls,
-  isImageContentType,
-  bytesToSize,
-  loadAttachmentsForOid,
-  isDateField,
-  getClickedLayer,
-  resolveFieldName,
-  normalizeFieldAlias,
-  findFieldMetaOnLayer,
-  resolveAliasFromLiveLayers,
-  resolveAliasFromDataSourceSchema,
-  getFieldAlias,
-  formatDateSmart,
-  formatValue,
-  getOutFields,
-  calculatePopupPosition,
-  componentDidMount,
-  componentWillUnmount,
-  componentDidUpdate,
-  closePopup,
-  minimizePopup,
-  expandPopup,
-  onDataSourceCreated,
-  toggleChartExpanded,
-  clearChartHover,
-  setChartHover,
-  niceChartMax,
-  formatChartTick,
-  formatChartTooltipValue,
-  buildSmoothLinePath,
-  buildRoundedBarPath,
-} from "./components/field-handlers";
-import {
-  renderChartIcon,
-  renderLatestIndices,
-  renderChart,
-  renderPopup,
-  render,
-} from "./components/render-panel";
+import type {
+  AgriLayerLike,
+  Config,
+  IHandleLike,
+  PopupAttributes,
+  PopupFieldMeta,
+  PopupLanguageDetail,
+  PopupThemeDetail,
+  PopupUseDataSource,
+  State,
+} from "./popup-types";
+import * as layout from "./components/layout-handlers";
+import * as mapH from "./components/map-handlers";
+import * as click from "./components/click-handlers";
+import * as field from "./components/field-handlers";
+import * as panel from "./components/render-panel";
+
+export type { Config, AttachmentItem, State, IHandleLike } from "./popup-types";
+
+type MaybeLayer = AgriLayerLike | null | undefined;
+type View = __esri.MapView | __esri.SceneView;
+type XY = { x: number; y: number };
+
+/** The component instance seen through the handler-module host contract. */
+const asHost = (widget: AgriPolygon): PopupWidgetHost =>
+  widget as unknown as PopupWidgetHost;
 
 export default class AgriPolygon extends React.PureComponent<
   AllWidgetProps<Config>,
@@ -264,25 +85,20 @@ export default class AgriPolygon extends React.PureComponent<
   /** Guards against a stale latest-indices response landing after a newer polygon selection. */
   private _latestIndicesRequestId = 0;
 
-  private getPopupWidth(
-    view?: __esri.MapView | __esri.SceneView | null,
-  ): number {
-    return getPopupWidth(this as unknown as PopupWidgetHost, view);
+  private getPopupWidth(view?: View | null): number {
+    return layout.getPopupWidth(asHost(this), view);
   }
 
-  private getPinnedPopupHeight(
-    view: __esri.MapView | __esri.SceneView,
-    topY: number,
-  ): number {
-    return getPinnedPopupHeight(this as unknown as PopupWidgetHost, view, topY);
+  private getPinnedPopupHeight(view: View, topY: number): number {
+    return layout.getPinnedPopupHeight(asHost(this), view, topY);
   }
 
   private getPopupDimensions(
-    view?: __esri.MapView | __esri.SceneView | null,
+    view?: View | null,
     pinned = false,
-    position?: { x: number; y: number } | null,
+    position?: XY | null,
   ): { width: number; height: number } {
-    return getPopupDimensions(this as unknown as PopupWidgetHost, view, pinned, position);
+    return layout.getPopupDimensions(asHost(this), view, pinned, position);
   }
 
   constructor(props: AllWidgetProps<Config>) {
@@ -331,20 +147,18 @@ export default class AgriPolygon extends React.PureComponent<
     };
   }
 
-  private getResolvedTheme = (): boolean => {
-    return getResolvedTheme(this as unknown as PopupWidgetHost);
-  };
+  private getResolvedTheme = (): boolean => layout.getResolvedTheme(asHost(this));
 
   componentDidMount(): void {
-    return componentDidMount(this as unknown as PopupWidgetHost);
+    return field.componentDidMount(asHost(this));
   }
 
   componentWillUnmount(): void {
-    return componentWillUnmount(this as unknown as PopupWidgetHost);
+    return field.componentWillUnmount(asHost(this));
   }
 
   private pruneFeatureQueryCache(now = Date.now()): void {
-    return pruneFeatureQueryCache(this as unknown as PopupWidgetHost, now);
+    return layout.pruneFeatureQueryCache(asHost(this), now);
   }
 
   private getFeatureQueryCacheKey(
@@ -353,25 +167,19 @@ export default class AgriPolygon extends React.PureComponent<
     oid: unknown,
     outFields: string[],
   ): string {
-    return getFeatureQueryCacheKey(this as unknown as PopupWidgetHost, layer, oidField, oid, outFields);
+    return layout.getFeatureQueryCacheKey(asHost(this), layer, oidField, oid, outFields);
   }
 
   private getDetachedQueryLayer = async (
-    layer: any,
-  ): Promise<__esri.FeatureLayer | null> => {
-    return getDetachedQueryLayer(this as unknown as PopupWidgetHost, layer);
-  };
+    layer: MaybeLayer,
+  ): Promise<__esri.FeatureLayer | null> => mapH.getDetachedQueryLayer(asHost(this), layer);
 
-  private snapshotDefinitionExpressions(
-    layers: Array<__esri.FeatureLayer | any>,
-  ): Map<any, string> {
-    return snapshotDefinitionExpressions(this as unknown as PopupWidgetHost, layers);
+  private snapshotDefinitionExpressions(layers: MaybeLayer[]): Map<AgriLayerLike, string> {
+    return mapH.snapshotDefinitionExpressions(asHost(this), layers);
   }
 
-  private restoreDriftedDefinitionExpressions(
-    snapshot: Map<any, string>,
-  ): void {
-    return restoreDriftedDefinitionExpressions(this as unknown as PopupWidgetHost, snapshot);
+  private restoreDriftedDefinitionExpressions(snapshot: Map<AgriLayerLike, string>): void {
+    return mapH.restoreDriftedDefinitionExpressions(asHost(this), snapshot);
   }
 
   private async queryFeatureByObjectIdCached(
@@ -380,322 +188,235 @@ export default class AgriPolygon extends React.PureComponent<
     oid: unknown,
     outFields: string[],
   ): Promise<__esri.Graphic | null> {
-    return queryFeatureByObjectIdCached(this as unknown as PopupWidgetHost, layer, oidField, oid, outFields);
+    return mapH.queryFeatureByObjectIdCached(asHost(this), layer, oidField, oid, outFields);
   }
-  private tr = (
-    key: string,
-    params?: Record<string, string | number>,
-  ): string => {
-    return tr(this as unknown as PopupWidgetHost, key, params);
-  };
 
-  private setupThemeObserver = (): void => {
-    return setupThemeObserver(this as unknown as PopupWidgetHost);
-  };
+  private tr = (key: string, params?: Record<string, string | number>): string =>
+    layout.tr(asHost(this), key, params);
 
-  private handleThemeChange = (e: any): void => {
-    return handleThemeChange(this as unknown as PopupWidgetHost, e);
-  };
+  private setupThemeObserver = (): void => mapH.setupThemeObserver(asHost(this));
 
-  private handleLanguageChange = (e: any): void => {
-    return handleLanguageChange(this as unknown as PopupWidgetHost, e);
-  };
+  private handleThemeChange = (e: CustomEvent<PopupThemeDetail> | null | undefined): void =>
+    mapH.handleThemeChange(asHost(this), e);
+
+  private handleLanguageChange = (e: CustomEvent<PopupLanguageDetail> | null | undefined): void =>
+    mapH.handleLanguageChange(asHost(this), e);
 
   /* --- pinned popup helpers --- */
   private isDashboardEmbedded(): boolean {
-    return isDashboardEmbedded(this as unknown as PopupWidgetHost);
+    return layout.isDashboardEmbedded(asHost(this));
   }
 
   private getCropOverlayTop(): number | null {
-    return getCropOverlayTop(this as unknown as PopupWidgetHost);
+    return layout.getCropOverlayTop(asHost(this));
   }
 
-  private getMapAreaRect(
-    view: __esri.MapView | __esri.SceneView,
-  ): DOMRect {
-    return getMapAreaRect(this as unknown as PopupWidgetHost, view);
+  private getMapAreaRect(view: View): DOMRect {
+    return layout.getMapAreaRect(asHost(this), view);
   }
 
-  private observeMapAreaResize(
-    view: __esri.MapView | __esri.SceneView,
-  ): void {
-    return observeMapAreaResize(this as unknown as PopupWidgetHost, view);
+  private observeMapAreaResize(view: View): void {
+    return layout.observeMapAreaResize(asHost(this), view);
   }
 
-  private getEffectiveMapBottom(
-    view: __esri.MapView | __esri.SceneView,
-    gap = 4,
-  ): number {
-    return getEffectiveMapBottom(this as unknown as PopupWidgetHost, view, gap);
+  private getEffectiveMapBottom(view: View, gap = 4): number {
+    return layout.getEffectiveMapBottom(asHost(this), view, gap);
   }
 
   private measurePopupHeight(popupEl: HTMLElement): number {
-    return measurePopupHeight(this as unknown as PopupWidgetHost, popupEl);
+    return layout.measurePopupHeight(asHost(this), popupEl);
   }
 
-  private popupPositionsEqual(
-    a: { x: number; y: number } | null | undefined,
-    b: { x: number; y: number },
-    epsilon = 1,
-  ): boolean {
-    return popupPositionsEqual(this as unknown as PopupWidgetHost, a, b, epsilon);
+  private popupPositionsEqual(a: XY | null | undefined, b: XY, epsilon = 1): boolean {
+    return layout.popupPositionsEqual(asHost(this), a, b, epsilon);
   }
 
-  private applyPopupPosition = (pos: { x: number; y: number }): void => {
-    return applyPopupPosition(this as unknown as PopupWidgetHost, pos);
-  };
+  private applyPopupPosition = (pos: XY): void => layout.applyPopupPosition(asHost(this), pos);
 
-  private schedulePopupLayout = (): void => {
-    return schedulePopupLayout(this as unknown as PopupWidgetHost);
-  };
+  private schedulePopupLayout = (): void => layout.schedulePopupLayout(asHost(this));
 
-  private schedulePopupLayoutAfterContent = (): void => {
-    return schedulePopupLayoutAfterContent(this as unknown as PopupWidgetHost);
-  };
+  private schedulePopupLayoutAfterContent = (): void =>
+    layout.schedulePopupLayoutAfterContent(asHost(this));
 
-  private calculatePinnedPosition = (
-    view: __esri.MapView | __esri.SceneView,
-  ): { x: number; y: number } => {
-    return calculatePinnedPosition(this as unknown as PopupWidgetHost, view);
-  };
+  private calculatePinnedPosition = (view: View): XY =>
+    layout.calculatePinnedPosition(asHost(this), view);
 
-  private repositionPinnedIfNeeded = () => {
-    return repositionPinnedIfNeeded(this as unknown as PopupWidgetHost);
-  };
+  private repositionPinnedIfNeeded = () => layout.repositionPinnedIfNeeded(asHost(this));
 
-  private togglePinToCorner = () => {
-    return togglePinToCorner(this as unknown as PopupWidgetHost);
-  };
+  private togglePinToCorner = () => layout.togglePinToCorner(asHost(this));
 
-  private handleOutsideClick = (event: MouseEvent) => {
-    return handleOutsideClick(this as unknown as PopupWidgetHost, event);
-  };
+  private handleOutsideClick = (event: MouseEvent) =>
+    layout.handleOutsideClick(asHost(this), event);
 
-  private onPopupHeaderMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    return onPopupHeaderMouseDown(this as unknown as PopupWidgetHost, e);
-  };
+  private onPopupHeaderMouseDown = (e: React.MouseEvent<HTMLDivElement>) =>
+    layout.onPopupHeaderMouseDown(asHost(this), e);
 
-  private onPopupDragMove = (e: MouseEvent) => {
-    return onPopupDragMove(this as unknown as PopupWidgetHost, e);
-  };
+  private onPopupDragMove = (e: MouseEvent) => layout.onPopupDragMove(asHost(this), e);
 
-  private onPopupDragEnd = () => {
-    return onPopupDragEnd(this as unknown as PopupWidgetHost);
-  };
+  private onPopupDragEnd = () => layout.onPopupDragEnd(asHost(this));
+
   private layerSupportsAttachments(
     layer: __esri.FeatureLayer | FeatureLayer | null | undefined,
   ): boolean {
-    return layerSupportsAttachments(this as unknown as PopupWidgetHost, layer);
+    return mapH.layerSupportsAttachments(asHost(this), layer);
   }
 
   /* ---------------- Highlight management ---------------- */
 
-  private setupHighlightLayer = (view: __esri.MapView | __esri.SceneView) => {
-    return setupHighlightLayer(this as unknown as PopupWidgetHost, view);
-  };
+  private setupHighlightLayer = (view: View) => mapH.setupHighlightLayer(asHost(this), view);
 
-  private highlightPolygon = (geometry: __esri.Geometry) => {
-    return highlightPolygon(this as unknown as PopupWidgetHost, geometry);
-  };
+  private highlightPolygon = (geometry: __esri.Geometry) =>
+    mapH.highlightPolygon(asHost(this), geometry);
 
-  private clearHighlight = () => {
-    return clearHighlight(this as unknown as PopupWidgetHost);
-  };
+  private clearHighlight = () => mapH.clearHighlight(asHost(this));
 
-  private restoreExtentBeforeSelection = () => {
-    return restoreExtentBeforeSelection(this as unknown as PopupWidgetHost);
-  };
+  private restoreExtentBeforeSelection = () => mapH.restoreExtentBeforeSelection(asHost(this));
 
-  private cleanupHighlight = () => {
-    return cleanupHighlight(this as unknown as PopupWidgetHost);
-  };
+  private cleanupHighlight = () => mapH.cleanupHighlight(asHost(this));
 
   /* ---------------- Map wiring ---------------- */
 
   private getLinkedMapWidgetId(): string | null {
-    return getLinkedMapWidgetId(this as unknown as PopupWidgetHost);
+    return mapH.getLinkedMapWidgetId(asHost(this));
   }
 
-  private getMapViewFromManager(
-    mapWidgetId: string | null,
-  ): JimuMapView | null {
-    return getMapViewFromManager(this as unknown as PopupWidgetHost, mapWidgetId);
+  private getMapViewFromManager(mapWidgetId: string | null): JimuMapView | null {
+    return mapH.getMapViewFromManager(asHost(this), mapWidgetId);
   }
 
-  private handleMapViewReady = (event: Event): void => {
-    return handleMapViewReady(this as unknown as PopupWidgetHost, event);
-  };
+  private handleMapViewReady = (event: Event): void =>
+    mapH.handleMapViewReady(asHost(this), event);
 
-  private scheduleMapViewFallback = (): void => {
-    return scheduleMapViewFallback(this as unknown as PopupWidgetHost);
-  };
+  private scheduleMapViewFallback = (): void => mapH.scheduleMapViewFallback(asHost(this));
 
-  private scheduleMapInitRetry = (jmv: JimuMapView): void => {
-    return scheduleMapInitRetry(this as unknown as PopupWidgetHost, jmv);
-  };
+  private scheduleMapInitRetry = (jmv: JimuMapView): void =>
+    mapH.scheduleMapInitRetry(asHost(this), jmv);
 
-  private expandUseDataSourceEntries(useList: any[]): any[] {
-    return expandUseDataSourceEntries(this as unknown as PopupWidgetHost, useList);
+  private expandUseDataSourceEntries(useList: PopupUseDataSource[]): PopupUseDataSource[] {
+    return mapH.expandUseDataSourceEntries(asHost(this), useList);
   }
 
   private addResolvedLayer = (
     target: __esri.FeatureLayer[],
     layerKeyToDsId: Record<string, string>,
     seen: Set<string>,
-    layer: any,
+    layer: MaybeLayer,
     dsId?: string,
-  ): void => {
-    return addResolvedLayer(this as unknown as PopupWidgetHost, target, layerKeyToDsId, seen, layer, dsId);
-  };
+  ): void => mapH.addResolvedLayer(asHost(this), target, layerKeyToDsId, seen, layer, dsId);
 
   private collectLayersFromDataSources = (
     jmv: JimuMapView,
-    useList: any[],
+    useList: PopupUseDataSource[],
   ): {
     layers: __esri.FeatureLayer[];
     layerKeyToDsId: Record<string, string>;
-  } => {
-    return collectLayersFromDataSources(this as unknown as PopupWidgetHost, jmv, useList);
-  };
+  } => mapH.collectLayersFromDataSources(asHost(this), jmv, useList);
 
-  onActiveViewChange = (jimuMapView: JimuMapView) => {
-    return onActiveViewChange(this as unknown as PopupWidgetHost, jimuMapView);
-  };
+  onActiveViewChange = (jimuMapView: JimuMapView) =>
+    mapH.onActiveViewChange(asHost(this), jimuMapView);
 
-  private initializeMapConnection = async (jmv: JimuMapView) => {
-    return initializeMapConnection(this as unknown as PopupWidgetHost, jmv);
-  };
+  private initializeMapConnection = async (jmv: JimuMapView) =>
+    mapH.initializeMapConnection(asHost(this), jmv);
 
   private toLiveMapLayer = (
-    layer: any,
+    layer: MaybeLayer,
     map: __esri.Map | null | undefined,
-  ): __esri.FeatureLayer | null => {
-    return toLiveMapLayer(this as unknown as PopupWidgetHost, layer, map);
-  };
+  ): __esri.FeatureLayer | null => mapH.toLiveMapLayer(asHost(this), layer, map);
 
-  private layerKeysMatch = (a: any, b: any): boolean => {
-    return layerKeysMatch(this as unknown as PopupWidgetHost, a, b);
-  };
+  private layerKeysMatch = (a: MaybeLayer, b: MaybeLayer): boolean =>
+    mapH.layerKeysMatch(asHost(this), a, b);
 
   private resolveFeatureLayerForUseDataSource = async (
     jmv: JimuMapView,
-    useDs: any,
-  ): Promise<__esri.FeatureLayer | null> => {
-    return resolveFeatureLayerForUseDataSource(this as unknown as PopupWidgetHost, jmv, useDs);
-  };
-  private clampPopupToMapContainer = (
-    pos: { x: number; y: number },
-    view: __esri.MapView | __esri.SceneView,
-  ) => {
-    return clampPopupToMapContainer(this as unknown as PopupWidgetHost, pos, view);
-  };
+    useDs: PopupUseDataSource | null | undefined,
+  ): Promise<__esri.FeatureLayer | null> =>
+    mapH.resolveFeatureLayerForUseDataSource(asHost(this), jmv, useDs);
+
+  private clampPopupToMapContainer = (pos: XY, view: View) =>
+    layout.clampPopupToMapContainer(asHost(this), pos, view);
 
   private attachMapClick(jmv: JimuMapView) {
-    return attachMapClick(this as unknown as PopupWidgetHost, jmv);
+    return click.attachMapClick(asHost(this), jmv);
   }
 
-  private ensureMapClickAttached = (): boolean => {
-    return ensureMapClickAttached(this as unknown as PopupWidgetHost);
-  };
+  private ensureMapClickAttached = (): boolean => click.ensureMapClickAttached(asHost(this));
 
-  private handleXyPageClosed = (): void => {
-    return handleXyPageClosed(this as unknown as PopupWidgetHost);
-  };
+  private handleXyPageClosed = (): void => click.handleXyPageClosed(asHost(this));
 
-  private handleMasterFilterChanged = (event: Event): void => {
-    return handleMasterFilterChanged(this as unknown as PopupWidgetHost, event);
-  };
+  private handleMasterFilterChanged = (event: Event): void =>
+    click.handleMasterFilterChanged(asHost(this), event);
 
-  private handleWidgetSelectionChanged = (event: Event): void => {
-    return handleWidgetSelectionChanged(this as unknown as PopupWidgetHost, event);
-  };
+  private handleWidgetSelectionChanged = (event: Event): void =>
+    click.handleWidgetSelectionChanged(asHost(this), event);
 
   private openPopupForUniqueid = async (
     uniqueid: string,
     opts?: { zoom?: boolean; notifySelection?: boolean },
-  ): Promise<void> => {
-    return openPopupForUniqueid(this as unknown as PopupWidgetHost, uniqueid, opts);
-  };
+  ): Promise<void> => click.openPopupForUniqueid(asHost(this), uniqueid, opts);
 
-  private handleSharedMapClick = async (event: Event): Promise<void> => {
-    return handleSharedMapClick(this as unknown as PopupWidgetHost, event);
-  };
+  private handleSharedMapClick = async (event: Event): Promise<void> =>
+    click.handleSharedMapClick(asHost(this), event);
 
   private detachMapClick() {
-    return detachMapClick(this as unknown as PopupWidgetHost);
+    return click.detachMapClick(asHost(this));
   }
 
   /* ---------------- Click → hitTest → query full attrs ---------------- */
 
   private toClickQueryGeometry = (
-    view: __esri.MapView | __esri.SceneView,
-    screenPoint: { x: number; y: number },
+    view: View,
+    screenPoint: XY,
     mapPoint?: { x?: number; y?: number; spatialReference?: { wkid?: number } },
-  ): __esri.Point | null => {
-    return toClickQueryGeometry(this as unknown as PopupWidgetHost, view, screenPoint, mapPoint);
-  };
+  ): __esri.Point | null => click.toClickQueryGeometry(asHost(this), view, screenPoint, mapPoint);
 
   private findHitGraphic = (
     hit: __esri.HitTestResult | null | undefined,
     layers: __esri.FeatureLayer[],
-  ): __esri.Graphic | null => {
-    return findHitGraphic(this as unknown as PopupWidgetHost, hit, layers);
-  };
+  ): __esri.Graphic | null => click.findHitGraphic(asHost(this), hit, layers);
 
   private pickClickGraphic = (
     hit: __esri.HitTestResult | null | undefined,
     preferredLayers: __esri.FeatureLayer[],
-  ): __esri.Graphic | null => {
-    return pickClickGraphic(this as unknown as PopupWidgetHost, hit, preferredLayers);
-  };
+  ): __esri.Graphic | null => click.pickClickGraphic(asHost(this), hit, preferredLayers);
 
-  private isHighlightLayer(layer: any): boolean {
-    return isHighlightLayer(this as unknown as PopupWidgetHost, layer);
+  private isHighlightLayer(layer: MaybeLayer): boolean {
+    return click.isHighlightLayer(asHost(this), layer);
   }
 
-  private isLayerEffectivelyVisible(
-    layer: any,
-    view: __esri.MapView | __esri.SceneView,
-  ): boolean {
-    return isLayerEffectivelyVisible(this as unknown as PopupWidgetHost, layer, view);
+  private isLayerEffectivelyVisible(layer: MaybeLayer, view: View): boolean {
+    return click.isLayerEffectivelyVisible(asHost(this), layer, view);
   }
 
-  private isAgriculturalFieldLayer(layer: any): boolean {
-    return isAgriculturalFieldLayer(this as unknown as PopupWidgetHost, layer);
+  private isAgriculturalFieldLayer(layer: MaybeLayer): boolean {
+    return click.isAgriculturalFieldLayer(asHost(this), layer);
   }
 
-  private isAgriculturalFieldGraphic(graphic: __esri.Graphic, layer: any): boolean {
-    return isAgriculturalFieldGraphic(this as unknown as PopupWidgetHost, graphic, layer);
-  }
-  private getClickTargetLayers(
-    view: __esri.MapView | __esri.SceneView,
-  ): __esri.FeatureLayer[] {
-    return getClickTargetLayers(this as unknown as PopupWidgetHost, view);
+  private isAgriculturalFieldGraphic(graphic: __esri.Graphic, layer: MaybeLayer): boolean {
+    return click.isAgriculturalFieldGraphic(asHost(this), graphic, layer);
   }
 
-  private async resolveClickLayers(
-    view: __esri.MapView | __esri.SceneView,
-    jmv: JimuMapView,
-  ): Promise<__esri.FeatureLayer[]> {
-    return resolveClickLayers(this as unknown as PopupWidgetHost, view, jmv);
+  private getClickTargetLayers(view: View): __esri.FeatureLayer[] {
+    return click.getClickTargetLayers(asHost(this), view);
+  }
+
+  private async resolveClickLayers(view: View, jmv: JimuMapView): Promise<__esri.FeatureLayer[]> {
+    return click.resolveClickLayers(asHost(this), view, jmv);
   }
 
   private resolveClickFeatureAt = async (
     ev: __esri.ViewClickEvent,
-    view: __esri.MapView | __esri.SceneView,
+    view: View,
     layers: __esri.FeatureLayer[],
   ): Promise<{
     graphic: __esri.Graphic;
     queryHitLayer: __esri.FeatureLayer | null;
-  } | null> => {
-    return resolveClickFeatureAt(this as unknown as PopupWidgetHost, ev, view, layers);
-  };
+  } | null> => click.resolveClickFeatureAt(asHost(this), ev, view, layers);
 
   private findAttributeValueCaseInsensitive(
-    attributes: Record<string, any> | null | undefined,
+    attributes: PopupAttributes | null | undefined,
     fieldName: string,
-  ): any {
-    return findAttributeValueCaseInsensitive(this as unknown as PopupWidgetHost, attributes, fieldName);
+  ): unknown {
+    return click.findAttributeValueCaseInsensitive(asHost(this), attributes, fieldName);
   }
 
   private notifyGraffPolygonSelection = (
@@ -703,176 +424,140 @@ export default class AgriPolygon extends React.PureComponent<
     polygonMode: boolean,
     clickedAt?: number,
     regionId?: number | null,
-  ): void => {
-    return notifyGraffPolygonSelection(this as unknown as PopupWidgetHost, uniqueid, polygonMode, clickedAt, regionId);
-  };
+  ): void =>
+    click.notifyGraffPolygonSelection(asHost(this), uniqueid, polygonMode, clickedAt, regionId);
 
-  private broadcastPopupVisibility = (open: boolean): void => {
-    return broadcastPopupVisibility(this as unknown as PopupWidgetHost, open);
-  };
+  private broadcastPopupVisibility = (open: boolean): void =>
+    click.broadcastPopupVisibility(asHost(this), open);
 
   private static readonly VEG_INDEX_FIELDS = popupVegIndexFields;
 
-  private fetchLatestVegetationIndices = async (
-    uniqueId: string,
-  ): Promise<void> => {
-    return fetchLatestVegetationIndices(this as unknown as PopupWidgetHost, uniqueId);
-  };
+  private fetchLatestVegetationIndices = async (uniqueId: string): Promise<void> =>
+    click.fetchLatestVegetationIndices(asHost(this), uniqueId);
 
   private async resolveDisplayAttrs(
-    polygonAttributes: Record<string, any> | null | undefined,
-  ): Promise<Record<string, any>> {
-    return resolveDisplayAttrs(this as unknown as PopupWidgetHost, polygonAttributes);
+    polygonAttributes: PopupAttributes | null | undefined,
+  ): Promise<PopupAttributes> {
+    return click.resolveDisplayAttrs(asHost(this), polygonAttributes);
   }
 
-  private onViewClick = async (ev: __esri.ViewClickEvent) => {
-    return onViewClick(this as unknown as PopupWidgetHost, ev);
-  };
+  private onViewClick = async (ev: __esri.ViewClickEvent) => click.onViewClick(asHost(this), ev);
 
   /* ---------------- Attachments helpers ---------------- */
 
   private async fetchAttachmentPreview(url: string): Promise<Blob> {
-    return fetchAttachmentPreview(this as unknown as PopupWidgetHost, url);
+    return field.fetchAttachmentPreview(asHost(this), url);
   }
 
   private revokeAllAttachmentUrls() {
-    return revokeAllAttachmentUrls(this as unknown as PopupWidgetHost);
+    return field.revokeAllAttachmentUrls(asHost(this));
   }
 
   private isImageContentType(ct?: string) {
-    return isImageContentType(this as unknown as PopupWidgetHost, ct);
+    return field.isImageContentType(asHost(this), ct);
   }
 
   private bytesToSize(n?: number): string {
-    return bytesToSize(this as unknown as PopupWidgetHost, n);
+    return field.bytesToSize(asHost(this), n);
   }
 
   private async loadAttachmentsForOid(layer: FeatureLayer, oid: number) {
-    return loadAttachmentsForOid(this as unknown as PopupWidgetHost, layer, oid);
+    return field.loadAttachmentsForOid(asHost(this), layer, oid);
   }
 
   /* ---------------- Field alias + formatting ---------------- */
 
   private isDateField(name: string): boolean {
-    return isDateField(this as unknown as PopupWidgetHost, name);
+    return field.isDateField(asHost(this), name);
   }
 
   private getClickedLayer(): __esri.FeatureLayer | null {
-    return getClickedLayer(this as unknown as PopupWidgetHost);
+    return field.getClickedLayer(asHost(this));
   }
 
-  private resolveFieldName = (key: string): string | null => {
-    return resolveFieldName(this as unknown as PopupWidgetHost, key);
-  };
+  private resolveFieldName = (key: string): string | null =>
+    field.resolveFieldName(asHost(this), key);
 
-  private normalizeFieldAlias(field: any, fallbackName: string): string {
-    return normalizeFieldAlias(this as unknown as PopupWidgetHost, field, fallbackName);
+  private normalizeFieldAlias(meta: PopupFieldMeta | null | undefined, fallbackName: string): string {
+    return field.normalizeFieldAlias(asHost(this), meta, fallbackName);
   }
 
-  private findFieldMetaOnLayer(
-    layer: any,
-    fieldName: string,
-  ): __esri.Field | null {
-    return findFieldMetaOnLayer(this as unknown as PopupWidgetHost, layer, fieldName);
+  private findFieldMetaOnLayer(layer: MaybeLayer, fieldName: string) {
+    return field.findFieldMetaOnLayer(asHost(this), layer, fieldName);
   }
 
   private resolveAliasFromLiveLayers(fieldName: string): string | null {
-    return resolveAliasFromLiveLayers(this as unknown as PopupWidgetHost, fieldName);
+    return field.resolveAliasFromLiveLayers(asHost(this), fieldName);
   }
 
-  private resolveAliasFromDataSourceSchema(
-    fieldName: string,
-    ds: any,
-  ): string | null {
-    return resolveAliasFromDataSourceSchema(this as unknown as PopupWidgetHost, fieldName, ds);
+  private resolveAliasFromDataSourceSchema(fieldName: string, ds: unknown): string | null {
+    return field.resolveAliasFromDataSourceSchema(asHost(this), fieldName, ds);
   }
 
   private getFieldAlias(name: string): string {
-    return getFieldAlias(this as unknown as PopupWidgetHost, name);
+    return field.getFieldAlias(asHost(this), name);
   }
 
-  private formatDateSmart(raw: any): string {
-    return formatDateSmart(this as unknown as PopupWidgetHost, raw);
+  private formatDateSmart(raw: unknown): string {
+    return field.formatDateSmart(asHost(this), raw);
   }
 
-  private formatValue(name: string, raw: any): string {
-    return formatValue(this as unknown as PopupWidgetHost, name, raw);
+  private formatValue(name: string, raw: unknown): string {
+    return field.formatValue(asHost(this), name, raw);
   }
 
   private getOutFields(layer: FeatureLayer, oidField: string): string[] {
-    return getOutFields(this as unknown as PopupWidgetHost, layer, oidField);
+    return field.getOutFields(asHost(this), layer, oidField);
   }
 
   /* ---------------- Popup positioning ---------------- */
 
-  private calculatePopupPosition = (
-    clickPoint: { x: number; y: number },
-    view: __esri.MapView | __esri.SceneView,
-  ): { x: number; y: number } => {
-    return calculatePopupPosition(this as unknown as PopupWidgetHost, clickPoint, view);
-  };
+  private calculatePopupPosition = (clickPoint: XY, view: View): XY =>
+    field.calculatePopupPosition(asHost(this), clickPoint, view);
 
   componentDidUpdate(
     prevProps: Readonly<AllWidgetProps<Config>>,
     prevState: Readonly<State>,
   ) {
-    return componentDidUpdate(this as unknown as PopupWidgetHost, prevProps, prevState);
+    return field.componentDidUpdate(asHost(this), prevProps, prevState);
   }
 
-  private closePopup = (opts?: {
-    restoreExtent?: boolean;
-    notifyDeselect?: boolean;
-  }) => {
-    return closePopup(this as unknown as PopupWidgetHost, opts);
-  };
+  private closePopup = (opts?: { restoreExtent?: boolean; notifyDeselect?: boolean }) =>
+    field.closePopup(asHost(this), opts);
 
-  private minimizePopup = (): void => {
-    return minimizePopup(this as unknown as PopupWidgetHost);
-  };
+  private minimizePopup = (): void => field.minimizePopup(asHost(this));
 
-  private expandPopup = (): void => {
-    return expandPopup(this as unknown as PopupWidgetHost);
-  };
+  private expandPopup = (): void => field.expandPopup(asHost(this));
 
   /* ---------------- DS hook (instantiates DS) ---------------- */
 
-  onDataSourceCreated = (ds: QueriableDataSource) => {
-    return onDataSourceCreated(this as unknown as PopupWidgetHost, ds);
-  };
+  onDataSourceCreated = (ds: QueriableDataSource) => field.onDataSourceCreated(asHost(this), ds);
 
   /* ---------------- Chart rendering ---------------- */
 
-  private toggleChartExpanded = (): void => {
-    return toggleChartExpanded(this as unknown as PopupWidgetHost);
-  };
+  private toggleChartExpanded = (): void => field.toggleChartExpanded(asHost(this));
 
   private renderChartIcon = (type: "bar" | "line" = "bar"): JSX.Element =>
-    renderChartIcon(this as unknown as PopupWidgetHost, type);
+    panel.renderChartIcon(asHost(this), type);
 
-  private clearChartHover = (): void => {
-    return clearChartHover(this as unknown as PopupWidgetHost);
-  };
+  private clearChartHover = (): void => field.clearChartHover(asHost(this));
 
-  private setChartHover = (index: number): void => {
-    return setChartHover(this as unknown as PopupWidgetHost, index);
-  };
+  private setChartHover = (index: number): void => field.setChartHover(asHost(this), index);
 
   private niceChartMax(value: number): number {
-    return niceChartMax(this as unknown as PopupWidgetHost, value);
+    return field.niceChartMax(asHost(this), value);
   }
 
   private formatChartTick(value: number): string {
-    return formatChartTick(this as unknown as PopupWidgetHost, value);
+    return field.formatChartTick(asHost(this), value);
   }
 
   private formatChartTooltipValue(value: number): string {
-    return formatChartTooltipValue(this as unknown as PopupWidgetHost, value);
+    return field.formatChartTooltipValue(asHost(this), value);
   }
 
-  private buildSmoothLinePath(
-    points: Array<{ x: number; y: number }>,
-  ): string {
-    return buildSmoothLinePath(this as unknown as PopupWidgetHost, points);
+  private buildSmoothLinePath(points: XY[]): string {
+    return field.buildSmoothLinePath(asHost(this), points);
   }
 
   private buildRoundedBarPath(
@@ -882,28 +567,18 @@ export default class AgriPolygon extends React.PureComponent<
     height: number,
     radius: number,
   ): string {
-    return buildRoundedBarPath(this as unknown as PopupWidgetHost, x, y, width, height, radius);
+    return field.buildRoundedBarPath(asHost(this), x, y, width, height, radius);
   }
 
-  private renderLatestIndices = () => {
-    return renderLatestIndices(this as unknown as PopupWidgetHost);
-  };
+  private renderLatestIndices = () => panel.renderLatestIndices(asHost(this));
 
-  private renderChart = () => {
-    return renderChart(this as unknown as PopupWidgetHost);
-  };
+  private renderChart = () => panel.renderChart(asHost(this));
 
   /* ---------------- Popup UI ---------------- */
 
-  private renderPopup = () => {
-    return renderPopup(this as unknown as PopupWidgetHost);
-  };
+  private renderPopup = () => panel.renderPopup(asHost(this));
 
   render() {
-    return render(this as unknown as PopupWidgetHost);
+    return panel.render(asHost(this));
   }
-}
-
-export interface IHandleLike {
-  remove: () => void;
 }

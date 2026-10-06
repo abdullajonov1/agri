@@ -37,6 +37,12 @@ export type VhBarComputeStateSlice = {
   ndviDateLocked?: boolean;
 };
 
+/** State patch the VH bar compute may publish (NDVI date discovery). */
+export type VhBarStatePatch = {
+  ndviDateOptions?: string[];
+  ndviDate?: string;
+};
+
 export type VhBarComputeDeps = {
   state: VhBarComputeStateSlice;
   isMounted: () => boolean;
@@ -49,9 +55,9 @@ export type VhBarComputeDeps = {
   resolveCropIdForTuri: (turi: string) => string | null | undefined;
   getVhBarUsedDate: () => string | null;
   setVhBarUsedDate: (date: string | null) => void;
-  setState: (patch: any) => void;
+  setState: (patch: VhBarStatePatch) => void;
   prefetchVhStatusUniqueIds: (date: string) => void;
-  log: (phase: string, detail?: any) => void;
+  log: (phase: string, detail?: Record<string, unknown>) => void;
   /** Header STIR selection — uniqueids of that farmer's parcels. */
   farmerUniqueIds?: string[] | null;
 };

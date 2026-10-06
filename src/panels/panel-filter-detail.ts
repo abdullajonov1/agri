@@ -111,3 +111,19 @@ export const messageOf = (error: unknown): string => {
 
 /** CSS custom properties are not in React.CSSProperties; type them once. */
 export type CssVarStyle = Record<`--${string}`, string>;
+
+/**
+ * `event.detail` typed as a panel detail, without copying — the very object
+ * the producer dispatched, or `{}` when the event carries none.
+ */
+export const panelEventDetail = (event: Event | null | undefined): PanelFilterDetail =>
+  ((event as CustomEvent<PanelFilterDetail> | null | undefined)?.detail || {}) as PanelFilterDetail;
+
+/** Finite numeric `meta[key]` (timestamp / broadcastGeneration), else 0. */
+export const finiteMetaNumber = (
+  meta: Record<string, unknown> | null | undefined,
+  key: string,
+): number => {
+  const value = meta?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+};

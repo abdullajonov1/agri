@@ -2,21 +2,24 @@ import { getDetachedQueryLayerFor, getMapImageParentLayer, isMapImageGroupSublay
 import { CROP_RENDERER_ITEMS, createCropFillSymbol, normalizeCropKey, resolveCropRendererColor } from "../../../../localization/crop-renderer";
 import { agriLog, debugCatch } from "../localization-log";
 import type { LocalizationHost } from "../host";
+import type { AgriMapLayer } from "../../../../localization/agri-map-layer";
+import { featureAttributes, isPresentValue } from "../../../../localization/agri-map-layer";
+import { firstCollectionArray } from "../../../../../gis/agri-layer-types";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 
-export const getCropRendererTargetLayers = (host: LocalizationHost): any[] => {
+export const getCropRendererTargetLayers = (host: LocalizationHost): AgriMapLayer[] => {
   // Only paint layers RegionYear sync currently shows. Never fall back to
   // every map sublayer (that caused ~hundreds of groupBy requests).
   // Test agri leaves are FeatureLayer / MapImage Sublayer with no children —
   // include entry.layer itself when sublayers is empty.
-  const candidates: any[] = [];
+  const candidates: AgriMapLayer[] = [];
   for (const entry of host._lastShownRegionYearLayers || []) {
-    const fromEntry = ((entry as any)?.sublayers || []).filter(Boolean);
-    const loaded =
-      (entry as any)?.layer?.allSublayers?.toArray?.() ||
-      (entry as any)?.layer?.sublayers?.toArray?.() ||
-      [];
-    const fromLoaded: any[] = [];
+    const fromEntry = (entry?.sublayers || []).filter(Boolean);
+    const loaded = firstCollectionArray(
+      entry?.layer?.allSublayers,
+      entry?.layer?.sublayers,
+    );
+    const fromLoaded: AgriMapLayer[] = [];
     for (const sub of loaded) {
       if (sub?.visible !== false && !isMapImageGroupSublayer(sub)) {
         fromLoaded.push(sub);
@@ -24,12 +27,12 @@ export const getCropRendererTargetLayers = (host: LocalizationHost): any[] => {
     }
     if (fromEntry.length || fromLoaded.length) {
       candidates.push(...fromEntry, ...fromLoaded);
-    } else if ((entry as any)?.layer) {
-      candidates.push((entry as any).layer);
+    } else if (entry?.layer) {
+      candidates.push(entry.layer);
     }
   }
 
-  const seen = new Set<any>();
+  const seen = new Set<AgriMapLayer>();
   return candidates.filter((layer) => {
     if (!layer || seen.has(layer) || isMapImageGroupSublayer(layer)) {
       return false;
@@ -50,7 +53,7 @@ export const getCropRendererTargetLayers = (host: LocalizationHost): any[] => {
  */
 export const queryDistinctCropValues = async (
   host: LocalizationHost,
-  layer: any,
+  layer: AgriMapLayer,
   field: string,
   where: string,
 ): Promise<string[]> => {
@@ -63,11 +66,12 @@ export const queryDistinctCropValues = async (
   // and can clear its runtime definitionExpression (district filter) —
   // the exact drift seen as definitionExpressionBefore:"" in the click
   // logs. Run the distinct-values query on the detached off-map client.
-  const queryTarget: any = (await getDetachedQueryLayerFor(layer)) || layer;
+  const queryTarget: AgriMapLayer =
+    ((await getDetachedQueryLayerFor(layer)) as AgriMapLayer | null) || layer;
 
   let distinctValues: string[] = [];
   try {
-    const q: any = queryTarget.createQuery?.() ?? {};
+    const q: __esri.QueryProperties = queryTarget.createQuery?.() ?? {};
     q.where = where || "1=1";
     q.returnGeometry = false;
     q.outFields = [field];
@@ -79,29 +83,24 @@ export const queryDistinctCropValues = async (
         outStatisticFieldName: "cnt",
       },
     ];
-    const res: any = await queryTarget.queryFeatures(q);
+    const res = await queryTarget.queryFeatures?.(q);
     distinctValues = (res?.features || [])
-      .map((f: any) => f?.attributes?.[field])
-      .filter(
-        (v: any) => v !== null && v !== undefined && String(v).trim() !== "",
-      )
-      .map((v: any) => String(v));
+      .map((f) => featureAttributes(f)[field])
+      .filter(isPresentValue)
+      .map((v) => String(v));
   } catch {
     try {
-      const q2: any = queryTarget.createQuery?.() ?? {};
+      const q2: __esri.QueryProperties = queryTarget.createQuery?.() ?? {};
       q2.where = where || "1=1";
       q2.returnGeometry = false;
       q2.outFields = [field];
       q2.returnDistinctValues = true;
       q2.num = 200;
-      const res2: any = await queryTarget.queryFeatures(q2);
+      const res2 = await queryTarget.queryFeatures?.(q2);
       distinctValues = (res2?.features || [])
-        .map((f: any) => f?.attributes?.[field])
-        .filter(
-          (v: any) =>
-            v !== null && v !== undefined && String(v).trim() !== "",
-        )
-        .map((v: any) => String(v));
+        .map((f) => featureAttributes(f)[field])
+        .filter(isPresentValue)
+        .map((v) => String(v));
     } catch {
       distinctValues = [];
     }
@@ -112,7 +111,7 @@ export const queryDistinctCropValues = async (
   return distinctValues;
 };
 
-export const refreshCropLayer = (host: LocalizationHost, layer: any): void => {
+export const refreshCropLayer = (host: LocalizationHost, layer: AgriMapLayer): void => {
   // MapImage dynamic drawing is owned by the parent service layer —
   // refreshing both leaf + parent aborts the first export (canceled
   // MapServer `export` / sublayer id rows in DevTools).
@@ -135,9 +134,9 @@ export const resetCropRenderer = (host: LocalizationHost): void => {
   const renderedLayers =
     host._cropRenderedLayers instanceof Set
       ? host._cropRenderedLayers
-      : (host._cropRenderedLayers = new Set<any>());
+      : (host._cropRenderedLayers = new Set<AgriMapLayer>());
   const layers = Array.from(
-    new Set<any>([
+    new Set<AgriMapLayer>([
       ...host.getCropRendererTargetLayers(),
       ...renderedLayers,
     ]),
@@ -145,7 +144,7 @@ export const resetCropRenderer = (host: LocalizationHost): void => {
   for (const layer of layers) {
     try {
       if (host._originalLayerRenderers.has(layer)) {
-        layer.renderer = host._originalLayerRenderers.get(layer);
+        layer.renderer = host._originalLayerRenderers.get(layer) ?? null;
       }
       host.refreshCropLayer(layer);
     } catch (err) {
@@ -177,7 +176,7 @@ export const applyCropRenderer = async (host: LocalizationHost, requestId: numbe
     layerCount: layers.length,
     selectedTuriKey: selectedTuriKey || null,
     titles: layers.map(
-      (l: any) => l?.title || l?.name || `sublayer-${l?.id}`,
+      (l) => l?.title || l?.name || `sublayer-${l?.id}`,
     ),
   });
 
@@ -196,7 +195,9 @@ export const applyCropRenderer = async (host: LocalizationHost, requestId: numbe
       ) {
         try {
           await safeLoadMapLayer(layer);
-        } catch {}
+        } catch (err) {
+          debugCatch("cropRenderer:load-failed", err);
+        }
       }
       if (!isCurrent()) return;
 
@@ -207,15 +208,15 @@ export const applyCropRenderer = async (host: LocalizationHost, requestId: numbe
         host.findLayerFieldName(layer, "crop_id") ||
         // MapImage sublayers sometimes expose fields late; turi is the
         // standard crop attribute on agri_* RegionYear services.
-        (Array.isArray((layer as any)?.fields) &&
-        (layer as any).fields.length > 0
+        (Array.isArray(layer?.fields) &&
+        layer.fields.length > 0
           ? null
           : "turi");
       if (!field) {
         agriLog("cropRenderer:SKIP-no-field", {
           title: layer?.title || layer?.name,
-          fieldCount: Array.isArray((layer as any)?.fields)
-            ? (layer as any).fields.length
+          fieldCount: Array.isArray(layer?.fields)
+            ? layer.fields.length
             : 0,
         });
         continue;

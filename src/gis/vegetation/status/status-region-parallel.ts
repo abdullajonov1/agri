@@ -1,8 +1,9 @@
 import { escapeArcGIS } from "../../../data/agri-sql";
+import type { AgriQueryableLayer } from "../../../types/agri-layer";
 import { queryDistinctFieldCount, agriNotifyLog } from "../veg-base";
 
 export async function countDistinctUniqueIdsByRegionParallel(
-  layer: any,
+  layer: AgriQueryableLayer,
   baseWhere: string,
   regionField: string,
   uniqueIdField: string,

@@ -55,7 +55,7 @@ export const fetchDataWithCurrentState = async (host: LocalizationHost) => {
     const activeLayers = layers
       .filter((fl) => (fl.definitionExpression || "1=0") !== "1=0")
       .map((fl) =>
-        ((fl as any)?.title || (fl as any)?.id || "layer").toString(),
+        (fl?.title || fl?.id || "layer").toString(),
       );
 
     agriLog("fetchDataWithCurrentState:count-complete", {

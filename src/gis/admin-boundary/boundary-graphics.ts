@@ -141,7 +141,7 @@ export function clearDistrictViewGraphics(view: AdminBoundaryView | null | undef
   }
 }
 
-function addGraphicSafely(
+export function addGraphicSafely(
   target: { add(graphic: Graphic): unknown },
   GraphicClass: typeof Graphic,
   props: __esri.GraphicProperties,
@@ -164,10 +164,12 @@ export function buildFeatureLabelGraphicProps(
   const label = pickFeatureLabel(feature.attributes, labelFields);
   const labelPoint = geometryLabelPoint(feature.geometry);
   if (!label || !labelPoint) return null;
-  return { geometry: labelPoint, symbol: buildDistrictLabelSymbol(label), attributes };
+  const props: __esri.GraphicProperties = {
+    geometry: labelPoint,
+    symbol: buildDistrictLabelSymbol(label),
+  };
+  return attributes ? { ...props, attributes } : props;
 }
-
-export { addGraphicSafely };
 
 /**
  * MapImage crop layers often cover GraphicsLayers. view.graphics always
@@ -189,7 +191,7 @@ export function paintDistrictsOnViewGraphics(opts: {
   if (!bordersVisible || !graphics || !features.length) return 0;
 
   const outlineSymbol = buildDistrictOutlineSymbol(0.85);
-  const tag = { agriAdminTag: AGRI_DISTRICT_VIEW_GRAPHIC_TAG };
+  const tag = (): AgriAttributes => ({ agriAdminTag: AGRI_DISTRICT_VIEW_GRAPHIC_TAG });
   let painted = 0;
   for (const feature of features) {
     if (!feature?.geometry) continue;
@@ -197,13 +199,13 @@ export function paintDistrictsOnViewGraphics(opts: {
       addGraphicSafely(graphics, GraphicClass, {
         geometry: feature.geometry,
         symbol: outlineSymbol,
-        attributes: tag,
+        attributes: tag(),
       })
     ) {
       painted += 1;
     }
     if (!withLabels) continue;
-    const labelProps = buildFeatureLabelGraphicProps(feature, labelFields, tag);
+    const labelProps = buildFeatureLabelGraphicProps(feature, labelFields, tag());
     if (labelProps) addGraphicSafely(graphics, GraphicClass, labelProps);
   }
   return painted;

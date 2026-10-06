@@ -49,18 +49,20 @@ export function regionalTimeseriesRowToYmd(row: {
  * partial (single-index) republic query.
  */
 export function mergeRegionalTimeseriesFieldsIntoChart<
-  TExisting extends Record<string, any>,
+  TExisting extends object,
 >(
   existing: TExisting[],
   incoming: RegionalTimeseriesRow[],
   fields: readonly string[],
 ): Array<TExisting | (RegionalTimeseriesRow & { raster_date: string })> {
-  const byDate = new Map<string, Record<string, any>>();
+  const byDate = new Map<string, Record<string, unknown>>();
   for (const row of existing) {
-    const ymd = regionalTimeseriesRowToYmd(row as any);
+    const ymd = regionalTimeseriesRowToYmd(
+      row as { date?: unknown; raster_date?: unknown },
+    );
     if (!ymd) continue;
     byDate.set(ymd, {
-      ...(row as any),
+      ...(row as object),
       date: ymd,
       raster_date: ymd,
     });
@@ -68,14 +70,15 @@ export function mergeRegionalTimeseriesFieldsIntoChart<
   for (const row of incoming) {
     const ymd = regionalTimeseriesRowToYmd(row);
     if (!ymd) continue;
-    const prev = byDate.get(ymd) || {
+    const prev: Record<string, unknown> = byDate.get(ymd) || {
       date: ymd,
       raster_date: ymd,
       polygon_count: 0,
     };
+    const incomingRow: Record<string, unknown> = row;
     for (const field of fields) {
       if (!Object.prototype.hasOwnProperty.call(row, field)) continue;
-      const nextValue = (row as any)[field];
+      const nextValue = incomingRow[field];
       const nextNum = nextValue == null ? Number.NaN : Number(nextValue);
       const prevNum = prev[field] == null ? Number.NaN : Number(prev[field]);
       if (!Number.isFinite(nextNum) && Number.isFinite(prevNum)) continue;

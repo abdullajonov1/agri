@@ -6,6 +6,14 @@ import { escapeArcGIS, dateEqualsClause } from "../../data/agri-sql";
 import { loadArcGISJSAPIModules } from "jimu-arcgis";
 import { getAgriPersistentCache } from "../../data/agri-persistent-cache";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../shared/agri-http";
+import type { AgriSingletonLayerHandle } from "../../shared/agri-singleton-layer-loader";
+import type { AgriLayerUrlLike, AgriQueryableLayer } from "../../types/agri-layer";
+import { agroV5Log } from "../agri-debug-log";
+import {
+  type AgriAttributes,
+  type AgriLayerWithMaxRecordCount,
+  errorMessage,
+} from "../agri-layer-types";
 
 /** Fields present on agri_vegetation_indices — access rules using only these apply. */
 const VEG_LAYER_ACCESS_FIELDS = [
@@ -30,17 +38,12 @@ function withVegAccessWhere(mainWhere: string): string {
 }
 /** agri_vegetation_indices px_all comes from a 3m x 3m raster: 9 m² / 10,000. */
 export const VEG_PIXEL_AREA_HA = 0.0009;
-/** VH / crop-window diagnostics — visible in browser console. */
+/** VH / crop-window diagnostics — opt-in via `window.__AGRO_V5_VH_DEBUG = true`. */
 export function agriVhLog(
   phase: string,
   detail?: Record<string, unknown>,
 ): void {
-  try {
-    // eslint-disable-next-line no-console
-    console.log(`[AgriVH] ${phase}`, detail ?? "");
-  } catch {
-    /* ignore */
-  }
+  agroV5Log(phase, detail, "agriVh");
 }
 /** Optional diagnostic hook; intentionally quiet in the published dashboard. */
 export function agriVegetationLog(
@@ -54,28 +57,83 @@ export function agriNotifyLog(
   phase: string,
   detail?: Record<string, unknown>,
 ): void {
-  try {
-    if (
-      phase === "query:start" ||
-      phase === "query:done" ||
-      phase === "dates:window" ||
-      phase === "count:day-done" ||
-      phase.endsWith(":error") ||
-      phase.endsWith("-failed")
-    ) {
-      // eslint-disable-next-line no-console
-      console.log(`[AgriNotify] ${phase}`, detail ?? "");
-    }
-  } catch {
-    /* ignore */
+  if (
+    phase === "query:start" ||
+    phase === "query:done" ||
+    phase === "dates:window" ||
+    phase === "count:day-done" ||
+    phase.endsWith(":error") ||
+    phase.endsWith("-failed")
+  ) {
+    // Opt-in via `window.__AGRO_V5_DEBUG = true`.
+    agroV5Log(phase, detail, "notify");
   }
 }
 export function getAgriVegetationIndicesUrl(): string {
   return getAgriServiceUrls().vegetationIndicesUrl;
 }
-export interface AgriVegetationLayerHandle {
-  layer: any;
-  fields: string[];
+/** Loaded agri_vegetation_indices FeatureLayer + its field names. */
+export type AgriVegetationLayerHandle = AgriSingletonLayerHandle;
+
+/** One regional (aggregated per raster_date) vegetation index row. */
+export type VegetationSeriesRow = Record<string, unknown>;
+
+/**
+ * One agri_vegetation_indices row (outFields "*") for a single polygon.
+ * Known columns are listed for readers; values come straight from the
+ * service, so every column is optional and nullable.
+ */
+export interface VegetationPolygonSeriesRow {
+  [field: string]: unknown;
+  objectid?: number | null;
+  id?: number | null;
+  raster_id?: number | null;
+  uniqueid?: string | null;
+  raster_date?: number | string | null;
+  processed_at?: number | string | null;
+  ndvi?: number | null;
+  ndvi_min?: number | null;
+  ndvi_max?: number | null;
+  savi?: number | null;
+  savi_min?: number | null;
+  savi_max?: number | null;
+  evi?: number | null;
+  rvi?: number | null;
+  rvi_min?: number | null;
+  rvi_max?: number | null;
+  ci?: number | null;
+  ci_min?: number | null;
+  ci_max?: number | null;
+  ndwi?: number | null;
+  ndwi_min?: number | null;
+  ndwi_max?: number | null;
+  pixel_count?: number | null;
+  mean_red?: number | null;
+  mean_nir?: number | null;
+  mean_green?: number | null;
+}
+
+/** esri Query plus the REST paging props the JS API typings omit. */
+export type VegQuery = __esri.Query & {
+  resultRecordCount?: number;
+  resultOffset?: number;
+};
+
+/**
+ * Query members read by queryVegFeatures — an esri Query satisfies it, plus
+ * the REST paging props the JS API typings omit.
+ */
+export interface VegQueryLike {
+  where?: string | null;
+  outFields?: string[] | string | null;
+  groupByFieldsForStatistics?: string[] | null;
+  outStatistics?: unknown[] | null;
+  orderByFields?: string[] | null;
+  returnGeometry?: boolean | null;
+  returnDistinctValues?: boolean | null;
+  num?: number | null;
+  resultRecordCount?: number | null;
+  resultOffset?: number | null;
 }
 const getAgriVegetationIndicesLayerCached = createSingletonLayerLoader(
   getAgriVegetationIndicesUrl,
@@ -90,8 +148,8 @@ export async function getAgriVegetationIndicesLayer(): Promise<AgriVegetationLay
   return getAgriVegetationIndicesLayerCached();
 }
 export async function queryVegFeatures(
-  layer: any,
-  query: any,
+  layer: AgriQueryableLayer,
+  query: VegQueryLike,
 ): Promise<__esri.FeatureSet> {
   const outFields = query.outFields;
   // Single choke point for access — do not also wrap at every WHERE builder.
@@ -103,20 +161,21 @@ export async function queryVegFeatures(
       : outFields
         ? [String(outFields)]
         : undefined,
-    groupByFieldsForStatistics: query.groupByFieldsForStatistics,
-    outStatistics: query.outStatistics,
-    orderByFields: query.orderByFields,
+    // `?? undefined`: the gateway treats null and undefined identically.
+    groupByFieldsForStatistics: query.groupByFieldsForStatistics ?? undefined,
+    outStatistics: query.outStatistics ?? undefined,
+    orderByFields: query.orderByFields ?? undefined,
     returnGeometry: query.returnGeometry ?? false,
-    returnDistinctValues: query.returnDistinctValues,
-    num: query.num,
-    resultRecordCount: query.resultRecordCount,
-    resultOffset: query.resultOffset,
+    returnDistinctValues: query.returnDistinctValues ?? undefined,
+    num: query.num ?? undefined,
+    resultRecordCount: query.resultRecordCount ?? undefined,
+    resultOffset: query.resultOffset ?? undefined,
   });
 }
 /** In-flight / session cache so AgriPopup + AgriGraff share one FeatureServer hit. */
 export const vegetationSeriesByUniqueIdCache = new Map<
   string,
-  Promise<Array<Record<string, any>>>
+  Promise<VegetationPolygonSeriesRow[]>
 >();
 export const VEG_AVG_FIELDS = [
   "ndvi",
@@ -174,12 +233,13 @@ export interface VegetationRegionalTimeseriesParams {
 }
 export const vegetationRegionalTimeseriesCache = new Map<
   string,
-  Promise<Array<Record<string, any>>>
+  Promise<VegetationSeriesRow[]>
 >();
 /** Normalizes an ArcGIS date attribute (epoch ms, Date, or string) to "YYYY-MM-DD". */
-export function formatArcgisDateToYmd(value: any): string | null {
+export function formatArcgisDateToYmd(value: unknown): string | null {
   if (value == null) return null;
-  const d = value instanceof Date ? value : new Date(value);
+  // Non-Date values go straight to the Date constructor (epoch ms / ISO text).
+  const d = value instanceof Date ? value : new Date(value as string | number);
   if (Number.isNaN(d.getTime())) return null;
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -408,7 +468,9 @@ const VEG_UNIQUEID_PAGE_SIZE_MAX = 10000;
  * Prefer the layer's maxRecordCount so large viloyat VH uniqueid sets need
  * fewer round-trips (same rows, fewer Network rows / same ArcGIS auth token).
  */
-export function resolveVegetationUniqueIdPageSize(layer: any): number {
+export function resolveVegetationUniqueIdPageSize(
+  layer: AgriLayerWithMaxRecordCount | null | undefined,
+): number {
   const fromLayer = Number(layer?.maxRecordCount);
   if (Number.isFinite(fromLayer) && fromLayer >= 500) {
     return Math.min(Math.floor(fromLayer), VEG_UNIQUEID_PAGE_SIZE_MAX);
@@ -473,7 +535,10 @@ export const vegetationRecentDaysCache = new Map<
   string,
   Promise<VegetationRecentDayGroup[]>
 >();
-export function readVegAttr(attrs: Record<string, any>, ...names: string[]): any {
+export function readVegAttr(
+  attrs: AgriAttributes | null | undefined,
+  ...names: string[]
+): unknown {
   if (!attrs) return undefined;
   for (const name of names) {
     if (Object.prototype.hasOwnProperty.call(attrs, name)) return attrs[name];
@@ -499,15 +564,17 @@ export function shiftYmd(ymd: string, deltaDays: number): string | null {
 }
 /** Uzbekistan (Asia/Tashkent) is UTC+5 year-round (no DST). */
 const TASHKENT_TZ_OFFSET_MS = 5 * 60 * 60 * 1000;
-function epochMsFromDateValue(value: any): number | null {
+function epochMsFromDateValue(value: unknown): number | null {
   if (value == null) return null;
   if (typeof value === "number" && Number.isFinite(value)) return value;
   const ms =
-    value instanceof Date ? value.getTime() : new Date(value).getTime();
+    value instanceof Date
+      ? value.getTime()
+      : new Date(value as string | number).getTime();
   return Number.isFinite(ms) ? ms : null;
 }
 /** Calendar day in Tashkent for a processed_at timestamp. */
-export function formatEpochToTashkentYmd(value: any): string | null {
+export function formatEpochToTashkentYmd(value: unknown): string | null {
   const ms = epochMsFromDateValue(value);
   if (ms == null) return null;
   const shifted = new Date(ms + TASHKENT_TZ_OFFSET_MS);
@@ -547,7 +614,9 @@ export function processedAtTashkentDayWhere(dateField: string, ymd: string): str
     `AND ${dateField} < TIMESTAMP '${formatUtcSqlTimestamp(bounds.endMs)}'`
   );
 }
-function resolveVegetationQueryUrl(layer: any): string {
+function resolveVegetationQueryUrl(
+  layer: AgriLayerUrlLike | null | undefined,
+): string {
   const raw = String(layer?.url || getAgriVegetationIndicesUrl() || "").replace(
     /\/$/,
     "",
@@ -567,18 +636,20 @@ function resolveVegetationQueryUrl(layer: any): string {
  * One HTTP call per region (typically 3–6 regions/day).
  */
 export async function queryDistinctFieldCount(
-  layer: any,
+  layer: AgriQueryableLayer,
   where: string,
   field: string,
 ): Promise<number | null> {
   // 1) FeatureLayer.queryFeatureCount with distinct flag
   try {
-    const query = layer.createQuery();
+    // returnCountOnly is a REST param the JS API Query typings omit.
+    const query: __esri.Query & { returnCountOnly?: boolean } =
+      layer.createQuery();
     query.where = where;
     query.outFields = [field];
     query.returnDistinctValues = true;
     query.returnGeometry = false;
-    (query as any).returnCountOnly = true;
+    query.returnCountOnly = true;
     if (typeof layer.queryFeatureCount === "function") {
       const count = await layer.queryFeatureCount(query);
       if (Number.isFinite(count) && count >= 0) return Number(count);
@@ -586,7 +657,7 @@ export async function queryDistinctFieldCount(
   } catch (err) {
     agriNotifyLog("count:distinct-api-failed", {
       where: where.slice(0, 120),
-      error: String((err as any)?.message || err),
+      error: errorMessage(err),
     });
   }
 
@@ -614,7 +685,7 @@ export async function queryDistinctFieldCount(
   } catch (err) {
     agriNotifyLog("count:distinct-rest-failed", {
       where: where.slice(0, 120),
-      error: String((err as any)?.message || err),
+      error: errorMessage(err),
     });
   }
 

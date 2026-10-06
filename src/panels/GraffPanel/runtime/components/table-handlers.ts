@@ -122,7 +122,7 @@ export async function resolveTablePageForUniqueid(host: GraffWidgetHost, uniquei
 
     const beforeCount = await layer.queryFeatureCount({
       where: beforeWhere,
-    } as any);
+    });
     if (beforeCount == null || !Number.isFinite(Number(beforeCount))) {
       return null;
     }

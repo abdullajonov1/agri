@@ -202,7 +202,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         vh: host.state.selectedVegetationStatus,
         op,
         field,
-        layerUrl: (fl as any)?.url,
+        layerUrl: fl?.url,
         vhUniqueidsCount: host.state.vhUniqueids?.length ?? null,
         joinExpandedCount: host._vhJoinExpanded?.length ?? null,
         joinUsesExpanded:
@@ -321,8 +321,8 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         // Republic overview: Agri_table_data is one national table — summing
         // every non-republic layer duplicates the same FeatureServer query.
         const sameUrlAsCanonical = (layer: __esri.FeatureLayer) => {
-          const a = String((layer as any)?.url || "").replace(/\/+$/, "");
-          const b = String((fl as any)?.url || "").replace(/\/+$/, "");
+          const a = String(layer?.url || "").replace(/\/+$/, "");
+          const b = String(fl?.url || "").replace(/\/+$/, "");
           return !!a && !!b && a === b;
         };
         const nonRepublicLayers = allLayers.filter(
@@ -330,7 +330,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         );
         const distinctLayerUrls = new Set(
           nonRepublicLayers
-            .map((l) => String((l as any)?.url || "").replace(/\/+$/, ""))
+            .map((l) => String(l?.url || "").replace(/\/+$/, ""))
             .filter(Boolean),
         );
         if (
@@ -353,7 +353,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         );
         if (!layerFields.includes(onField.toLowerCase())) {
           layerResults.push({
-            url: (layer as any)?.url,
+            url: layer?.url,
             skipped: `maydon yo'q: ${onField}`,
           });
           continue;
@@ -369,7 +369,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
           })) ?? null;
         if (!host._isMounted || requestId !== host._requestId) return;
         layerResults.push({
-          url: (layer as any)?.url,
+          url: layer?.url,
           raw: rawLayer,
           noRows: rawLayer == null,
           ms: Date.now() - t0,
@@ -417,7 +417,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         statisticType: statMap[op],
         outStatisticFieldName: "agg",
       },
-    ] as any;
+    ];
     q.returnGeometry = false;
 
     const stats = await fl.queryFeatures(q);
@@ -447,25 +447,26 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
       lastUpdate: new Date(),
       error: null,
     });
-  } catch (e: any) {
+  } catch (e) {
+    const err = e as { name?: string; message?: string; details?: unknown } | null | undefined;
     if (vhActive) {
       agriVhIndicatorLog("4-XATO", {
         widgetId: host.props?.id,
         vh: host.state.selectedVegetationStatus,
-        name: e?.name,
-        message: String(e?.message || e),
-        details: e?.details,
+        name: err?.name,
+        message: String(err?.message || e),
+        details: err?.details,
         stale: !host._isMounted || requestId !== host._requestId,
       });
     }
-    if (e?.name === "AbortError") {
+    if (err?.name === "AbortError") {
       if (!host._isMounted || requestId !== host._requestId) return;
       host.setState({ loading: false });
       return;
     }
 
     if (!host._isMounted || requestId !== host._requestId) return;
-    host.setState({ loading: false, error: e?.message || "Query failed" });
+    host.setState({ loading: false, error: err?.message || "Query failed" });
   } finally {
     if (host._abortController === controller) host._abortController = null;
   }

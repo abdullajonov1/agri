@@ -1,11 +1,28 @@
 import type { JimuMapView } from "jimu-arcgis";
-import type { AllWidgetProps, DataSource, React } from "jimu-core";
+import type { AllWidgetProps, DataSource, React, UseDataSource } from "jimu-core";
 import type { AgriRegionState, RegionalDataItem, WidgetSize } from "./widget";
 
+/** Region panel reads only `areaField`; the dashboard passes its whole plain config. */
+export interface RegionPanelConfig {
+  areaField?: string;
+  [key: string]: unknown;
+}
+
+export type RegionWidgetProps = AllWidgetProps<RegionPanelConfig>;
+
+/** The use-data-source fields needed to locate a layer (plain or immutable). */
+export type RegionUseDataSourceRef = Partial<Pick<UseDataSource, "dataSourceId" | "rootDataSourceId">>;
+
+/** Filter fields AgriRegion broadcasts via `widgetSelectionChanged`. */
+export type RegionFilterUpdates = Partial<AgriRegionState["currentFilters"]> & {
+  polygonMode?: boolean;
+  uniqueid?: string;
+};
+
 export interface RegionWidgetHost {
-  props: AllWidgetProps<any>;
+  props: RegionWidgetProps;
   state: AgriRegionState;
-  setState: React.Component<any, AgriRegionState>["setState"];
+  setState: React.Component<RegionWidgetProps, AgriRegionState>["setState"];
   _isMounted: boolean;
   _unbindMasterFilter: () => void;
   handleMasterFilterChange: (event: Event) => void;
@@ -28,7 +45,7 @@ export interface RegionWidgetHost {
   fetchRegionalDataDeduped: () => Promise<void>;
   _selectionNotifyGeneration: number;
   detectAreaField: (layer: __esri.FeatureLayer) => string | null;
-  resolveFeatureLayerFromOneUseDataSource: (useDs: any, jimuMapView: JimuMapView) => Promise<__esri.FeatureLayer | null>;
+  resolveFeatureLayerFromOneUseDataSource: (useDs: RegionUseDataSourceRef | null | undefined, jimuMapView: JimuMapView) => Promise<__esri.FeatureLayer | null>;
   buildWhereForAggregates: (viewOverride?: "viloyat" | "tuman", drillViloyatOverride?: string) => string;
   buildVhScopedWheres: (baseWhere: string) => Promise<string[]>;
   _regionalRequestId: number;
@@ -37,7 +54,7 @@ export interface RegionWidgetHost {
   _lastRegionalFetchKey: string;
   fetchRegionalData: () => Promise<void>;
   beginSelectionNotify: () => number;
-  notifyAgriFilter: (updates: Partial<AgriRegionState["currentFilters"]>, generation?: number) => void;
+  notifyAgriFilter: (updates: RegionFilterUpdates, generation?: number) => void;
   _cursorTooltipRef: React.RefObject<HTMLDivElement>;
   TOOLTIP_PAD: number;
   TOOLTIP_OFFSET_X: number;

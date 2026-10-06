@@ -24,7 +24,9 @@ import { stripUniqueidBraces } from "../../../data/agri-uniqueid-sql";
 import { buildGraffPolygonRasterCacheKey } from "../../../data/agri-graff-stats";
 import { setVegetationOverlayContext } from "../../../gis/agri-vegetation-overlay-prefetch";
 import { graffLog } from "./graff-log";
+import { asThrownObject, describeThrown, thrownMessage, thrownStatus } from "./graff-guards";
 import type { AgriGraffWidgetState } from "./widget";
+import type { GraffWidgetProps } from "./graff-state";
 
 export const VEGETATION_IMAGE_LAYER_ID = "agri-graff-vegetation-image-overlay";
 
@@ -54,7 +56,7 @@ export type GraffVegetationRasterSample = {
 
 export interface GraffRasterOverlayHost {
   state: AgriGraffWidgetState;
-  setState: React.Component<any, AgriGraffWidgetState>["setState"];
+  setState: React.Component<GraffWidgetProps, AgriGraffWidgetState>["setState"];
   _isMounted: boolean;
   _polygonAvailableDatesUniqueid: string;
   _latestRasterDateByUniqueid: Map<string, string>;
@@ -72,7 +74,7 @@ export interface GraffRasterOverlayHost {
   resolveCurrentRegionId: () => number | undefined;
   resolveCurrentYear: () => number | undefined;
   resolveCropIdForUniqueid: (uniqueid: string | null | undefined) => number | null;
-  resolveAgainstAvailableDates: (rawDate: any, availableDates: string[]) => string | null;
+  resolveAgainstAvailableDates: (rawDate: unknown, availableDates: string[]) => string | null;
   cancelVegetationImageOverlay: () => void;
   retryOverlayWithUsableDate: (
     cleanId: string,
@@ -538,16 +540,16 @@ export const applyGraffVegetationImageOverlay = async (
       lastDate: normalizedDate,
       lastIndex: indiceType,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (!stillCurrent()) return;
-    const status = Number(err?.status);
+    const status = Number(thrownStatus(err));
     // 400 = date not servable for this polygon/crop, 404 = no raster at all.
     // Both mean "never ask for this key again"; a valid date comes from the
     // available-dates path (season-filtered) below.
     const dateRejected =
       status === 400 ||
       status === 404 ||
-      /HTTP\s+40[04]/i.test(String(err?.message || err));
+      /HTTP\s+40[04]/i.test(describeThrown(err));
     if (dateRejected) {
       host._missingVegetationRasterKeys.add(rasterKey);
       host.removeVegetationImageOverlay();
@@ -575,17 +577,18 @@ export const applyGraffVegetationImageOverlay = async (
         indiceType,
       );
     }
+    const httpErr = asThrownObject(err);
     graffLog("applyVegetationImageOverlay:FAILED", {
       uniqueid,
       rasterDate: normalizedDate,
       indiceType,
-      status: err?.status ?? null,
-      statusText: err?.statusText || null,
-      contentType: err?.contentType || null,
-      responseText: err?.responseText || null,
-      responseUrl: err?.url || null,
+      status: httpErr?.status ?? null,
+      statusText: httpErr?.statusText || null,
+      contentType: httpErr?.contentType || null,
+      responseText: httpErr?.responseText || null,
+      responseUrl: httpErr?.url || null,
       guessedDate: advertisedDates.length === 0,
-      error: String(err?.message || err),
+      error: describeThrown(err),
     });
     // A guessed date, an out-of-season date, or a day the region has no
     // scene for is expected to fail — the retry supplies a servable date,
@@ -598,7 +601,7 @@ export const applyGraffVegetationImageOverlay = async (
       polygonImageLoading: false,
       polygonImageError: wasGuess
         ? null
-        : err?.message || "Расм юклана олмади",
+        : thrownMessage(err) || "Расм юклана олмади",
     });
   } finally {
     // Clears orphaned loaders from early skips that bumped requestId, and

@@ -78,7 +78,7 @@ export function pruneFeatureQueryCache(host: PopupWidgetHost, now = Date.now()):
 }
 
 export function getFeatureQueryCacheKey(host: PopupWidgetHost, layer: __esri.FeatureLayer, oidField: string, oid: unknown, outFields: string[]): string {
-  const layerKey = String((layer as any)?.url || layer.id || layer.title || "");
+  const layerKey = String(layer?.url || layer.id || layer.title || "");
   const fieldsKey = Array.from(new Set(outFields.map((f) => String(f))))
     .sort()
     .join(",");

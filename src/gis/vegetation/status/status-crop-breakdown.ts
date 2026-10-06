@@ -1,4 +1,4 @@
-import { type VegetationCropBreakdownParams, type VegetationCropBreakdownRow, buildVegetationCropScopeWhere, vegetationCropBreakdownCache, getAgriVegetationIndicesLayer, VEG_STATUS_ROW_MAX_PAGES, VEG_STATUS_ROW_PAGE_SIZE, queryVegFeatures, agriVegetationLog, VEG_PIXEL_AREA_HA } from "../veg-base";
+import { type VegetationCropBreakdownParams, type VegetationCropBreakdownRow, buildVegetationCropScopeWhere, vegetationCropBreakdownCache, getAgriVegetationIndicesLayer, VEG_STATUS_ROW_MAX_PAGES, VEG_STATUS_ROW_PAGE_SIZE, queryVegFeatures, agriVegetationLog, VEG_PIXEL_AREA_HA, type VegQuery } from "../veg-base";
 
 /**
  * Crop mix (by crop_id) for one VH status + date + region/district — same
@@ -46,7 +46,7 @@ export async function queryVegetationCropBreakdownForStatus(
     let offset = 0;
     let previousPageSignature = "";
     for (let page = 0; page < VEG_STATUS_ROW_MAX_PAGES; page++) {
-      const query: any = layer.createQuery();
+      const query: VegQuery = layer.createQuery();
       query.where = where;
       query.groupByFieldsForStatistics = [uniqueIdField, cropIdField];
       query.orderByFields = [`${uniqueIdField} ASC`, `${cropIdField} ASC`];

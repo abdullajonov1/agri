@@ -11,14 +11,32 @@ import { getRegionGroupFeaturesCached } from "../../../../../data/agri-stats-sto
 import { resolveRegionAggregateView, mapRegionPackRows, applyRegionRowPercentages } from "../../../../../data/agri-dashboard-pack-apply";
 import { waitForDashboardPackReady, getDashboardPack } from "../../../../../store/agri-dashboard-store";
 import { matchRegionDashboardPack } from "../../../../../data/agri-dashboard-pack-match";
+import type { AgriStatFeature } from "../../../../../data/agri-stats-store";
+import { messageOf } from "../../../../panel-filter-detail";
+import type { RegionUseDataSourceRef } from "../../region-host";
 
-export const resolveFeatureLayerFromOneUseDataSource = async (host: RegionWidgetHost, useDs: any, jimuMapView: JimuMapView): Promise<__esri.FeatureLayer | null> => {
+/** Layer shape accepted by the shared queryable-layer resolver. */
+type QueryableLayerInput = Parameters<typeof getQueryableLayer>[0];
+
+/** Some jimu layer views also carry the plain `dataSourceId`. */
+type JimuLayerViewRef = ReturnType<JimuMapView["getAllJimuLayerViews"]>[number] & {
+  dataSourceId?: string;
+};
+
+/** Layer-backed data sources (FeatureLayer / MapService) expose these at runtime. */
+interface LayerBackedDataSource {
+  getLayer?: () => Promise<QueryableLayerInput>;
+  url?: string;
+  layer?: { url?: string };
+}
+
+export const resolveFeatureLayerFromOneUseDataSource = async (host: RegionWidgetHost, useDs: RegionUseDataSourceRef | null | undefined, jimuMapView: JimuMapView): Promise<__esri.FeatureLayer | null> => {
   if (!jimuMapView?.view?.map || !useDs?.dataSourceId) return null;
 
   const dsId = useDs.dataSourceId;
-  const rootId = (useDs as any).rootDataSourceId;
+  const rootId = useDs.rootDataSourceId;
 
-  const jlvList: any[] = jimuMapView.getAllJimuLayerViews?.() || [];
+  const jlvList: JimuLayerViewRef[] = jimuMapView.getAllJimuLayerViews?.() || [];
   const matchByDsId = (id: string) =>
     jlvList.find(
       (lv) => lv?.layerDataSourceId === id || lv?.dataSourceId === id,
@@ -33,7 +51,9 @@ export const resolveFeatureLayerFromOneUseDataSource = async (host: RegionWidget
   }
 
   try {
-    const ds: any = DataSourceManager.getInstance().getDataSource(dsId);
+    const ds = DataSourceManager.getInstance().getDataSource(dsId) as
+      | (DataSource & LayerBackedDataSource)
+      | null;
     if (ds?.getLayer) {
       const lyr = await ds.getLayer();
       const queryableLyr = getQueryableLayer(lyr);
@@ -41,8 +61,8 @@ export const resolveFeatureLayerFromOneUseDataSource = async (host: RegionWidget
     }
     const url: string | undefined = ds?.url || ds?.layer?.url;
     if (url) {
-      const layers = jimuMapView.view.map.layers.toArray() as any[];
-      const cand = layers.find((ly: any) => ly?.url === url);
+      const layers = jimuMapView.view.map.layers.toArray() as QueryableLayerInput[];
+      const cand = layers.find((ly) => ly?.url === url);
       const queryableCand = getQueryableLayer(cand);
       if (queryableCand) return queryableCand as __esri.FeatureLayer;
     }
@@ -68,7 +88,7 @@ export const calculateDynamicYAxisWidth = (host: RegionWidgetHost): number => {
 };
 export const resolveFeatureLayersFromUseDataSources = async (host: RegionWidgetHost, jimuMapView: JimuMapView): Promise<__esri.FeatureLayer[]> => {
   const raw =
-    (host.props.useDataSources as any)?.asMutable?.() ??
+    host.props.useDataSources?.asMutable?.() ??
     host.props.useDataSources ??
     [];
   const useDss = Array.isArray(raw) ? raw : [];
@@ -139,21 +159,21 @@ export const queryAggregates = async (host: RegionWidgetHost, groupField: string
     // Reuse the already-loaded Agri_table_data singleton — do not
     // new FeatureLayer().load() per aggregate (extra FeatureServer?f=json).
     const layerForQuery = fl as __esri.FeatureLayer;
-    if (!layerForQuery?.loaded && typeof (layerForQuery as any)?.load === "function") {
+    if (!layerForQuery?.loaded && typeof layerForQuery?.load === "function") {
       try {
-        await (layerForQuery as any).load();
+        await layerForQuery.load();
       } catch {
         /* query may still succeed */
       }
     }
 
-    const queryOne = async (scopedWhere: string): Promise<any[]> => {
+    const queryOne = async (scopedWhere: string): Promise<AgriStatFeature[]> => {
       return getRegionGroupFeaturesCached({
         layer: layerForQuery,
         where: scopedWhere,
         groupField,
         codeField: codeField ?? null,
-        statMode: statMode as any,
+        statMode,
         areaField,
         objectIdField: layerForQuery.objectIdField || "OBJECTID",
       });
@@ -284,10 +304,10 @@ export const fetchRegionalData = async (host: RegionWidgetHost) => {
         regionalError: null,
       });
     }
-  } catch (e: any) {
+  } catch (e) {
     if (!isCurrent()) return;
     host.setState({
-      regionalError: `Failed to load data: ${e?.message || e}`,
+      regionalError: `Failed to load data: ${messageOf(e) || e}`,
       regionalLoading: false,
     });
   }

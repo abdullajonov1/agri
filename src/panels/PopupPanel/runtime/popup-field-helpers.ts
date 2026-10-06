@@ -1,3 +1,5 @@
+import type { PopupFieldMeta } from "./popup-types";
+
 /**
  * Pure field helpers for PopupPanel (no React / map side effects).
  */
@@ -110,7 +112,10 @@ export function localizedPopupVhValue(
   return hit.label[language] || hit.label.uz_lat;
 }
 
-export function normalizeFieldAlias(field: any, fallbackName: string): string {
+export function normalizeFieldAlias(
+  field: PopupFieldMeta | null | undefined,
+  fallbackName: string,
+): string {
   const name = String(field?.name || fallbackName || "").trim();
   const alias = String(
     field?.alias || field?.displayName || field?.label || "",

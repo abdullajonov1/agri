@@ -3,7 +3,7 @@
  * client-side guard that drops district features from neighbouring viloyats.
  */
 import { escapeLikeLiteral, normalizeApos } from "../../data/agri-sql";
-import { canonicalizeRegionFilterValue } from "../feature-layer/lookup/lookup-region";
+import { canonicalizeRegionFilterValue } from "../feature-layer-data";
 import type { AgriAttributes } from "../agri-layer-types";
 import {
   DISTRICT_CODE_FIELDS,

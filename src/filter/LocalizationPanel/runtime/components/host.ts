@@ -1,5 +1,5 @@
 import type { JimuMapView } from "jimu-arcgis";
-import type { AllWidgetProps, DataSource, IMDataSourceInfo, React, UseDataSource } from "jimu-core";
+import type { AllWidgetProps, DataSource, IMDataSourceInfo, React, IMUseDataSource } from "jimu-core";
 import type { AgriMapLayer } from "../../../localization/agri-map-layer";
 import type { CropUniqueValueInfo } from "../../../localization/crop-renderer";
 import type { ChartDim, ChartFilterFlags } from "../../../../gis/agri-chart-filter-order";
@@ -219,7 +219,7 @@ export interface LocalizationHost {
   _viloyatKeyToLayerKeys: Record<string, string[]>;
   initializationTimer: TimerHandle | null;
   getMapWidgetId: () => string | null;
-  getEffectiveUseDataSources: () => UseDataSource[];
+  getEffectiveUseDataSources: () => IMUseDataSource[];
   getPortalSelf: (jimuMapView: JimuMapView) => Promise<{
     username: string | null;
     groups: Array<{ id: string; title: string }>;
@@ -235,7 +235,7 @@ export interface LocalizationHost {
     jimuMapView: JimuMapView | null,
   ) => Promise<void>;
   resolveFeatureLayerFromOneUseDataSource: (
-    useDs: UseDataSource,
+    useDs: IMUseDataSource,
     jimuMapView: JimuMapView | null,
   ) => Promise<__esri.FeatureLayer | null>;
   resolveSpatialMapLayers: (jimuMapView: JimuMapView | null) => Promise<__esri.FeatureLayer[]>;

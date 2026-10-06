@@ -1,6 +1,23 @@
 import { pruneTimedCache, queryCountCache, queryStatsCache, queryJsonCache, getQueryUrl, cacheKey, stableCachePayload, getEsriRequest, QUERY_CACHE_TTL_MS, getExtentClass, isValidMapExtent, flLog, layerLabel } from "../primitives";
 import { getQueryableLayer } from "./lookup-collect";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../../shared/agri-http";
+import type Extent from "esri/geometry/Extent";
+import type Query from "esri/rest/support/Query";
+import type { AgriStatsRow } from "../query-cache";
+import {
+  type AgriAttributes,
+  type AgriLayerLike,
+  type AgriQueryInput,
+  type AgriRestExtentJson,
+  type AgriRestQueryResponse,
+  errorMessage,
+} from "../../agri-layer-types";
+
+/** Feature-ish item whose attributes are read (Graphic or REST JSON). */
+type AttributeCarrier = { attributes?: AgriAttributes | null } | null | undefined;
+
+/** `layer.maxRecordCount` — not on the esri typings, read defensively. */
+type LayerWithMaxRecordCount = AgriLayerLike & { maxRecordCount?: unknown };
 
 export function pruneAgriQueryCache(now = Date.now()): void {
   pruneTimedCache(queryCountCache, now);
@@ -17,9 +34,9 @@ export function invalidateAgriQueryCache(forceClear = false): void {
   pruneAgriQueryCache();
 }
 export async function queryLayerJson(
-  layer: any,
+  layer: AgriLayerLike | null | undefined,
   params: Record<string, unknown>,
-): Promise<any> {
+): Promise<AgriRestQueryResponse> {
   const url = getQueryUrl(layer);
   if (!url) throw new Error("Layer has no URL for JSON query");
 
@@ -27,16 +44,17 @@ export async function queryLayerJson(
   const now = Date.now();
   pruneAgriQueryCache(now);
   const hit = queryJsonCache.get(key);
-  if (hit && hit.expires > now) return hit.value;
+  // queryJsonCache holds untyped REST JSON; this key space only stores /query responses.
+  if (hit && hit.expires > now) return hit.value as Promise<AgriRestQueryResponse>;
 
-  const job = (async () => {
+  const job = (async (): Promise<AgriRestQueryResponse> => {
     const esriRequest = await getEsriRequest();
     const res = await esriRequest(url, {
       query: { f: "json", ...params },
       responseType: "json",
       timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
     });
-    const data = res?.data;
+    const data: AgriRestQueryResponse = res?.data;
     if (data?.error) {
       throw new Error(String(data.error?.message || "Query error"));
     }
@@ -51,14 +69,14 @@ export async function queryLayerJson(
     throw err;
   }
 }
-async function extentFromJson(ext: Record<string, any>): Promise<any> {
+async function extentFromJson(ext: AgriRestExtentJson): Promise<Extent> {
   const Extent = await getExtentClass();
   return new Extent({
     xmin: ext.xmin,
     ymin: ext.ymin,
     xmax: ext.xmax,
     ymax: ext.ymax,
-    spatialReference: ext.spatialReference,
+    spatialReference: ext.spatialReference as __esri.SpatialReferenceProperties,
   });
 }
 /**
@@ -66,16 +84,16 @@ async function extentFromJson(ext: Record<string, any>): Promise<any> {
  * because LayerView.queryExtent is unavailable on map-image sublayers.
  */
 export async function queryLayerExtent(
-  layer: any,
+  layer: AgriLayerLike | null | undefined,
   where: string,
-): Promise<any | null> {
+): Promise<Extent | null> {
   const queryable = getQueryableLayer(layer) || layer;
   if (!queryable) return null;
   const w = String(where || "1=1").trim() || "1=1";
 
   try {
     if (typeof queryable.queryExtent === "function") {
-      const q =
+      const q: AgriQueryInput =
         typeof queryable.createQuery === "function"
           ? queryable.createQuery()
           : { where: w };
@@ -83,7 +101,7 @@ export async function queryLayerExtent(
       q.returnGeometry = true;
       if ("maxAllowableOffset" in q) q.maxAllowableOffset = 0;
       const res = await queryable.queryExtent(q);
-      if (isValidMapExtent(res?.extent)) return res.extent;
+      if (isValidMapExtent(res?.extent)) return res.extent ?? null;
     }
   } catch {
     /* REST fallback below */
@@ -116,7 +134,7 @@ export async function queryLayerExtent(
     let ymin = Infinity;
     let xmax = -Infinity;
     let ymax = -Infinity;
-    let spatialReference: any = null;
+    let spatialReference: AgriRestExtentJson["spatialReference"] = null;
 
     for (const feature of features) {
       const geom = feature?.geometry;
@@ -179,20 +197,29 @@ export async function queryLayerExtent(
 
   return null;
 }
-export async function countWhereUncached(layer: any, where: string): Promise<number> {
+export async function countWhereUncached(
+  layer: AgriLayerLike | null | undefined,
+  where: string,
+): Promise<number> {
   const w = where || "1=1";
   try {
+    if (typeof layer?.createQuery !== "function") {
+      throw new TypeError("layer.createQuery is not a function");
+    }
     const query = layer.createQuery();
+    if (typeof layer.queryFeatureCount !== "function") {
+      throw new TypeError("layer.queryFeatureCount is not a function");
+    }
     query.where = w;
     query.returnGeometry = false;
     const count = await layer.queryFeatureCount(query);
     flLog("countWhere OK", { layer: layerLabel(layer), where: w, count });
     return Number(count) || 0;
-  } catch (err: any) {
+  } catch (err: unknown) {
     flLog("countWhere layer query FAILED → JSON fallback", {
       layer: layerLabel(layer),
       where: w,
-      error: String(err?.message || err),
+      error: errorMessage(err),
     });
   }
   try {
@@ -203,24 +230,24 @@ export async function countWhereUncached(layer: any, where: string): Promise<num
     const count = Number(data?.count) || 0;
     flLog("countWhere JSON OK", { layer: layerLabel(layer), where: w, count });
     return count;
-  } catch (err: any) {
+  } catch (err: unknown) {
     flLog("countWhere JSON FAILED", {
       layer: layerLabel(layer),
       where: w,
-      error: String(err?.message || err),
+      error: errorMessage(err),
     });
     return 0;
   }
 }
 export async function runStatsQueryUncached(
-  layer: any,
+  layer: AgriLayerLike | null | undefined,
   where: string,
   outStatistics: Array<Record<string, unknown>>,
   groupBy?: string[],
-): Promise<Array<Record<string, any>>> {
+): Promise<AgriStatsRow[]> {
   const w = where || "1=1";
 
-  const queryJson = async (): Promise<Array<Record<string, any>>> => {
+  const queryJson = async (): Promise<AgriStatsRow[]> => {
     const params: Record<string, unknown> = {
       where: w,
       returnGeometry: false,
@@ -230,7 +257,9 @@ export async function runStatsQueryUncached(
       params.groupByFieldsForStatistics = groupBy.join(",");
     }
     const data = await queryLayerJson(layer, params);
-    const rows = (data?.features || []).map((f: any) => f?.attributes || {});
+    const rows: AgriStatsRow[] = (data?.features || []).map(
+      (f: AttributeCarrier) => f?.attributes || {},
+    );
     flLog("stats JSON OK", {
       layer: layerLabel(layer),
       where: w,
@@ -241,14 +270,23 @@ export async function runStatsQueryUncached(
     return rows;
   };
 
-  const queryLayer = async (): Promise<Array<Record<string, any>>> => {
+  const queryLayer = async (): Promise<AgriStatsRow[]> => {
+    if (typeof layer?.createQuery !== "function") {
+      throw new TypeError("layer.createQuery is not a function");
+    }
     const query = layer.createQuery();
     query.where = w;
     query.returnGeometry = false;
-    query.outStatistics = outStatistics as any;
-    if (groupBy?.length) query.groupByFieldsForStatistics = groupBy as any;
+    // Library boundary: plain statistic JSON is autocast by the Query setter.
+    query.outStatistics = outStatistics as unknown as Query["outStatistics"];
+    if (groupBy?.length) query.groupByFieldsForStatistics = groupBy;
+    if (typeof layer.queryFeatures !== "function") {
+      throw new TypeError("layer.queryFeatures is not a function");
+    }
     const res = await layer.queryFeatures(query);
-    const rows = (res?.features || []).map((f: any) => f?.attributes || {});
+    const rows: AgriStatsRow[] = (res?.features || []).map(
+      (f: AttributeCarrier) => f?.attributes || {},
+    );
     flLog("stats layer query OK", {
       layer: layerLabel(layer),
       where: w,
@@ -267,35 +305,35 @@ export async function runStatsQueryUncached(
   if (preferJsonFirst) {
     try {
       return await queryJson();
-    } catch (err: any) {
+    } catch (err: unknown) {
       flLog("stats JSON fallback to layer", {
         layer: layerLabel(layer),
         where: w,
         groupBy: groupBy || null,
-        error: String(err?.message || err),
+        error: errorMessage(err),
       });
     }
   }
 
   try {
     return await queryLayer();
-  } catch (err: any) {
+  } catch (err: unknown) {
     flLog("stats layer query fallback to JSON", {
       layer: layerLabel(layer),
       where: w,
       groupBy: groupBy || null,
-      error: String(err?.message || err),
+      error: errorMessage(err),
     });
   }
 
   try {
     return await queryJson();
-  } catch (err: any) {
+  } catch (err: unknown) {
     flLog("stats JSON FAILED", {
       layer: layerLabel(layer),
       where: w,
       groupBy: groupBy || null,
-      error: String(err?.message || err),
+      error: errorMessage(err),
     });
     return [];
   }
@@ -306,11 +344,11 @@ export async function runStatsQueryUncached(
  * fall back to literal matching instead of a truncated index.
  */
 export async function distinctValues(
-  layer: any,
+  layer: AgriLayerLike | null | undefined,
   field: string,
   where = "1=1",
 ): Promise<string[]> {
-  const collect = (features: any[]): string[] => {
+  const collect = (features: AttributeCarrier[]): string[] => {
     const seen = new Set<string>();
     const out: string[] = [];
     for (const feat of features || []) {
@@ -325,7 +363,9 @@ export async function distinctValues(
   };
 
   const pageSize = (() => {
-    const maxRecordCount = Number(layer?.maxRecordCount);
+    const maxRecordCount = Number(
+      (layer as LayerWithMaxRecordCount | null | undefined)?.maxRecordCount,
+    );
     if (Number.isFinite(maxRecordCount) && maxRecordCount > 0) {
       return Math.min(maxRecordCount, 2000);
     }
@@ -333,13 +373,19 @@ export async function distinctValues(
   })();
 
   try {
+    if (typeof layer?.createQuery !== "function") {
+      throw new TypeError("layer.createQuery is not a function");
+    }
     const query = layer.createQuery();
     query.where = where || "1=1";
     query.returnGeometry = false;
     query.returnDistinctValues = true;
     query.outFields = [field];
-    query.orderByFields = [field] as any;
+    query.orderByFields = [field];
     query.num = pageSize;
+    if (typeof layer.queryFeatures !== "function") {
+      throw new TypeError("layer.queryFeatures is not a function");
+    }
     const res = await layer.queryFeatures(query);
     if (res?.exceededTransferLimit === true) {
       return [];

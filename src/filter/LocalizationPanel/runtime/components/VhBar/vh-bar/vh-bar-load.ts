@@ -1,4 +1,5 @@
-import type { LocalizationHost } from "../../host";
+import type { LocalizationConfig, LocalizationHost } from "../../host";
+import { featureAttributes } from "../../../../../localization/agri-map-layer";
 import { buildVhUniqueIdCacheKey } from "../../../../../localization/resolve-geo-codes";
 import { queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-vegetation-data-source";
 import { agriLog } from "../../localization-log";
@@ -75,11 +76,17 @@ export const resolveVhRegionChartUniqueIdsBackground = async (
     host.broadcastFilterState();
   }
 };
+/** Query with the REST paging params this loader sets (not in the Query typings). */
+type PagedQuery = __esri.Query & {
+  resultOffset?: number;
+  resultRecordCount?: number;
+};
+
 export const loadNdviBucketIds = async (host: LocalizationHost, vhCategory: string): Promise<void> => {
   const ndviDate = (host.state.ndviDate || "").trim();
   if (!ndviDate) return;
 
-  const cfg = (host.props.config || {}) as any;
+  const cfg = (host.props.config || {}) as LocalizationConfig;
   const polygonJoinField =
     (cfg.polygonJoinField || "uniqueid").toString().trim() || "uniqueid";
 
@@ -101,7 +108,7 @@ export const loadNdviBucketIds = async (host: LocalizationHost, vhCategory: stri
     statusField = `${prefix}${suffix}`;
   }
 
-  const fields: any[] = (primaryLayer as any).fields || [];
+  const fields: __esri.Field[] = primaryLayer.fields || [];
   const hasStatusField = fields.some(
     (f) =>
       (f?.name || "").toString().toLowerCase() === statusField.toLowerCase(),
@@ -125,17 +132,17 @@ export const loadNdviBucketIds = async (host: LocalizationHost, vhCategory: stri
   let lastSize = 0;
 
   for (let page = 0; page < 250 && host._isMounted; page++) {
-    const q = primaryLayer.createQuery();
-    (q as any).where = where;
-    (q as any).outFields = [polygonJoinField];
-    (q as any).returnGeometry = false;
-    (q as any).resultOffset = offset;
-    (q as any).resultRecordCount = pageSize;
+    const q: PagedQuery = primaryLayer.createQuery();
+    q.where = where;
+    q.outFields = [polygonJoinField];
+    q.returnGeometry = false;
+    q.resultOffset = offset;
+    q.resultRecordCount = pageSize;
 
     const res = await primaryLayer.queryFeatures(q);
     const features = res?.features ?? [];
     for (const f of features) {
-      const v = (f.attributes as any)?.[polygonJoinField];
+      const v = featureAttributes(f)[polygonJoinField];
       if (v != null && v !== "") ids.add(String(v));
     }
 

@@ -2,17 +2,12 @@ import {
   DataSource,
   DataSourceManager,
   IMUseDataSource,
-  Immutable,
   React,
-  ReactDOM,
 } from "jimu-core";
 import { type AllWidgetSettingProps } from "jimu-for-builder";
-import { Option, Select, Switch, TextInput, MultiSelect } from "jimu-ui";
-import { ColorPicker } from "jimu-ui/basic/color-picker";
 import { type AgriPopupConfig, type IMConfig } from "../config";
-import { getQueryableLayer } from "../gis/feature-layer-data";
-
-
+import type { FieldBearingLayer } from "./components/popup-data-sources";
+import type { PopupMenuFrame, SchemaFieldLike } from "./components/popup-field-utils";
 
 export type FieldInfo = {
   name: string;
@@ -82,12 +77,7 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
   private popupFieldMenuRef = React.createRef<HTMLDivElement>();
   private popupFieldButtonRef = React.createRef<HTMLButtonElement>();
   private popupFieldListRef = React.createRef<HTMLUListElement>();
-  private popupMenuFrame: {
-    top: number;
-    left: number;
-    width: number;
-    maxHeight: number;
-  } | null = null;
+  private popupMenuFrame: PopupMenuFrame | null = null;
 
   constructor(props: AllWidgetSettingProps<IMConfig>) {
     super(props);
@@ -176,7 +166,7 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
     return onChartFieldsMultiSelect(this as unknown as PopupSettingHost, _evt, _value, selectedValues);
   };
 
-  private onAttachmentsToggle = (e: any) => {
+  private onAttachmentsToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     return onAttachmentsToggle(this as unknown as PopupSettingHost, e);
   };
 
@@ -201,16 +191,16 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
   };
 
   private fieldsFromSchemaObject = (
-    fieldsObj: Record<string, any>,
+    fieldsObj: Record<string, SchemaFieldLike | undefined>,
   ): FieldInfo[] => {
     return fieldsFromSchemaObject(this as unknown as PopupSettingHost, fieldsObj);
   };
 
-  private fieldsFromLayer = (layer: any): FieldInfo[] => {
+  private fieldsFromLayer = (layer: unknown): FieldInfo[] => {
     return fieldsFromLayer(this as unknown as PopupSettingHost, layer);
   };
 
-  private resolveLayerFromDataSource = async (ds: any): Promise<any | null> => {
+  private resolveLayerFromDataSource = async (ds: unknown): Promise<FieldBearingLayer | null> => {
     return resolveLayerFromDataSource(this as unknown as PopupSettingHost, ds);
   };
 
@@ -222,11 +212,11 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
     return mergeFieldOrder(this as unknown as PopupSettingHost, fields, saved);
   }
 
-  private onChartEnabledToggle = (e: any) => {
+  private onChartEnabledToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     return onChartEnabledToggle(this as unknown as PopupSettingHost, e);
   };
 
-  private onChartTypeChange = (e: any) => {
+  private onChartTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     return onChartTypeChange(this as unknown as PopupSettingHost, e);
   };
 
@@ -238,11 +228,11 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
     return onChartColorChange(this as unknown as PopupSettingHost, color);
   };
 
-  private onZoomToggle = (e: any) => {
+  private onZoomToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     return onZoomToggle(this as unknown as PopupSettingHost, e);
   };
 
-  private onPopupToggle = (e: any) => {
+  private onPopupToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     return onPopupToggle(this as unknown as PopupSettingHost, e);
   };
 

@@ -1,4 +1,4 @@
-import { type VegetationStatusCountsParams, type VegetationStatusCount, buildVegetationStatusWhere, vegetationStatusStatsCache, getAgriVegetationIndicesLayer, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog } from "../veg-base";
+import { type VegetationStatusCountsParams, type VegetationStatusCount, buildVegetationStatusWhere, vegetationStatusStatsCache, getAgriVegetationIndicesLayer, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, type VegQuery } from "../veg-base";
 import { rememberAsync } from "../../../data/agri-persistent-cache";
 
 /**
@@ -26,7 +26,7 @@ export async function queryVegetationStatusCountsByStatus(
     factory: async (): Promise<VegetationStatusCount[]> => {
       const { layer } = await getAgriVegetationIndicesLayer();
       const oidField = String(layer.objectIdField || "objectid");
-      const query: any = layer.createQuery();
+      const query: VegQuery = layer.createQuery();
       query.where = where;
       query.groupByFieldsForStatistics = ["ndvi_status"];
       query.orderByFields = ["ndvi_status ASC"];

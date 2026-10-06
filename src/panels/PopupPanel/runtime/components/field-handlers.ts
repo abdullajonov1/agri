@@ -1,7 +1,15 @@
 import type { PopupWidgetHost } from "../popup-host";
 import { default as esriRequest } from "esri/request";
 import { default as FeatureLayer } from "esri/layers/FeatureLayer";
-import type { AttachmentItem, Config, State } from "../widget";
+import type {
+  AgriLayerLike,
+  AttachmentItem,
+  Config,
+  PopupFieldMeta,
+  State,
+} from "../popup-types";
+import type { AgriFieldLike } from "../../../../gis/agri-layer-types";
+import { asDataSourceLike, readMessage } from "../popup-type-guards";
 import { isEsriDateFieldType, formatDateSmart as formatDateSmartShared, formatPopupAttributeValue, niceChartMax as niceChartMaxShared, formatChartTick as formatChartTickShared, formatChartTooltipValue as formatChartTooltipValueShared } from "../popup-format-helpers";
 import { getAgriLayerMapKey } from "../../../../gis/feature-layer-data";
 import { normalizeFieldAlias as normalizeFieldAliasShared, localizedPopupFieldLabel, localizedPopupVhValue } from "../popup-field-helpers";
@@ -14,12 +22,18 @@ import { getSelectedDsIds } from "../../../../gis/agri-data-source-engine";
 import { AllWidgetProps, QueriableDataSource } from "jimu-core";
 import { AGRI_ESRI_BLOB_TIMEOUT_MS } from "../../../../shared/agri-http";
 
+/** `props.useMapWidgetIds` read defensively (ImmutableArray or plain array). */
+interface MapWidgetIdIndex {
+  [index: number]: unknown;
+  get?(index: number): unknown;
+}
+
 export async function fetchAttachmentPreview(host: PopupWidgetHost, url: string): Promise<Blob> {
   const resp = await esriRequest(url, {
     responseType: "blob",
     query: {},
     timeout: AGRI_ESRI_BLOB_TIMEOUT_MS,
-  } as any);
+  });
   return resp?.data instanceof Blob ? resp.data : (resp as unknown as Blob);
 }
 
@@ -29,7 +43,9 @@ export function revokeAllAttachmentUrls(host: PopupWidgetHost) {
     atts.forEach((a) => {
       if (a.previewObjectUrl) URL.revokeObjectURL(a.previewObjectUrl);
     });
-  } catch {}
+  } catch {
+    // Best-effort cleanup: a failed revoke only leaks a blob URL until unload.
+  }
 }
 
 export function isImageContentType(host: PopupWidgetHost, ct?: string) {
@@ -69,7 +85,7 @@ export async function loadAttachmentsForOid(host: PopupWidgetHost, layer: Featur
     });
 
     const result = await layer.queryAttachments({ objectIds: [oid] });
-    const list = (result?.[oid] || []) as any[];
+    const list: __esri.AttachmentInfo[] = result?.[oid] || [];
 
     const items: AttachmentItem[] = list.map((att) => ({
       id: att.id,
@@ -99,9 +115,9 @@ export async function loadAttachmentsForOid(host: PopupWidgetHost, layer: Featur
       attachmentsError: null,
       attachmentsExpanded: true,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     // ✅ If server says attachments not supported/enabled -> SILENT (no red warning)
-    const msg = String(err?.message || err || "").toLowerCase();
+    const msg = String(readMessage(err) || err || "").toLowerCase();
     const isNotSupported =
       msg.includes("doesn't support attachments") ||
       msg.includes("does not support attachments") ||
@@ -124,7 +140,7 @@ export async function loadAttachmentsForOid(host: PopupWidgetHost, layer: Featur
     host.setState({
       loadingAttachments: false,
       attachments: [],
-      attachmentsError: String(err?.message || err || "Attachments failed"),
+      attachmentsError: String(readMessage(err) || err || "Attachments failed"),
       attachmentsExpanded: true,
     });
   }
@@ -133,8 +149,8 @@ export async function loadAttachmentsForOid(host: PopupWidgetHost, layer: Featur
 export function isDateField(host: PopupWidgetHost, name: string): boolean {
   // Use the clicked layer if possible
   const clickedLayer = host.getClickedLayer();
-  const fld = clickedLayer?.fields?.find((ff: any) => ff.name === name);
-  return isEsriDateFieldType((fld as any)?.type);
+  const fld = clickedLayer?.fields?.find((ff) => ff.name === name);
+  return isEsriDateFieldType(fld?.type);
 }
 
 export function getClickedLayer(host: PopupWidgetHost): __esri.FeatureLayer | null {
@@ -152,41 +168,45 @@ export function getClickedLayer(host: PopupWidgetHost): __esri.FeatureLayer | nu
 export const resolveFieldName = (host: PopupWidgetHost, key: string): string | null => {
   // Prefer DS schema for the LAST clicked ds (best for alias/jimuName)
   const dsId = host.state.lastClickedDsId;
-  const ds: any =
+  const ds = asDataSourceLike(
     dsId && host.state.dataSourcesById?.[dsId]
       ? host.state.dataSourcesById[dsId]
-      : null;
+      : null,
+  );
 
   try {
     const schema = ds?.getSchema?.();
     const fieldsObj = schema?.fields || {};
     if (fieldsObj[key]?.name) return fieldsObj[key].name;
     for (const k of Object.keys(fieldsObj)) {
-      const f = (fieldsObj as any)[k];
+      const f = fieldsObj[k];
       if (f?.name === key || f?.jimuName === key || k === key)
         return f?.name || key;
     }
-  } catch {}
+  } catch (err) {
+    // Schema unavailable — fall back to the clicked layer's fields below.
+    agriMapClickDebug("resolveFieldName: data-source schema read failed", err);
+  }
 
   // fallback to clicked layer fields
   const clickedLayer = host.getClickedLayer();
   const lf = clickedLayer?.fields?.find(
-    (ff: any) => ff.name === key || ff.alias === key,
+    (ff) => ff.name === key || ff.alias === key,
   );
   return lf?.name || null;
 };
 
-export function normalizeFieldAlias(host: PopupWidgetHost, field: any, fallbackName: string): string {
+export function normalizeFieldAlias(host: PopupWidgetHost, field: PopupFieldMeta | null | undefined, fallbackName: string): string {
   return normalizeFieldAliasShared(field, fallbackName);
 }
 
-export function findFieldMetaOnLayer(host: PopupWidgetHost, layer: any, fieldName: string): __esri.Field | null {
+export function findFieldMetaOnLayer(host: PopupWidgetHost, layer: AgriLayerLike | null | undefined, fieldName: string): AgriFieldLike | null {
   const target = fieldName.toLowerCase();
-  const fields = Array.isArray(layer?.fields) ? layer.fields : [];
+  const fields: AgriFieldLike[] = Array.isArray(layer?.fields) ? layer.fields : [];
   return (
-    (fields.find(
-      (f: any) => String(f?.name || "").toLowerCase() === target,
-    ) as __esri.Field | undefined) || null
+    fields.find(
+      (f) => String(f?.name || "").toLowerCase() === target,
+    ) || null
   );
 }
 
@@ -209,10 +229,10 @@ export function resolveAliasFromLiveLayers(host: PopupWidgetHost, fieldName: str
   return null;
 }
 
-export function resolveAliasFromDataSourceSchema(host: PopupWidgetHost, fieldName: string, ds: any): string | null {
+export function resolveAliasFromDataSourceSchema(host: PopupWidgetHost, fieldName: string, ds: unknown): string | null {
   if (!ds) return null;
   try {
-    const fieldsObj = ds?.getSchema?.()?.fields || {};
+    const fieldsObj = asDataSourceLike(ds)?.getSchema?.()?.fields || {};
     const target = fieldName.toLowerCase();
     for (const key of Object.keys(fieldsObj)) {
       const f = fieldsObj[key];
@@ -230,7 +250,7 @@ export function resolveAliasFromDataSourceSchema(host: PopupWidgetHost, fieldNam
       }
     }
   } catch {
-    /* ignore */
+    /* schema unavailable — caller tries the next alias source */
   }
   return null;
 }
@@ -250,7 +270,7 @@ export function getFieldAlias(host: PopupWidgetHost, name: string): string {
   if (fromLayer) return fromLayer;
 
   const dsId = host.state.lastClickedDsId;
-  const ds: any =
+  const ds =
     dsId && host.state.dataSourcesById?.[dsId]
       ? host.state.dataSourcesById[dsId]
       : null;
@@ -282,11 +302,11 @@ export function getFieldAlias(host: PopupWidgetHost, name: string): string {
   );
 }
 
-export function formatDateSmart(host: PopupWidgetHost, raw: any): string {
+export function formatDateSmart(host: PopupWidgetHost, raw: unknown): string {
   return formatDateSmartShared(raw);
 }
 
-export function formatValue(host: PopupWidgetHost, name: string, raw: any): string {
+export function formatValue(host: PopupWidgetHost, name: string, raw: unknown): string {
   const formatted = formatPopupAttributeValue(raw, {
     isDateField: host.isDateField(name),
     formatDate: (value) => host.formatDateSmart(value),
@@ -493,16 +513,10 @@ export function componentDidUpdate(host: PopupWidgetHost, prevProps: Readonly<Al
   const prevDs = getSelectedDsIds(prevProps.useDataSources).join("|");
   const nextDs = getSelectedDsIds(host.props.useDataSources).join("|");
   const dsChanged = prevDs !== nextDs;
-  const prevMap = String(
-    (prevProps.useMapWidgetIds as any)?.[0] ||
-      (prevProps.useMapWidgetIds as any)?.get?.(0) ||
-      "",
-  );
-  const nextMap = String(
-    (host.props.useMapWidgetIds as any)?.[0] ||
-      (host.props.useMapWidgetIds as any)?.get?.(0) ||
-      "",
-  );
+  const prevIds: MapWidgetIdIndex | null | undefined = prevProps.useMapWidgetIds;
+  const nextIds: MapWidgetIdIndex | null | undefined = host.props.useMapWidgetIds;
+  const prevMap = String(prevIds?.[0] || prevIds?.get?.(0) || "");
+  const nextMap = String(nextIds?.[0] || nextIds?.get?.(0) || "");
   const mapChanged = prevMap !== nextMap;
   if ((dsChanged || mapChanged) && host.state.jimuMapView) {
     void host.initializeMapConnection(host.state.jimuMapView);

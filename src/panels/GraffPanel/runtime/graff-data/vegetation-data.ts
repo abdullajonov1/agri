@@ -1,6 +1,7 @@
 import type { GraffDataServiceHost } from "./regional-timeseries";
 import { stripUniqueidBraces } from "../../../../data/agri-uniqueid-sql";
 import { graffLog } from "../graff-log";
+import { describeThrown, thrownMessage } from "../graff-guards";
 import { warmPolygonApiConnection, type VegetationIndiceType, fetchPolygonAvailableDates, type PolygonExportImageResult, resolveExportImageWithDateWalk, getExportImageSeasonMonths } from "../../../../gis/agri-polygon-api-source";
 import { buildGraffPolygonSeriesScopeKey } from "../../../../data/agri-graff-stats";
 import { canConsumeGraffPolygonDashboardPack } from "../../../../data/agri-dashboard-pack-apply";
@@ -85,12 +86,12 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
         cleanId,
         regionId as number,
         year as number,
-      ).catch((err: any) => {
+      ).catch((err: unknown) => {
         graffLog(
           "fetchVegetationData:available-dates-FAILED",
           {
             uniqueid: cleanId,
-            error: String(err?.message || err),
+            error: describeThrown(err),
           },
         );
         return [] as string[];
@@ -196,9 +197,10 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
 
     const data = (polygonPack
       ? (polygonPack.rows as VegetationIndex[])
-      : ((await getGraffPolygonSeriesCached(
+      : // FeatureServer rows are untyped attribute bags with the index fields.
+        ((await getGraffPolygonSeriesCached(
           cleanId,
-        )) as VegetationIndex[]));
+        )) as unknown as VegetationIndex[]));
 
     graffLog("fetchVegetationData:series-response", {
       uniqueid: cleanId,
@@ -266,13 +268,13 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
     try {
       availableDates = await availableDatesPromise;
       availableDatesFailed = availableDates.length === 0;
-    } catch (err: any) {
+    } catch (err: unknown) {
       availableDatesFailed = true;
       graffLog(
         "fetchVegetationData:available-dates-FAILED",
         {
           uniqueid: cleanId,
-          error: String(err?.message || err),
+          error: describeThrown(err),
         },
       );
       availableDates = [];
@@ -398,14 +400,14 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
       nextDate: refined.nextDate,
       dateOrIndexChanged,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isStale()) return;
 
     host._hasCompletedGraphFetch = true;
     host.setState({
       vegetationData: [],
       loadingVegetation: false,
-      vegetationError: error.message || "Вегетация маълумоти юклана олмади",
+      vegetationError: thrownMessage(error) || "Вегетация маълумоти юклана олмади",
       selectedNdviDate: null,
       selectedChartIndexKey: null,
     });

@@ -11,7 +11,7 @@ import { buildYearLikeClause } from "../../../../../controller/agri-where-builde
 import { buildSpatialJoinWhere } from "../../../../../gis/agri-table-data-source";
 import { withAgriAccessWhere } from "../../../../../gis/feature-layer-data";
 import { agriLog } from "../localization-log";
-import type { LocalizationHost } from "../host";
+import type { LocalizationConfig, LocalizationHost } from "../host";
 
 export function buildUniqueIdClause(host: LocalizationHost, raw: string, layer?: __esri.FeatureLayer): string {
   const field = layer
@@ -101,7 +101,7 @@ export function buildNdviStatusClauseForCurrentVh(host: LocalizationHost): strin
     host.state.featureLayer ?? host.state.featureLayers?.[0];
   if (!primaryLayer) return "";
 
-  const cfg = (host.props.config || {}) as any;
+  const cfg = (host.props.config || {}) as LocalizationConfig;
   const prefix =
     (cfg.polygonStatusPrefix || "status_").toString().trim() || "status_";
 
@@ -110,7 +110,7 @@ export function buildNdviStatusClauseForCurrentVh(host: LocalizationHost): strin
     vhCategory: host.state.vh || "",
     prefix,
     dateFieldMap: host._ndviDateFieldMap,
-    layerFields: (primaryLayer as any).fields || [],
+    layerFields: primaryLayer.fields || [],
   });
 }
 
@@ -123,7 +123,7 @@ export function buildNdviDateClauseWithoutVh(host: LocalizationHost): string {
     host.state.featureLayer ?? host.state.featureLayers?.[0];
   if (!primaryLayer) return "";
 
-  const cfg = (host.props.config || {}) as any;
+  const cfg = (host.props.config || {}) as LocalizationConfig;
   const prefix =
     (cfg.polygonStatusPrefix || "status_").toString().trim() || "status_";
 
@@ -131,7 +131,7 @@ export function buildNdviDateClauseWithoutVh(host: LocalizationHost): string {
     ndviDate: host.state.ndviDate || "",
     prefix,
     dateFieldMap: host._ndviDateFieldMap,
-    layerFields: (primaryLayer as any).fields || [],
+    layerFields: primaryLayer.fields || [],
   });
 }
 

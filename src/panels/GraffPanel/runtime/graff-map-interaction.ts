@@ -1,5 +1,5 @@
 import { React } from "jimu-core";
-import { applyGraffDefinitionExpression } from "./graff-guards";
+import { applyGraffDefinitionExpression, describeThrown, type AgriQueryableLayer } from "./graff-guards";
 import type { JimuMapView } from "jimu-arcgis";
 import {
   ensureAgriServerIdentityToken,
@@ -18,13 +18,14 @@ import {
 } from "../../../gis/agri-polygon-api-source";
 import { clearMapSelectionGraphics, isLayerTreeVisible } from "./graff-map-utils";
 import { copyUniqueIdToClipboard } from "./graff-clipboard";
-import { graffLog } from "./graff-log";
+import { graffDebugCatch, graffLog } from "./graff-log";
 import type { GraffVegetationRasterSample } from "./graff-raster-overlay";
 import type { AgriGraffWidgetState, RecordData } from "./widget";
+import type { GraffWidgetProps } from "./graff-state";
 
 export interface GraffMapInteractionHost {
   state: AgriGraffWidgetState;
-  setState: React.Component<any, AgriGraffWidgetState>["setState"];
+  setState: React.Component<GraffWidgetProps, AgriGraffWidgetState>["setState"];
   _isMounted: boolean;
   _extentBeforeTableSelection: __esri.Extent | null;
   _polygonSelectionOrigin: "table" | "map" | null;
@@ -239,8 +240,8 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
   graffLog("tableRow:click", {
     uniqueid: record?.uniqueid || null,
     objectid: record?.objectid ?? null,
-    recordTuman: String((record as any)?.tuman || ""),
-    recordViloyat: String((record as any)?.viloyat || ""),
+    recordTuman: String(record?.tuman || ""),
+    recordViloyat: String(record?.viloyat || ""),
     filterViloyat: host.state.regionalFilters?.viloyat || "",
     filterTuman: host.state.regionalFilters?.tuman || "",
     interactionEnabled: host.isRegionalInteractionEnabled(),
@@ -317,7 +318,9 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
         try {
           const baseWhere = host.buildWhereClause();
           applyGraffDefinitionExpression(featureLayer, host.state.dataSource, baseWhere || "1=0");
-        } catch {}
+        } catch (err) {
+          graffDebugCatch("tableRow:restoreDefinitionExpression", err);
+        }
         try {
           document.dispatchEvent(
             new CustomEvent("widgetSelectionChanged", {
@@ -329,7 +332,9 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
               bubbles: true,
             }),
           );
-        } catch {}
+        } catch (err) {
+          graffDebugCatch("tableRow:dispatchSelectionChanged", err);
+        }
         if (host.state.viewMode === "graph") {
           host.fetchRegionalTimeseries();
         }
@@ -352,10 +357,10 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
     const spatialLayersForHighlight = host.getTableSpatialQueryCandidates();
     graffLog("tableRow:spatial-candidates", {
       count: spatialLayersForHighlight.length,
-      layers: spatialLayersForHighlight.map((layer: any) => ({
+      layers: spatialLayersForHighlight.map((layer: AgriQueryableLayer) => ({
         title: layer?.title || null,
         url:
-          (layer as any)?.__agriQueryableUrl ||
+          layer?.__agriQueryableUrl ||
           resolveQueryableServiceUrl(layer) ||
           layer?.url ||
           null,
@@ -373,11 +378,12 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
     for (const spatialLayer of spatialLayersForHighlight) {
       if (isStaleClick()) return;
       const url =
-        String((spatialLayer as any)?.__agriQueryableUrl || "").trim() ||
+        String((spatialLayer as AgriQueryableLayer)?.__agriQueryableUrl || "").trim() ||
         resolveQueryableServiceUrl(spatialLayer);
       if (!url) continue;
 
-      let detached = host._detachedSpatialQueryLayers.get(url);
+      let detached: __esri.FeatureLayer | null | undefined =
+        host._detachedSpatialQueryLayers.get(url);
       if (!detached) {
         try {
           detached = await getDetachedQueryLayerForUrl(url);
@@ -385,9 +391,9 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
         } catch (err) {
           graffLog("tableRow:detached-FAILED", {
             url,
-            error: String((err as any)?.message || err),
+            error: describeThrown(err),
           });
-          detached = null as any;
+          detached = null;
         }
       }
       // Never query the live MapImage sublayer — it rehydrates and can
@@ -395,7 +401,7 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
       if (!detached) {
         graffLog("tableRow:skip-no-detached", {
           url,
-          title: (spatialLayer as any)?.title || null,
+          title: spatialLayer?.title || null,
         });
         continue;
       }
@@ -413,7 +419,7 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
           graffLog("tableRow:query-FAILED", {
             url,
             where: uniqueWhere,
-            error: String((err as any)?.message || err),
+            error: describeThrown(err),
           });
           results = null;
         }
@@ -422,7 +428,7 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
       if (results?.features?.length) {
         graffLog("tableRow:geometry-found", {
           uniqueid: uniqueid || null,
-          layer: (spatialLayer as any)?.title || null,
+          layer: spatialLayer?.title || null,
           url,
         });
         break;
@@ -488,7 +494,9 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
               ? `(${baseWhere}) AND ${uniqueClause}`
               : uniqueClause;
           applyGraffDefinitionExpression(featureLayer, host.state.dataSource, selectedWhere || "1=0");
-        } catch {}
+        } catch (err) {
+          graffDebugCatch("tableRow:selectedDefinitionExpression", err);
+        }
 
         try {
           document.dispatchEvent(
@@ -502,7 +510,9 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
               bubbles: true,
             }),
           );
-        } catch {}
+        } catch (err) {
+          graffDebugCatch("tableRow:dispatchSelectionChanged", err);
+        }
 
         // Chart series + season-aware raster walk (single flight). Do not also
         // call kickOptimistic here — that stacked a second 400 cascade.
@@ -671,7 +681,7 @@ export const attachGraffRasterHover = (
   const tooltip = host.ensureVegetationHoverTooltipEl();
   if (!tooltip) return;
 
-  host._vegetationHoverHandle = view.on("pointer-move", (event: any) => {
+  host._vegetationHoverHandle = view.on("pointer-move", (event: __esri.ViewPointerMoveEvent) => {
     if (!host._vegetationRasterSample || !host._isMounted) {
       host.hideVegetationHoverTooltip();
       return;

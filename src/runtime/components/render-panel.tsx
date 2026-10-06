@@ -14,21 +14,28 @@ import { agriNoDataLabel } from "../../shared/agriNoDataLabel";
 import { default as PiePanel } from "../../panels/PiePanel";
 import { default as GraffPanel } from "../../panels/GraffPanel";
 import { default as BarPanel } from "../../panels/BarPanel";
+import { toMutableUseDataSources } from "./dashboard-config";
+
+type DateIndexPanelProps = React.ComponentProps<typeof DateIndexPanel>;
+type PopupPanelProps = React.ComponentProps<typeof PopupPanel>;
+type LocalizationPanelProps = React.ComponentProps<typeof LocalizationPanel>;
+type RegionPanelProps = React.ComponentProps<typeof RegionPanel>;
+type PiePanelProps = React.ComponentProps<typeof PiePanel>;
+type GraffPanelProps = React.ComponentProps<typeof GraffPanel>;
+type BarPanelProps = React.ComponentProps<typeof BarPanel>;
 
 export function render(host: DashboardWidgetHost) {
   const baseConfig = host.toPlainConfig();
   const indicatorConfig = host.getIndicatorConfig(baseConfig);
   const popupConfig = host.getPopupConfig(baseConfig);
   const activeMapId = host.getActiveMapWidgetId();
-  const webMapDataSourceId = String((baseConfig as any).webMapDataSourceId || "");
-  const allDataSources = (host.props.useDataSources as any)?.asMutable
-    ? (host.props.useDataSources as any).asMutable({ deep: true })
-    : Array.from((host.props.useDataSources as any) || []);
+  const webMapDataSourceId = String(baseConfig.webMapDataSourceId || "");
+  const allDataSources = toMutableUseDataSources(host.props.useDataSources);
   const webMapUseDataSource = allDataSources.find(
-    (source: any) => String(source?.dataSourceId || "") === webMapDataSourceId,
+    (source) => String(source?.dataSourceId || "") === webMapDataSourceId,
   );
   const featureUseDataSources = allDataSources.filter(
-    (source: any) =>
+    (source) =>
       !!String(source?.dataSourceId || "") &&
       String(source.dataSourceId) !== webMapDataSourceId,
   );
@@ -116,7 +123,7 @@ export function render(host: DashboardWidgetHost) {
           aria-label="Selected date and index indicator"
         >
           <DateIndexPanel
-            {...host.childProps("date-index", baseConfig)}
+            {...host.childProps<DateIndexPanelProps>("date-index", baseConfig)}
           />
         </div>,
         mapIndicatorTarget,
@@ -129,7 +136,7 @@ export function render(host: DashboardWidgetHost) {
           className="agri-dashboard-agri-host"
           aria-label="Polygon attribute popup"
         >
-          <PopupPanel {...host.childProps("popup", popupConfig)} />
+          <PopupPanel {...host.childProps<PopupPanelProps>("popup", popupConfig)} />
         </div>,
         portalTarget,
       )
@@ -150,7 +157,7 @@ export function render(host: DashboardWidgetHost) {
       }
     >
       <section className="agri-dashboard-header" aria-label="Localization">
-        <LocalizationPanel {...host.childProps("localization", baseConfig)} />
+        <LocalizationPanel {...host.childProps<LocalizationPanelProps>("localization", baseConfig)} />
       </section>
 
       <div
@@ -165,7 +172,7 @@ export function render(host: DashboardWidgetHost) {
             aria-label="Regional statistics"
           >
             <div className="agri-dashboard-widget-slot">
-              <RegionPanel {...host.childProps("region", baseConfig)} />
+              <RegionPanel {...host.childProps<RegionPanelProps>("region", baseConfig)} />
             </div>
           </aside>
 
@@ -246,13 +253,13 @@ export function render(host: DashboardWidgetHost) {
 
         <div className="agri-dashboard-bottom-row" aria-label="Charts">
           <div className="agri-dashboard-widget-slot">
-            <PiePanel {...host.childProps("pie", baseConfig)} />
+            <PiePanel {...host.childProps<PiePanelProps>("pie", baseConfig)} />
           </div>
           <div className="agri-dashboard-widget-slot">
-            <GraffPanel {...host.childProps("graff", baseConfig)} />
+            <GraffPanel {...host.childProps<GraffPanelProps>("graff", baseConfig)} />
           </div>
           <div className="agri-dashboard-widget-slot">
-            <BarPanel {...host.childProps("bar", baseConfig)} />
+            <BarPanel {...host.childProps<BarPanelProps>("bar", baseConfig)} />
           </div>
         </div>
       </div>

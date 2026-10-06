@@ -1,5 +1,5 @@
 /** @jsx jsx */
-import { jsx, React, type AllWidgetProps } from "jimu-core";
+import { jsx, React } from "jimu-core";
 import AgriIndicator10 from "../panels/IndicatorPanel";
 import AgriIndicatorYield from "../panels/IndicatorYieldPanel/runtime/widget";
 import AgriIndicatorUnusedLand from "../panels/IndicatorUnusedLandPanel/runtime/widget";
@@ -11,15 +11,23 @@ export type IndicatorAnimPhase =
   | "expanded"
   | "collapsing";
 
+/** Props of the four embedded indicator panels, keyed as the dashboard caches them. */
+export interface IndicatorChildPropsSet {
+  indicator: React.ComponentProps<typeof AgriIndicator10>;
+  yield: React.ComponentProps<typeof AgriIndicatorYield>;
+  unused: React.ComponentProps<typeof AgriIndicatorUnusedLand>;
+  reserve: React.ComponentProps<typeof AgriIndicatorReserveLand>;
+}
+
 type Props = {
   overlayRef: React.RefObject<HTMLDivElement>;
   panelRef: React.RefObject<HTMLDivElement>;
   phase: IndicatorAnimPhase;
   onToggle: (event: React.MouseEvent<HTMLButtonElement>) => void;
-  indicatorProps: AllWidgetProps<any>;
-  yieldProps: AllWidgetProps<any>;
-  unusedLandProps: AllWidgetProps<any>;
-  reserveLandProps: AllWidgetProps<any>;
+  indicatorProps: IndicatorChildPropsSet["indicator"];
+  yieldProps: IndicatorChildPropsSet["yield"];
+  unusedLandProps: IndicatorChildPropsSet["unused"];
+  reserveLandProps: IndicatorChildPropsSet["reserve"];
 };
 
 /**

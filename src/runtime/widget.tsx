@@ -22,7 +22,9 @@ import { TriangleAlert } from "lucide-react";
 import EmbeddedAgriMap from "./embedded-agri-map";
 import AgriMapIndicatorDrawer, {
   type IndicatorAnimPhase,
+  type IndicatorChildPropsSet,
 } from "./AgriMapIndicatorDrawer";
+import type { JimuMapView } from "jimu-arcgis";
 import {
   type AgriPopupConfig,
   type IMConfig,
@@ -123,7 +125,7 @@ import {
 import {
   render,
 } from "./components/render-panel";
-import type { DashboardWidgetHost } from "./dashboard-host";
+import type { DashboardChildProps, DashboardWidgetHost } from "./dashboard-host";
 export default class AgriDashboard extends React.PureComponent<
   AllWidgetProps<IMConfig>,
   AgriDashboardState
@@ -142,13 +144,9 @@ export default class AgriDashboard extends React.PureComponent<
   private lastIndicatorToggleAt = 0;
   private indicatorAnimTimer: ReturnType<typeof setTimeout> | null = null;
   private mapIndicatorHost: HTMLElement | null = null;
-  private indicatorChildPropsCache: {
-    signature: string;
-    indicator: AllWidgetProps<any>;
-    yield: AllWidgetProps<any>;
-    unused: AllWidgetProps<any>;
-    reserve: AllWidgetProps<any>;
-  } | null = null;
+  private indicatorChildPropsCache:
+    | (IndicatorChildPropsSet & { signature: string })
+    | null = null;
   /** Last map-slot CSS size that triggered view.resize — skip no-op resizes. */
   private lastMapSlotSize = { w: -1, h: -1 };
   private mapReadyWatchHandle: { remove?: () => void } | null = null;
@@ -260,22 +258,17 @@ export default class AgriDashboard extends React.PureComponent<
     return getPopupConfig(this as unknown as DashboardWidgetHost, baseConfig);
   }
 
-  private childProps(
+  private childProps<P = DashboardChildProps>(
     suffix: ChildSuffix,
     config?: Record<string, unknown>,
-  ): AllWidgetProps<any> {
-    return childProps(this as unknown as DashboardWidgetHost, suffix, config);
+  ): P {
+    return childProps<P>(this as unknown as DashboardWidgetHost, suffix, config);
   }
 
   private getStableIndicatorChildProps(
     indicatorConfig: Record<string, unknown>,
     baseConfig: Record<string, unknown>,
-  ): {
-    indicator: AllWidgetProps<any>;
-    yield: AllWidgetProps<any>;
-    unused: AllWidgetProps<any>;
-    reserve: AllWidgetProps<any>;
-  } {
+  ): IndicatorChildPropsSet {
     return getStableIndicatorChildProps(this as unknown as DashboardWidgetHost, indicatorConfig, baseConfig);
   }
 
@@ -291,7 +284,7 @@ export default class AgriDashboard extends React.PureComponent<
     return getActiveMapWidgetId(this as unknown as DashboardWidgetHost);
   }
 
-  private getActiveJimuMapView(): any | null {
+  private getActiveJimuMapView(): JimuMapView | null {
     return getActiveJimuMapView(this as unknown as DashboardWidgetHost);
   }
 
@@ -303,7 +296,7 @@ export default class AgriDashboard extends React.PureComponent<
     return setMapLoading(this as unknown as DashboardWidgetHost, mapLoading);
   }
 
-  private getMapLoadingState(jimuMapView: any | null): boolean {
+  private getMapLoadingState(jimuMapView: JimuMapView | null): boolean {
     return getMapLoadingState(this as unknown as DashboardWidgetHost, jimuMapView);
   }
 

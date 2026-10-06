@@ -1,16 +1,33 @@
 import { agriLog } from "../localization-log";
 import type { LocalizationHost } from "../host";
-import type { FilterState } from "../../widget";
+import type { FilterState, GeoWidgetState } from "../../widget";
 import { clearPieVhFilterUniqueIds } from "../../../../../gis/agri-chart-filter-order";
-import { preloadRegionYearMapImages } from "../../../../../gis/feature-layer-data";
 import type { MapZoomRequest } from "../../../../localization/map-zoom-policy";
-import { hasDistrictMappingForSelection } from "../../../../localization/resolve-geo-codes";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
+import { applyGeographyOrCropSelection, applyVhOnlySelection } from "./selection-apply";
+
+/** Untyped `widgetSelectionChanged` event detail (published by sibling widgets). */
+interface WidgetSelectionDetail {
+  timestamp?: unknown;
+  yil?: string | number;
+  viloyat?: string;
+  tuman?: string;
+  turi?: string;
+  turlar?: unknown;
+  vh?: string;
+  uniqueid?: string | number;
+  clickedAt?: unknown;
+  source?: string;
+  language?: FilterState["language"];
+  ndviDate?: string;
+  polygonMode?: boolean;
+}
 
 export const handleWidgetSelection = async (host: LocalizationHost, event: Event) => {
   if (!host._isMounted) return;
 
-  const d: any = (event as CustomEvent).detail || {};
+  const d: WidgetSelectionDetail =
+    ((event as CustomEvent<WidgetSelectionDetail | null>).detail) || {};
   agriLog("handleWidgetSelection:received", {
     detail: d,
     currentLockedViloyat: host.state.lockedViloyat,
@@ -42,7 +59,7 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
     return;
   }
 
-  const updates: Partial<FilterState> = {};
+  const updates: Partial<GeoWidgetState> = {};
 
   if (d.yil !== undefined) updates.yil = String(d.yil || "");
   if (d.viloyat !== undefined)
@@ -66,23 +83,23 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
     // unfiltered by VH; VH-first: Pie scoped by VH, VH bar not by crop).
   }
   if (d.uniqueid !== undefined) {
-    (updates as any).selectedGraffUniqueid = String(d.uniqueid || "").trim();
+    updates.selectedGraffUniqueid = String(d.uniqueid || "").trim();
     /*
      * Only keep a real map-click timestamp (AgriPopup / explicit clickedAt).
      * Inventing Date.now() for AgriGraff table selection made Graff treat the
      * echo as "click same polygon on map" and immediately deselect.
      */
     if (typeof d.clickedAt === "number") {
-      (updates as any).selectedGraffUniqueidClickedAt = d.clickedAt;
+      updates.selectedGraffUniqueidClickedAt = d.clickedAt;
     } else if (d.source === "AgriPopup") {
-      (updates as any).selectedGraffUniqueidClickedAt = Date.now();
+      updates.selectedGraffUniqueidClickedAt = Date.now();
     }
   }
   if (d.language !== undefined) updates.language = d.language;
   const ndviDateChanged = d.ndviDate !== undefined;
   if (ndviDateChanged) {
     // When a polygon graph is active, ignore external NDVI date changes from Graff.
-    if ((host.state as any).polygonMode && d.source === "AgriGraffWidget") {
+    if (host.state.polygonMode && d.source === "AgriGraffWidget") {
     } else {
       updates.ndviDate = String(d.ndviDate || "");
       if (updates.ndviDate !== host.state.ndviDate)
@@ -92,10 +109,10 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
 
   // Track whether a polygon chart is currently active in Graff
   if (d.polygonMode !== undefined) {
-    (updates as any).polygonMode = Boolean(d.polygonMode);
+    updates.polygonMode = Boolean(d.polygonMode);
     if (!Boolean(d.polygonMode)) {
-      (updates as any).selectedGraffUniqueid = "";
-      (updates as any).selectedGraffUniqueidClickedAt = undefined;
+      updates.selectedGraffUniqueid = "";
+      updates.selectedGraffUniqueidClickedAt = undefined;
     }
   }
 
@@ -105,7 +122,7 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
     String(host.state.graffSearchText || "").trim(),
   );
   const incomingUniqueClean = String(
-    (updates as any).selectedGraffUniqueid ??
+    updates.selectedGraffUniqueid ??
       host.state.selectedGraffUniqueid ??
       "",
   )
@@ -122,10 +139,10 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
     incomingUniqueClean !== currentUniqueClean;
 
   if (mapPickedDifferentField || (d.polygonMode === false && hadSearchSelection)) {
-    (updates as any).graffSearchText = "";
-    (updates as any).graffSearchSuggestions = [];
-    (updates as any).graffSearchShowSuggestions = false;
-    (updates as any).graffSearchLoading = false;
+    updates.graffSearchText = "";
+    updates.graffSearchSuggestions = [];
+    updates.graffSearchShowSuggestions = false;
+    updates.graffSearchLoading = false;
     if (host._graffSearchDebounceTimer) {
       clearTimeout(host._graffSearchDebounceTimer);
       host._graffSearchDebounceTimer = null;
@@ -136,7 +153,10 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
   try {
     if (updates.yil !== undefined) {
       const y = String(updates.yil || "");
-      const w: any = typeof window !== "undefined" ? (window as any) : null;
+      const w =
+        typeof window !== "undefined"
+          ? (window as unknown as { __AGRI3_DEBUG_YEAR__?: string })
+          : null;
       if (w) w.__AGRI3_DEBUG_YEAR__ = /\b2024\b/.test(y) ? "2024" : "";
     }
   } catch {
@@ -158,7 +178,7 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
         },
       );
     }
-    delete (updates as any).viloyat;
+    delete updates.viloyat;
   }
 
   // ✅ hierarchy clearing (prevents caching old selections)
@@ -194,18 +214,18 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
   ) {
     updates.vh = "";
     // Field popup / Graff single-polygon focus is stale once geography moves.
-    (updates as any).polygonMode = false;
-    (updates as any).selectedGraffUniqueid = "";
+    updates.polygonMode = false;
+    updates.selectedGraffUniqueid = "";
     // While locking geo from a STIR row, keep farmer search / text.
     if (!host._farmerSearchApplying) {
-      (updates as any).selectedFarmerInn = "";
+      updates.selectedFarmerInn = "";
       host._farmerMapUniqueIds = null;
       host._preFarmerSearchGeo = null;
       // Search modal + bottom-table search filter must not survive geo change.
-      (updates as any).graffSearchText = "";
-      (updates as any).graffSearchSuggestions = [];
-      (updates as any).graffSearchShowSuggestions = false;
-      (updates as any).graffSearchLoading = false;
+      updates.graffSearchText = "";
+      updates.graffSearchSuggestions = [];
+      updates.graffSearchShowSuggestions = false;
+      updates.graffSearchLoading = false;
       if (host._graffSearchDebounceTimer) {
         clearTimeout(host._graffSearchDebounceTimer);
         host._graffSearchDebounceTimer = null;
@@ -220,8 +240,8 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
     updates.turi = "";
     updates.turlar = [];
     updates.vh = "";
-    (updates as any).ndviDate = "";
-    (updates as any).ndviDateOptions = [];
+    updates.ndviDate = "";
+    updates.ndviDateOptions = [];
     host._ndviBucketToIds = {};
     host._vhUniqueIdCache = {};
     host._vhMapUniqueIds = null;
@@ -328,8 +348,8 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
     }
   }
 
-  const hasChanges = Object.keys(updates).some(
-    (key) => (updates as any)[key] !== (host.state as any)[key],
+  const hasChanges = (Object.keys(updates) as Array<keyof GeoWidgetState>).some(
+    (key) => updates[key] !== host.state[key],
   );
 
   if (!hasChanges) {
@@ -406,7 +426,7 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
 
   host.setState(
     {
-      ...(updates as any),
+      ...(updates as GeoWidgetState),
       // Polygon pick must not flip the dashboard loading overlay — that
       // path used to re-enter map sync and flash whole-viloyat tiles.
       loading: isPolygonSelectionOnly ? host.state.loading : true,
@@ -435,7 +455,7 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
           host.emitGraffTableSearchClear();
         }
         host.broadcastFilterState();
-        if (Boolean((updates as any).polygonMode ?? d.polygonMode)) {
+        if (Boolean(updates.polygonMode ?? d.polygonMode)) {
           host.schedulePolygonFilterGuards();
         }
         return;
@@ -459,306 +479,30 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
         // Geography/crop codes are already known on VH-only toggles —
         // skip the extra round-trips that dominate perceived lag.
         if (!vhOnly) {
-          const turiOnly =
-            turiChanged &&
-            !yearChanged &&
-            !viloyatChanged &&
-            !tumanChanged;
-          const cropCleared =
-            turiOnly && host.getSelectedTurlar().length === 0;
-
-          // Show Vegetatsiya Holati / Pie loaders immediately while crop_id
-          // and region codes resolve — don't wait for the network round-trip.
-          // Crop-second keeps all-crop VH bar: skip pending spinner + reuse.
-          // Crop-first clear: restore all-crop VH from memo immediately
-          // (pending spinner + region await made deselect feel stuck).
-          if (!host._reuseVhBarDataOnNextBroadcast) {
-            if (cropCleared) {
-              host.broadcastFilterState();
-            } else {
-              host.broadcastFilterState({ pendingOnly: true });
-            }
-          }
-
-          // First viloyat/tuman open: region-year MapImage matching uses the
-          // viloyat *name*, and admin borders have a name→parent_cod map.
-          // Do not block layer reveal on Agri_table region-code lookup.
-          const geographyRevealWithoutCodes =
-            (viloyatChanged || yearChanged || tumanChanged) &&
-            !turiChanged &&
-            !String(host.state.vh || "").trim();
-          const ensureRegionPromise = host.ensureRegionDistrictForSelection();
-          // turi-only: region/district codes are already cached from the
-          // geography click — don't block VH bar on another lookup.
-          if (!geographyRevealWithoutCodes && !turiOnly) {
-            await ensureRegionPromise;
-            if (!isApplyCurrent()) {
-              agriLog(
-                "handleWidgetSelection:SKIP-stale-apply",
-                { applyId, phase: "after-region-district" },
-              );
-              return;
-            }
-          } else {
-            void ensureRegionPromise;
-          }
-
-          // Ekin turi: resolve crop_id before map + charts (Pie sends
-          // canonical keys like "bugdoy", not DB spellings).
-          if (host.getSelectedTurlar().length > 0) {
-            await host.ensureCropIdForSelection();
-            if (!isApplyCurrent()) {
-              agriLog(
-                "handleWidgetSelection:SKIP-stale-apply",
-                { applyId, phase: "after-crop-id-before-map" },
-              );
-              return;
-            }
-          }
-
-          if (host._isMounted) {
-            host.setState({ loading: false });
-          }
-          // Start MapImage metadata load immediately so it overlaps the
-          // region-code race + apply path (cold load used to start only
-          // inside ensureRegionYearMapImagesReady, delaying first export).
-          const mapForPreload = host.state.activeMapView?.view?.map;
-          const preloadViloyat = host.getEffectiveViloyat();
-          if (
-            mapForPreload &&
-            host.state.yil &&
-            preloadViloyat &&
-            (viloyatChanged || yearChanged || tumanChanged)
-          ) {
-            void preloadRegionYearMapImages(
-              mapForPreload,
-              host.state.yil,
-              preloadViloyat,
-            );
-          }
-          void (async () => {
-            try {
-              // Let region-code lookup finish (or race) before zoom so
-              // admin boundaries can prefer numeric parent_cod when ready.
-              // Skip the 120ms wait when codes are already cached.
-              if (geographyRevealWithoutCodes) {
-                const vKey = host.makeRegionDistrictKey(preloadViloyat);
-                const tKey = host.makeRegionDistrictKey(
-                  host.state.tuman || "",
-                );
-                const codesReady =
-                  (!vKey || host._viloyatToRegion[vKey] != null) &&
-                  (!tKey ||
-                    hasDistrictMappingForSelection(
-                      preloadViloyat,
-                      host.state.tuman || "",
-                      host._tumanToDistrict,
-                      host._viloyatToRegion,
-                      host.getGeoCodeHelpers(),
-                    ));
-                if (!codesReady) {
-                  await Promise.race([
-                    ensureRegionPromise,
-                    new Promise<void>((resolve) =>
-                      setTimeout(resolve, 120),
-                    ),
-                  ]);
-                }
-              }
-              await host.applyMapFiltersOptimized(zoomRequest, isApplyCurrent);
-              if (!isApplyCurrent()) {
-                agriLog(
-                  "handleWidgetSelection:SKIP-stale-apply",
-                  { applyId, phase: "after-map-filters" },
-                );
-                return;
-              }
-              if (geographyRevealWithoutCodes) {
-                await ensureRegionPromise;
-                if (!isApplyCurrent()) return;
-              }
-              void host.fetchDataWithCurrentState();
-              if (!isApplyCurrent()) {
-                agriLog(
-                  "handleWidgetSelection:SKIP-stale-apply",
-                  { applyId, phase: "after-fetch-data" },
-                );
-              }
-            } catch (error) {
-              agriLog(
-                "handleWidgetSelection:map-apply-FAILED",
-                { error: errorMessage(error) },
-              );
-              if (host._isMounted && isApplyCurrent()) {
-                host.setState({
-                  error: errorMessage(error),
-                  loading: false,
-                });
-              }
-            } finally {
-              if (isApplyCurrent()) {
-                ++host._mapSurfaceLoadingToken;
-                host.setMapSurfaceLoading(false, "latest-filter-settled");
-              }
-            }
-          })();
-
-          host.broadcastFilterState();
+          await applyGeographyOrCropSelection({
+            host,
+            applyId,
+            isApplyCurrent,
+            zoomRequest,
+            yearChanged,
+            viloyatChanged,
+            tumanChanged,
+            turiChanged,
+          });
           return;
         }
 
         if (vhOnly) {
-          // Cold + narrow (tuman and/or ekin): paint geography/turi DE first,
-          // resolve uniqueids in background (same pattern as crop+VH defer).
-          // Cold + wide (viloyat/republic only): keep overlay until ids ready
-          // so the map never flashes every polygon in the region.
-          const narrowScope =
-            !!String(host.state.tuman || "").trim() ||
-            host.getSelectedTurlar().length > 0;
-          const cacheWarm = host.isVhMapUniqueIdCacheWarm();
-          const deferColdVh = !cacheWarm && narrowScope;
-
-          agriLog("handleWidgetSelection:vh-only", {
+          await applyVhOnlySelection({
+            host,
             applyId,
-            cacheWarm,
-            narrowScope,
-            deferColdVh,
-            vh: host.state.vh,
+            isApplyCurrent,
+            zoomRequest,
+            yearChanged,
+            viloyatChanged,
+            tumanChanged,
+            turiChanged,
           });
-
-          host.setMapSurfaceLoading(true, "vegetation");
-
-          if (deferColdVh) {
-            // Drop stale status ids so charts stay pending (null) and the
-            // map uses turi/tuman only until the new status ids arrive.
-            // Clear Pie bridge too — filterPieByVh must not reuse the
-            // previous status's district-scoped ids while we wait.
-            host._vhMapUniqueIds = null;
-            host._vhRegionChartUniqueIds = null;
-            host._vhUniqueIdsCropScoped = false;
-            clearPieVhFilterUniqueIds();
-            host._vhUniqueIdsReadyForApply = false;
-            host._deferVhUniqueIdResolve = true;
-            host._suppressLegacyVhOnMap = true;
-            if (host._isMounted) {
-              host.setState({ loading: false });
-            }
-            host._reuseVhBarDataOnNextBroadcast = true;
-            host.broadcastFilterState();
-            void host.applyMapFiltersOptimized(zoomRequest, isApplyCurrent)
-              .catch((error: unknown) => {
-                agriLog(
-                  "handleWidgetSelection:vh-map-apply-FAILED",
-                  { error: errorMessage(error) },
-                );
-              })
-              .finally(() => {
-                if (isApplyCurrent()) {
-                  ++host._mapSurfaceLoadingToken;
-                  host.setMapSurfaceLoading(false, "latest-filter-settled");
-                }
-              });
-            return;
-          }
-
-          await host.resolveVhMapUniqueIds(isApplyCurrent);
-          host._vhUniqueIdsReadyForApply = true;
-          if (!isApplyCurrent()) {
-            host._vhUniqueIdsReadyForApply = false;
-            ++host._mapSurfaceLoadingToken;
-            host.setMapSurfaceLoading(false, "vegetation-stale");
-            agriLog(
-              "handleWidgetSelection:SKIP-stale-apply",
-              { applyId, phase: "after-vh-uniqueids" },
-            );
-            return;
-          }
-
-          // Drop the selected field when it is not part of the new VH status.
-          const vhActive = !!String(host.state.vh || "").trim();
-          const selectedClean = String(host.state.selectedGraffUniqueid || "")
-            .replace(/[{}]/g, "")
-            .toLowerCase();
-          const polygonActive =
-            Boolean(host.state.polygonMode) && !!selectedClean;
-          let releasedPolygon = false;
-          if (vhActive && polygonActive) {
-            const ids = Array.isArray(host._vhMapUniqueIds)
-              ? host._vhMapUniqueIds
-              : [];
-            const inStatus = ids.some(
-              (id) =>
-                String(id || "")
-                  .replace(/[{}]/g, "")
-                  .toLowerCase() === selectedClean,
-            );
-            if (!inStatus) {
-              releasedPolygon = true;
-              await new Promise<void>((resolve) => {
-                if (!host._isMounted) {
-                  resolve();
-                  return;
-                }
-                host.setState(
-                  {
-                    polygonMode: false,
-                    selectedGraffUniqueid: "",
-                    selectedGraffUniqueidClickedAt: undefined,
-                    loading: false,
-                  } as any,
-                  () => resolve(),
-                );
-              });
-              if (!isApplyCurrent()) return;
-              try {
-                document.dispatchEvent(
-                  new CustomEvent("widgetSelectionChanged", {
-                    detail: {
-                      source: "AgriFilter",
-                      polygonMode: false,
-                      uniqueid: "",
-                      timestamp: Date.now(),
-                    },
-                    bubbles: true,
-                  }),
-                );
-              } catch {
-                /* ignore */
-              }
-              agriLog(
-                "handleWidgetSelection:release-polygon-not-in-vh",
-                {
-                  vh: host.state.vh,
-                  uniqueid: selectedClean,
-                  vhIdCount: ids.length,
-                },
-              );
-            }
-          }
-
-          if (host._isMounted && !releasedPolygon) {
-            host.setState({ loading: false });
-          }
-          host._reuseVhBarDataOnNextBroadcast = true;
-          host.broadcastFilterState();
-          void host.applyMapFiltersOptimized(zoomRequest, isApplyCurrent)
-            .then(async () => {
-              if (isApplyCurrent()) {
-                await host.fetchDataWithCurrentState();
-              }
-            })
-            .catch((error: unknown) => {
-              agriLog(
-                "handleWidgetSelection:vh-map-apply-FAILED",
-                { error: errorMessage(error) },
-              );
-            })
-            .finally(() => {
-              if (isApplyCurrent()) {
-                ++host._mapSurfaceLoadingToken;
-                host.setMapSurfaceLoading(false, "latest-filter-settled");
-              }
-            });
           return;
         }
       } catch (e) {

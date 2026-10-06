@@ -16,19 +16,53 @@ import {
   type AgriFilters,
   type ResolvedFeatureLayer,
 } from "./feature-layer-data";
+import {
+  type AgriLayerLike,
+  type AgriMapViewHostLike,
+  layerFieldNameList,
+} from "./agri-layer-types";
 
-export function toPlainArray<T = any>(val: any): T[] {
+/** Immutable (asMutable) or Collection (toArray) wrappers around a list. */
+interface PlainArraySource {
+  asMutable?: (options: { deep: boolean }) => unknown;
+  toArray?: () => unknown;
+}
+
+/** `useDataSources` entry — only the id is read here. */
+interface UseDataSourceIdLike {
+  dataSourceId?: string | null;
+}
+
+/** Feature-layer-backed data sources expose `layer` (or the private `_layer`). */
+type LayerBackedDataSource = QueriableDataSource & {
+  layer?: AgriLayerLike | null;
+  _layer?: AgriLayerLike | null;
+};
+
+const dsLayer = (ds: QueriableDataSource): AgriLayerLike | null | undefined => {
+  const backed = ds as LayerBackedDataSource;
+  return backed.layer || backed._layer;
+};
+
+/**
+ * Plain array from an array / Immutable list / esri Collection. Element type
+ * `T` is the caller's claim about the list contents (not checked at runtime).
+ */
+export function toPlainArray<T = unknown>(val: unknown): T[] {
   if (!val) return [];
   if (Array.isArray(val)) return val as T[];
-  if (typeof val.asMutable === "function")
-    return val.asMutable({ deep: true }) as T[];
-  if (typeof val.toArray === "function") return val.toArray() as T[];
+  const source = val as PlainArraySource;
+  if (typeof source.asMutable === "function")
+    return source.asMutable({ deep: true }) as T[];
+  if (typeof source.toArray === "function") return source.toArray() as T[];
   return [];
 }
 
-export function getSelectedDsIds(useDataSources: any): string[] {
-  const uds = toPlainArray<any>(useDataSources);
-  const ids = uds.map((u) => u?.dataSourceId).filter(Boolean);
+export function getSelectedDsIds(useDataSources: unknown): string[] {
+  const uds = toPlainArray<UseDataSourceIdLike | null | undefined>(useDataSources);
+  const ids = uds
+    .map((u) => u?.dataSourceId)
+    .filter((id): id is string => Boolean(id));
   return Array.from(new Set(ids));
 }
 
@@ -68,7 +102,7 @@ export class AgriDataSourceEngine {
   }
 
   /** True while selected data sources are still connecting (no map fallback yet). */
-  isResolvePending(jimuMapView: any | null): boolean {
+  isResolvePending(jimuMapView: AgriMapViewHostLike | null | undefined): boolean {
     if (jimuMapView?.view?.map) return false;
     if (!this.selectedIds.length) return false;
     const connected = this.selectedIds.filter((id) => !!this.dsById[id]).length;
@@ -79,20 +113,18 @@ export class AgriDataSourceEngine {
     return this.selectedIds.some((id) => !!this.dsById[id]);
   }
 
-  getLayerFromDs(ds: QueriableDataSource): any | null {
-    const anyDs = ds as any;
-    return getQueryableLayer(anyDs.layer || anyDs._layer);
+  getLayerFromDs(ds: QueriableDataSource): AgriLayerLike | null {
+    return getQueryableLayer(dsLayer(ds));
   }
 
   private getDsHaystack(ds: QueriableDataSource): string {
-    const anyDs = ds as any;
-    const layer = anyDs.layer || anyDs._layer;
+    const layer = dsLayer(ds);
     const title = String(layer?.title || "");
-    const url = String(layer?.url || anyDs.getDataSourceJson?.()?.url || "");
+    const url = String(layer?.url || ds.getDataSourceJson?.()?.url || "");
     const label = String(
-      anyDs.getLabel?.() ||
-        anyDs.getDataSourceJson?.()?.label ||
-        anyDs.getDataSourceJson?.()?.sourceLabel ||
+      ds.getLabel?.() ||
+        ds.getDataSourceJson?.()?.label ||
+        ds.getDataSourceJson?.()?.sourceLabel ||
         "",
     );
     return `${title} ${url} ${label}`;
@@ -100,7 +132,7 @@ export class AgriDataSourceEngine {
 
   private buildRegionProbeWhere(
     filters: Pick<AgriFilters, "yil" | "viloyat">,
-    layer: any,
+    layer: AgriLayerLike,
     fields: string[],
     regionScoped: boolean,
     yearScoped: boolean,
@@ -136,7 +168,7 @@ export class AgriDataSourceEngine {
       } catch {
         /* ignore */
       }
-      const fields: string[] = (layer.fields || []).map((f: any) => f.name);
+      const fields: string[] = layerFieldNameList(layer);
       const where = this.buildRegionProbeWhere(
         filters,
         layer,
@@ -233,7 +265,7 @@ export class AgriDataSourceEngine {
     }
     disableLayerPbf(layer);
 
-    const fields: string[] = (layer.fields || []).map((f: any) => f.name);
+    const fields: string[] = layerFieldNameList(layer);
     const regionMatch = bestItem?.regionMatch ?? false;
     const regionScoped = regionMatch || (bestItem?.score ?? 0) >= 25;
     const haystack = this.getDsHaystack(bestDs);
@@ -260,7 +292,7 @@ export class AgriDataSourceEngine {
 
   async resolve(
     filters: Pick<AgriFilters, "yil" | "viloyat">,
-    jimuMapView: any | null,
+    jimuMapView: AgriMapViewHostLike | null | undefined,
   ): Promise<ResolvedFeatureLayer | null> {
     const cacheKey = JSON.stringify({
       yil: filters.yil || "",
@@ -284,7 +316,7 @@ export class AgriDataSourceEngine {
 
   private async resolveInternal(
     filters: Pick<AgriFilters, "yil" | "viloyat">,
-    jimuMapView: any | null,
+    jimuMapView: AgriMapViewHostLike | null | undefined,
   ): Promise<ResolvedFeatureLayer | null> {
     const fromDs = await this.resolveFromDataSources(filters);
     if (fromDs) return fromDs;

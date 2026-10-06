@@ -94,7 +94,7 @@ export const renderChart = (host: PopupWidgetHost) => {
   const dataPoints: { label: string; value: number }[] = [];
   for (const fieldName of chartFields) {
     const raw = attrs[fieldName];
-    const numVal = typeof raw === "number" ? raw : parseFloat(raw);
+    const numVal = typeof raw === "number" ? raw : parseFloat(raw as string); // parseFloat coerces non-strings itself
     if (!isNaN(numVal)) {
       dataPoints.push({
         label: host.getFieldAlias(fieldName),

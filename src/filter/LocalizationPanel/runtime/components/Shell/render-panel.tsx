@@ -8,7 +8,7 @@ import { NotificationsMenu } from "../Toolbar/NotificationsMenu";
 import { ToolbarGroup } from "../Toolbar/ToolbarGroup";
 import { YilMenu } from "../Toolbar/YilMenu";
 import { JimuMapViewComponent } from "jimu-arcgis";
-import { DataSourceComponent, React } from "jimu-core";
+import { DataSourceComponent, React, type IMUseDataSource } from "jimu-core";
 
 export function render(host: LocalizationHost) {
   const {
@@ -26,7 +26,7 @@ export function render(host: LocalizationHost) {
     openToolbarMenu,
   } = host.state;
 
-  const { language } = host.state as any;
+  const { language } = host.state;
 
 
   return (
@@ -49,7 +49,7 @@ export function render(host: LocalizationHost) {
           host.getEffectiveUseDataSources().length > 0 &&
           host.getEffectiveUseDataSources()
             .slice(0, 1)
-            .map((uds: any) => (
+            .map((uds: IMUseDataSource & { id?: string }) => (
               <DataSourceComponent
                 key={uds?.dataSourceId ?? uds?.id ?? Math.random()}
                 useDataSource={uds}

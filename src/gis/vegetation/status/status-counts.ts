@@ -1,4 +1,5 @@
-import { type VegetationStatusCountsParams, type VegetationStatusCount, getAgriVegetationIndicesLayer, agriVegetationLog, vegetationStatusCountsCache, resolveVegetationUniqueIdPageSize, VEG_STATUS_ROW_MAX_PAGES, queryVegFeatures, vegetationAssignedUniqueIdsCache, VEG_PIXEL_AREA_HA } from "../veg-base";
+import { type VegetationStatusCountsParams, type VegetationStatusCount, getAgriVegetationIndicesLayer, agriVegetationLog, vegetationStatusCountsCache, resolveVegetationUniqueIdPageSize, VEG_STATUS_ROW_MAX_PAGES, queryVegFeatures, vegetationAssignedUniqueIdsCache, VEG_PIXEL_AREA_HA, type VegQuery } from "../veg-base";
+import { errorMessage } from "../../agri-layer-types";
 import { dateEqualsClause, escapeArcGIS } from "../../../data/agri-sql";
 import { buildSpatialJoinWhere } from "../../agri-table-data-source";
 
@@ -96,7 +97,7 @@ export async function queryVegetationStatusCounts(
       let offset = 0;
       let previousPageSignature = "";
       for (let page = 0; page < VEG_STATUS_ROW_MAX_PAGES; page++) {
-      const query: any = layer.createQuery();
+      const query: VegQuery = layer.createQuery();
       query.where = where;
       query.groupByFieldsForStatistics = [uniqueIdField, "ndvi_status"];
       query.orderByFields = [`${uniqueIdField} ASC`, "ndvi_status ASC"];
@@ -177,7 +178,7 @@ export async function queryVegetationStatusCounts(
       // those deployments instead of ending in a permanent empty state.
       agriVegetationLog("status-counts:grouped-fallback", {
         where,
-        error: String((groupedError as any)?.message || groupedError),
+        error: errorMessage(groupedError),
       });
       byUniqueId.clear();
       sourceRowCount = 0;
@@ -185,7 +186,7 @@ export async function queryVegetationStatusCounts(
       truncated = false;
       let lastOid = -1;
       for (let page = 0; page < VEG_STATUS_ROW_MAX_PAGES; page++) {
-        const query: any = layer.createQuery();
+        const query: VegQuery = layer.createQuery();
         query.where =
           lastOid < 0 ? where : `(${where}) AND ${oidField} > ${lastOid}`;
         query.orderByFields = [`${oidField} ASC`];

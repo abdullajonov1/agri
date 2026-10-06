@@ -5,12 +5,21 @@ import esriRequest from "esri/request";
 import { debugCatch, agriLog } from "../../localization-log";
 import { dispatchMapViewReady, dispatchMapClick } from "../../../../../../gis/agri-data-layer-roles";
 import { MAX_DS_ONLY_RETRIES, DS_ONLY_RETRY_DELAY_MS } from "../../../../../../shared/map-connection-service";
-import { getAppStore } from "jimu-core";
+import { getAppStore, type IMUseDataSource } from "jimu-core";
 import { isAccessConfigured, isAccessDenied, resolveAllowedViloyatsForGroups, lockedViloyat as accessLockedViloyat } from "../../../../../../shared/agri-access-config";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../../../../../shared/agri-http";
 
 const FAIL_OPEN_IF_NO_MATCH = false;
 /* ---------------------- Map / DataSource ---------------------- */
+
+/** Mutable copy of the widget's configured useDataSources (or `[]`). */
+function readUseDataSourcesFromProps(host: LocalizationHost): IMUseDataSource[] {
+  const raw: unknown =
+    host.props.useDataSources?.asMutable?.() ??
+    host.props.useDataSources ??
+    [];
+  return Array.isArray(raw) ? (raw as IMUseDataSource[]) : [];
+}
 
 export const getPortalSelf = async (
   host: LocalizationHost,
@@ -23,7 +32,7 @@ export const getPortalSelf = async (
   try {
     const portalUrl =
       getAgriServiceUrls().portalUrl ||
-      (jimuMapView?.view?.map as any)?.portalItem?.portal?.url ||
+      (jimuMapView?.view?.map as __esri.WebMap)?.portalItem?.portal?.url ||
       "https://www.arcgis.com";
 
     const resp = await esriRequest(
@@ -38,7 +47,10 @@ export const getPortalSelf = async (
 
     const username = resp?.data?.username ?? null;
     const groups = Array.isArray(resp?.data?.groups)
-      ? resp.data.groups.map((g: any) => ({ id: g.id, title: g.title }))
+      ? resp.data.groups.map((g: { id: string; title: string }) => ({
+          id: g.id,
+          title: g.title,
+        }))
       : [];
     return { username, groups, portalUrl };
   } catch (e) {
@@ -47,13 +59,9 @@ export const getPortalSelf = async (
   }
 };
 /** Effective data sources to use. By default use all selected sources. */
-export function getEffectiveUseDataSources(host: LocalizationHost): any[] {
-  const raw =
-    (host.props.useDataSources as any)?.asMutable?.() ??
-    host.props.useDataSources ??
-    [];
-  const arr = Array.isArray(raw) ? raw : [];
-  const cfgN = Number((host.props.config as any)?.numberOfDataSources);
+export function getEffectiveUseDataSources(host: LocalizationHost): IMUseDataSource[] {
+  const arr = readUseDataSourcesFromProps(host);
+  const cfgN = Number(host.props.config?.numberOfDataSources);
   const hasLimit = Number.isFinite(cfgN) && cfgN > 0;
   const n = hasLimit ? Math.min(arr.length, Math.floor(cfgN)) : arr.length;
   return arr.slice(0, n);
@@ -88,7 +96,7 @@ export const attachMapClickDispatcher = (host: LocalizationHost, jimuMapView: Ji
     dispatchMapViewReady(mapWidgetId);
   }
 
-  host._mapClickHandle = view.on("click", (ev: any) => {
+  host._mapClickHandle = view.on("click", (ev: __esri.ViewClickEvent) => {
     if (!mapWidgetId) return;
     dispatchMapClick({
       mapWidgetId,
@@ -120,7 +128,7 @@ export const onActiveViewChange = (host: LocalizationHost, jimuMapView: JimuMapV
     host.attachMapClickDispatcher(jimuMapView);
     const captureHomeExtent = (): void => {
       try {
-        const ex: any = (jimuMapView.view as any)?.extent;
+        const ex = jimuMapView.view?.extent;
         host._homeExtent = ex?.clone ? ex.clone() : ex || null;
       } catch {
         host._homeExtent = null;
@@ -179,7 +187,7 @@ export const initializeMapConnectionOnce = async (host: LocalizationHost, jimuMa
   agriLog("initializeMapConnection:start", {
     hasMapView: !!jimuMapView,
     hasMap: !!jimuMapView?.view?.map,
-    useDataSources: host.getEffectiveUseDataSources().map((d: any) => ({
+    useDataSources: host.getEffectiveUseDataSources().map((d) => ({
       dataSourceId: d?.dataSourceId,
       rootDataSourceId: d?.rootDataSourceId,
     })),
@@ -189,21 +197,16 @@ export const initializeMapConnectionOnce = async (host: LocalizationHost, jimuMa
     await host.resolveFeatureLayersFromUseDataSources(jimuMapView);
   agriLog("initializeMapConnection:resolved", {
     count: featureLayers?.length ?? 0,
-    layers: (featureLayers || []).map((l: any) => l?.title || l?.url || l?.id),
+    layers: (featureLayers || []).map((l) => l?.title || l?.url || l?.id),
   });
 
   // Best-effort — visual map filtering degrades gracefully (no-op) if this
   // comes back empty; it never blocks the Agri_table_data connection.
   try {
-    const useDsRaw =
-      (host.props.useDataSources as any)?.asMutable?.() ??
-      host.props.useDataSources ??
-      [];
+    const useDsRaw = readUseDataSourcesFromProps(host);
     agriLog("spatialMapLayers:useDataSources-from-settings", {
       count: Array.isArray(useDsRaw) ? useDsRaw.length : 0,
-      dataSourceIds: (Array.isArray(useDsRaw) ? useDsRaw : []).map(
-        (d: any) => d?.dataSourceId,
-      ),
+      dataSourceIds: useDsRaw.map((d) => d?.dataSourceId),
     });
     // Spatial wrappers are optional: live MapImage sublayers are discovered
     // separately. Never let many non-queryable roots block dashboard startup.
@@ -215,12 +218,12 @@ export const initializeMapConnectionOnce = async (host: LocalizationHost, jimuMa
       if (host._isMounted) host.setState({ spatialMapLayers });
     }).catch((e) => {
       agriLog("spatialMapLayers:resolve-FAILED", {
-        error: String((e as any)?.message || e),
+        error: String(e?.message || e),
       });
     });
   } catch (e) {
     agriLog("spatialMapLayers:resolve-FAILED", {
-      error: String((e as any)?.message || e),
+      error: String(e?.message || e),
     });
   }
 
@@ -254,11 +257,11 @@ export const initializeDataSourceOnlyConnection = async (
   if (!host._isMounted || host.state.connectionStatus === "connected") return;
 
   const featureLayers = await host.resolveFeatureLayersFromUseDataSources(
-    null as any,
+    null,
   );
   agriLog("initializeDataSourceOnlyConnection:resolved", {
     count: featureLayers?.length ?? 0,
-    layers: (featureLayers || []).map((l: any) => l?.title || l?.url || l?.id),
+    layers: (featureLayers || []).map((l) => l?.title || l?.url || l?.id),
   });
   if (!featureLayers?.length) {
     // The data source may just not be fully loaded yet (e.g. right after
@@ -295,15 +298,15 @@ export const finalizeConnection = async (
   if (!host._isMounted) return;
   const featureLayer = featureLayers[0];
   agriLog("finalizeConnection:start", {
-    primaryLayer: (featureLayer as any)?.title || (featureLayer as any)?.url,
+    primaryLayer: featureLayer?.title || featureLayer?.url,
     layerCount: featureLayers.length,
     hasMapView: !!jimuMapView,
   });
 
-  const { username, groups } = await host.getPortalSelf(jimuMapView as any);
+  const { username, groups } = await host.getPortalSelf(jimuMapView);
   const accessGroups = Array.from(
     getAppStore().getState()?.user?.groups ?? [],
-  ).map((group: any) => ({
+  ).map((group: { id?: unknown; title?: unknown }) => ({
     id: String(group.id),
     title: String(group.title || ""),
   }));
@@ -376,7 +379,9 @@ export const finalizeConnection = async (
         featureLayers.forEach((fl) => {
           fl.definitionExpression = "1=0";
         });
-      } catch {}
+      } catch (err) {
+        debugCatch("finalizeConnection:hide-layers-failed", err);
+      }
       host._allowClearOnce = true;
       // NDVI date discovery now happens lazily in computeVhBarData(),
       // scoped to the selected region/district via

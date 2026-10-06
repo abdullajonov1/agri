@@ -89,6 +89,22 @@ export interface AgriMapLike {
   allLayers?: AgriCollectionLike<AgriLayerLike> | null;
 }
 
+/**
+ * `maxRecordCount` read off a layer — not on the esri layer typings, but some
+ * service-backed layers carry it at runtime; read defensively.
+ */
+export type AgriLayerWithMaxRecordCount = AgriLayerLike & {
+  maxRecordCount?: unknown;
+};
+
+/** Plain statistic JSON for Query.outStatistics (autocast by the setter). */
+export type AgriStatisticJson = __esri.StatisticDefinitionProperties;
+
+/** JimuMapView-like host: only `view.map` is read. */
+export interface AgriMapViewHostLike {
+  view?: { map?: AgriMapLike | null } | null;
+}
+
 /** `attributes` bag of a queried feature (esri types it as `any`). */
 export type AgriAttributes = Record<string, unknown>;
 
@@ -96,6 +112,60 @@ export type AgriAttributes = Record<string, unknown>;
 export type AgriFeature = Pick<Graphic, "geometry"> & {
   attributes?: AgriAttributes | null;
 };
+
+/** Geometry JSON from a REST `/query` response (only the members read). */
+export interface AgriRestGeometryJson {
+  x?: number | null;
+  y?: number | null;
+  rings?: number[][][] | null;
+  paths?: number[][][] | null;
+  spatialReference?: __esri.SpatialReferenceProperties | null;
+}
+
+/** One feature of a REST `/query` JSON response. */
+export interface AgriRestFeatureJson {
+  attributes?: AgriAttributes | null;
+  geometry?: AgriRestGeometryJson | null;
+}
+
+/** Envelope JSON (REST `extent`, or built locally from coordinates). */
+export interface AgriRestExtentJson {
+  xmin?: number;
+  ymin?: number;
+  xmax?: number;
+  ymax?: number;
+  spatialReference?: __esri.SpatialReferenceProperties | null;
+}
+
+/**
+ * REST `/query` JSON response (`f=json`). Shape depends on the request
+ * parameters, so every member is optional and read defensively.
+ */
+export interface AgriRestQueryResponse {
+  features?: AgriRestFeatureJson[] | null;
+  count?: number | null;
+  extent?: AgriRestExtentJson | null;
+  objectIds?: Array<number | string> | null;
+  exceededTransferLimit?: boolean;
+  error?: { message?: string | null } | null;
+}
+
+/** `feature.attributes || {}` — attribute bag of a queried feature / REST row. */
+export function featureAttributeBag(
+  feature: { attributes?: unknown } | null | undefined,
+): AgriAttributes {
+  return (feature?.attributes || {}) as AgriAttributes;
+}
+
+/**
+ * `layer.fields[].name` in field order (loaded esri fields always carry a
+ * name; a null entry throws exactly like the inline `.map(f => f.name)`).
+ */
+export function layerFieldNameList(
+  layer: Pick<AgriLayerLike, "fields">,
+): string[] {
+  return (layer.fields || []).map((f) => f.name as string);
+}
 
 /** Read a `.type` tag off an untyped object (`layer.source`, REST JSON, …). */
 export function readTypeTag(value: unknown): string {

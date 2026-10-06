@@ -1,16 +1,19 @@
 import { isMapImageGroupSublayer, isQueryableFieldLayer, isLikelyBasemapServiceLayer, getLayerFieldNames, isAgriFieldLayerCandidate, expandDistrictVariants, hasFieldIn, layerFieldKind } from "../primitives";
 import { isAgriWaterTableLayer } from "./lookup-map-image";
 import { escapeArcGIS } from "../../../data/agri-sql";
+import type { AgriFieldLike, AgriLayerLike } from "../../agri-layer-types";
 
 /**
  * Collect every queryable leaf under a MapImage root / group / FeatureLayer.
  * Unlike getQueryableLayer (first match only), this walks the full tree so
  * district/year leaves under "Agri 2026 republic data" stay clickable.
  */
-export function collectQueryableFieldLayers(root: any): any[] {
-  const out: any[] = [];
-  const seen = new Set<any>();
-  const walk = (node: any) => {
+export function collectQueryableFieldLayers(
+  root: AgriLayerLike | null | undefined,
+): AgriLayerLike[] {
+  const out: AgriLayerLike[] = [];
+  const seen = new Set<AgriLayerLike>();
+  const walk = (node: AgriLayerLike | null | undefined): void => {
     if (!node || seen.has(node)) return;
     seen.add(node);
     // Always descend into group / map-image folders first.
@@ -40,7 +43,7 @@ export function collectQueryableFieldLayers(root: any): any[] {
   return out;
 }
 /** Map candidates for Agri + Agri — excludes basemaps only. */
-export function isAgriMapLayerCandidate(layer: any): boolean {
+export function isAgriMapLayerCandidate(layer: AgriLayerLike | null | undefined): boolean {
   if (!isQueryableFieldLayer(layer)) return false;
   if (isLikelyBasemapServiceLayer(layer)) return false;
   const fields = getLayerFieldNames(layer);
@@ -65,12 +68,14 @@ export function isAgriMapLayerCandidate(layer: any): boolean {
  * Map Service data sources expose the parent map-image layer; widgets need
  * the sublayer that owns fields + /query. Nested group-sublayers are walked.
  */
-export function getQueryableLayer(layer: any): any | null {
+export function getQueryableLayer<T extends AgriLayerLike>(
+  layer: T | null | undefined,
+): T | AgriLayerLike | null {
   if (!layer) return null;
   if (isQueryableFieldLayer(layer)) return layer;
 
-  const seen = new Set<any>();
-  const walk = (node: any): any | null => {
+  const seen = new Set<AgriLayerLike>();
+  const walk = (node: AgriLayerLike | null | undefined): AgriLayerLike | null => {
     if (!node || seen.has(node)) return null;
     seen.add(node);
     if (isQueryableFieldLayer(node)) return node;
@@ -104,7 +109,7 @@ export function getQueryableLayer(layer: any): any | null {
  * the result back to other districts (the map then looks unfiltered).
  */
 export function buildMapDistrictClause(
-  sublayer: any,
+  sublayer: AgriLayerLike | null | undefined,
   tuman: string,
   districtCode?: number | null,
 ): string {
@@ -113,7 +118,7 @@ export function buildMapDistrictClause(
     districtCode != null && Number.isFinite(Number(districtCode));
   if (!trimmedTuman && !hasCode) return "";
 
-  const fields: any[] = sublayer?.fields || [];
+  const fields: AgriFieldLike[] = sublayer?.fields || [];
   const available = fields
     .map((f) => String(f?.name || ""))
     .filter(Boolean);

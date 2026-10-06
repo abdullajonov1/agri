@@ -26,7 +26,23 @@ export interface AgriLinkedMapLayoutOptions {
   resizeMapView?: () => void;
 }
 
-function isMapWidgetConfig(widget: any): boolean {
+/** Widget json members read when detecting the Map widget. */
+interface WidgetConfigLike {
+  manifest?: { name?: string | null } | null;
+  uri?: string | null;
+}
+
+/** appConfig.widgets (Immutable at runtime, read by key only). */
+type WidgetConfigMap = Record<string, WidgetConfigLike | null | undefined>;
+
+/** `getState()?.appConfig?.widgets || {}` from the jimu app store. */
+function readAppWidgets(): WidgetConfigMap {
+  const state: { appConfig?: { widgets?: unknown } | null } | null | undefined =
+    getAppStore().getState();
+  return (state?.appConfig?.widgets || {}) as WidgetConfigMap;
+}
+
+function isMapWidgetConfig(widget: WidgetConfigLike | null | undefined): boolean {
   const manifestName = String(widget?.manifest?.name || "").toLowerCase();
   const uri = String(widget?.uri || "").toLowerCase();
   return manifestName === "map" || uri.includes("arcgis-map");
@@ -72,7 +88,7 @@ export function isKnownMapWidgetId(widgetId?: string | null): boolean {
   if (!id) return false;
 
   try {
-    const widgets = (getAppStore().getState() as any)?.appConfig?.widgets || {};
+    const widgets = readAppWidgets();
     const widget = widgets[id];
     if (widget && isMapWidgetConfig(widget)) return true;
   } catch {
@@ -114,8 +130,7 @@ export function discoverMapWidgetIdInApp(options: {
   getSlotElement?: () => HTMLElement | null;
 }): string | null {
   try {
-    const state = getAppStore().getState() as any;
-    const widgets = state?.appConfig?.widgets || {};
+    const widgets = readAppWidgets();
     const ownId = options.hostWidgetId;
     const candidates: string[] = [];
     Object.keys(widgets).forEach((id) => {

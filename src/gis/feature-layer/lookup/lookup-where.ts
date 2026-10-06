@@ -1,6 +1,7 @@
 import { normalizeFarmerTaxSearchValue, hasFieldIn, FARMER_TAX_NUMBER_FIELD, layerFieldKind, FARMER_TAX_NUMBER_DIGITS, normalizeLandTypeValue, matchIndexedValues, apostropheVariants } from "../primitives";
 import { escapeArcGIS, escapeLikeLiteral } from "../../../data/agri-sql";
 import { addTextEqTerms } from "./lookup-match";
+import type { AgriLayerLike } from "../../agri-layer-types";
 
 /**
  * WHERE for STIR qidiruv — `tax_number`.
@@ -10,7 +11,7 @@ import { addTextEqTerms } from "./lookup-match";
 export function buildFarmerTaxWhere(
   taxValue: string,
   available: string[],
-  layer?: any,
+  layer?: AgriLayerLike | null,
 ): string {
   const raw = normalizeFarmerTaxSearchValue(taxValue);
   if (!raw) return "";
@@ -70,7 +71,7 @@ export function buildLandTypeWhere(
   yerTuri: string | undefined | null,
   yerTuriId: string | undefined | null,
   available: string[],
-  layer?: any,
+  layer?: AgriLayerLike | null,
 ): string {
   const key =
     normalizeLandTypeValue(String(yerTuriId ?? "")) ||

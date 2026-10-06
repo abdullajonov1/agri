@@ -514,7 +514,7 @@ export const handleGraffSearchRowClick = (host: LocalizationHost, record: GraffS
   }
 
   host._farmerSearchApplying = true;
-  host.setState(updates as any, () => {
+  host.setState(updates as GeoWidgetState, () => {
     host.emitGraffTableSearchChanged(inn || name);
     if (inn) {
       void host.applyFarmerSearchSelection(inn);

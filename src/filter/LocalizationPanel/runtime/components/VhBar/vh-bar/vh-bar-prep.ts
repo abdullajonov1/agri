@@ -1,4 +1,4 @@
-import type { LocalizationHost } from "../../host";
+import type { LocalizationConfig, LocalizationHost } from "../../host";
 import { type VHBarData, VH_TO_NDVI_STATUS } from "../../../../../localization/vh-constants";
 import { buildVhBarComputeKey } from "../../../../../localization/vh-bar-aggregate";
 import { executeVhBarCompute } from "../../../../../localization/vh-bar-compute";
@@ -29,12 +29,12 @@ export function getLatestNdviDateForBar(
     return sorted[sorted.length - 1];
   }
   if (primaryLayer?.fields?.length) {
-    const cfg = (host.props.config || {}) as any;
+    const cfg = (host.props.config || {}) as LocalizationConfig;
     const prefix =
       (cfg.polygonStatusPrefix || "status_").toString().trim() || "status_";
     const dateLabels: string[] = [];
     for (const f of primaryLayer.fields) {
-      const name = (f as any).name || "";
+      const name = f.name || "";
       if (!String(name).toLowerCase().startsWith(prefix.toLowerCase()))
         continue;
       const rawSuffix = String(name).slice(prefix.length);
@@ -147,7 +147,7 @@ export const executeComputeVhBarData = async (host: LocalizationHost): Promise<V
       host._vhBarUsedDate = date;
       host._vhBarUsedDateGeo = date ? geoKeyAtStart : null;
     },
-    setState: (patch) => host.setState(patch as any),
+    setState: (patch) => host.setState(patch),
     prefetchVhStatusUniqueIds: (date) => host.prefetchVhStatusUniqueIds(date),
     log: (phase, detail) => agriLog(phase, detail),
     farmerUniqueIds: String(host.state.selectedFarmerInn || "").trim()

@@ -2,6 +2,12 @@ import { collectRegionYearLeafLayers, getAllFeatureLayersFromMap, canonicalizeRe
 import { haystackMatchesYear, getMapImageParentLayer, type AgriFilters, type ResolvedFeatureLayer, pickYearRegionLayerPool, safeLoadMapLayer, disableLayerPbf, hasFieldIn, exactOrClause, getMavsumGroupedValues, normalizeFarmerTaxSearchValue, hasActiveLandTypeFilter, matchIndexedValues, buildEfficiencyRangeWhere, type PickWhereProgressiveResult, flLog, layerLabel } from "./primitives";
 import { haystackMatchesRegion, preloadRegionYearMapImages, scoreLayerForFilters, textMatchClause, buildCropSelectionWhere, countWhere, pickWhereWithMavsumFallback, medianField } from "./map-and-stats";
 import { escapeArcGIS } from "../../data/agri-sql";
+import {
+  type AgriLayerLike,
+  type AgriMapLike,
+  type AgriMapViewHostLike,
+  layerFieldNameList,
+} from "../agri-layer-types";
 
 /**
  * Wait for region-year MapImage metadata up to `maxWaitMs`, then reveal.
@@ -13,7 +19,7 @@ import { escapeArcGIS } from "../../data/agri-sql";
  * duplicate MapServer `export` requests).
  */
 export async function ensureRegionYearMapImagesReady(
-  map: any,
+  map: AgriMapLike | null | undefined,
   yil: string,
   viloyat?: string,
   maxWaitMs = 2000,
@@ -28,7 +34,7 @@ export async function ensureRegionYearMapImagesReady(
   const region = String(viloyat || "").trim();
   const leaves = collectRegionYearLeafLayers(map);
   let needsLoad = false;
-  const parents = new Set<any>();
+  const parents = new Set<AgriLayerLike>();
   for (const layer of leaves) {
     const haystack = `${String(layer?.title || "")} ${String(layer?.url || "")}`;
     if (!haystackMatchesYear(haystack, year)) continue;
@@ -66,7 +72,7 @@ export async function ensureRegionYearMapImagesReady(
  * the wrong layer (e.g. Kashkadarya when Farg'ona is selected).
  */
 export async function resolveFeatureLayerForFilters(
-  jimuMapView: any,
+  jimuMapView: AgriMapViewHostLike | null | undefined,
   filters: Pick<AgriFilters, "yil" | "viloyat">,
 ): Promise<ResolvedFeatureLayer | null> {
   if (!jimuMapView?.view?.map) return null;
@@ -93,7 +99,7 @@ export async function resolveFeatureLayerForFilters(
     );
     if (!pool.length) return null;
 
-    let best: any = null;
+    let best: AgriLayerLike | null = null;
     let bestScore = -1;
     let bestRegionMatch = false;
     for (const item of pool) {
@@ -108,7 +114,7 @@ export async function resolveFeatureLayerForFilters(
     const layer = best || pool[0]?.candidate || candidates[0];
     await safeLoadMapLayer(layer);
     disableLayerPbf(layer);
-    const fields: string[] = (layer.fields || []).map((f: any) => f.name);
+    const fields: string[] = layerFieldNameList(layer);
     const haystack = `${String(layer?.title || "")} ${String(layer?.url || "")}`;
     return {
       layer,
@@ -122,9 +128,9 @@ export async function resolveFeatureLayerForFilters(
 }
 /** Resolve the first feature layer from a JimuMapView, loaded and ready. */
 export async function getFeatureLayerFromView(
-  jimuMapView: any,
+  jimuMapView: AgriMapViewHostLike | null | undefined,
   filters?: Pick<AgriFilters, "yil" | "viloyat">,
-): Promise<{ layer: any; fields: string[] } | null> {
+): Promise<{ layer: AgriLayerLike; fields: string[] } | null> {
   if (filters?.yil || filters?.viloyat) {
     const resolved = await resolveFeatureLayerForFilters(jimuMapView, filters);
     if (!resolved) return null;
@@ -137,7 +143,7 @@ export async function getFeatureLayerFromView(
     const layer = candidates[0];
     if (!layer) return null;
     await safeLoadMapLayer(layer);
-    const fields: string[] = (layer.fields || []).map((f: any) => f.name);
+    const fields: string[] = layerFieldNameList(layer);
     return { layer, fields };
   } catch {
     return null;
@@ -150,7 +156,7 @@ export async function getFeatureLayerFromView(
 export function buildAgriWhere(
   filters: AgriFilters,
   available: string[],
-  layer?: any,
+  layer?: AgriLayerLike | null,
 ): string {
   const clauses: string[] = [];
   const push = (clause: string): void => {
@@ -272,7 +278,7 @@ export function buildAgriWhere(
 }
 /** Try strict WHERE, then drop mavsum and/or land type when count is 0. */
 export async function pickWhereWithProgressiveFallback(
-  layer: any,
+  layer: AgriLayerLike | null | undefined,
   filters: AgriFilters,
   available: string[],
   options?: {
@@ -374,7 +380,7 @@ export async function pickWhereWithProgressiveFallback(
 }
 /** Median with mavsum relaxation when strict WHERE matches no rows. */
 export async function medianFieldWithMavsumFallback(
-  layer: any,
+  layer: AgriLayerLike | null | undefined,
   strictWhere: string,
   relaxedWhere: string,
   field: string,

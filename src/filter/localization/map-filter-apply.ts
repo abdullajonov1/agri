@@ -94,6 +94,6 @@ export function isShownRegionYearLayerOpaque(entry: {
 }): boolean {
   return (
     !!entry?.layer?.visible &&
-    Number((entry.layer as any)?.opacity ?? 1) > 0.05
+    Number(entry.layer?.opacity ?? 1) > 0.05
   );
 }

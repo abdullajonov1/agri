@@ -3,16 +3,16 @@
  */
 
 export function findAttributeValueCaseInsensitive(
-  attributes: Record<string, any> | null | undefined,
+  attributes: Record<string, unknown> | null | undefined,
   fieldName: string,
-): any {
+): unknown {
   if (!attributes) return null;
   const target = fieldName.toLowerCase();
   const key = Object.keys(attributes).find((k) => k.toLowerCase() === target);
   return key ? attributes[key] : null;
 }
 
-export function formatDateSmart(raw: any): string {
+export function formatDateSmart(raw: unknown): string {
   if (raw instanceof Date) return raw.toLocaleString();
 
   if (typeof raw === "number" && isFinite(raw)) {
@@ -94,10 +94,10 @@ export function isEsriDateFieldType(type: unknown): boolean {
 
 /** Display string for a popup attribute cell. */
 export function formatPopupAttributeValue(
-  raw: any,
+  raw: unknown,
   opts: {
     isDateField: boolean;
-    formatDate: (value: any) => string;
+    formatDate: (value: unknown) => string;
   },
 ): string {
   if (raw === null || raw === undefined || raw === "") return "—";

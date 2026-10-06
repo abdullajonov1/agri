@@ -1,11 +1,16 @@
 import type { AllWidgetProps, React } from "jimu-core";
+import type { JimuMapView } from "jimu-arcgis";
 import type { AgriPopupConfig, IMConfig } from "../config";
 import type { AgriDashboardState, ChildSuffix } from "./widget";
+import type { IndicatorChildPropsSet } from "./AgriMapIndicatorDrawer";
+
+/** Default embedded-panel props: the dashboard's props with a plain config record. */
+export type DashboardChildProps = AllWidgetProps<Record<string, unknown>>;
 
 export interface DashboardWidgetHost {
   props: AllWidgetProps<IMConfig>;
   state: AgriDashboardState;
-  setState: React.Component<any, AgriDashboardState>["setState"];
+  setState: React.Component<AllWidgetProps<IMConfig>, AgriDashboardState>["setState"];
   syncConfigSideEffects: () => void;
   isBuilderDesignMode: () => boolean;
   setupMapSlotObserver: () => void;
@@ -36,16 +41,16 @@ export interface DashboardWidgetHost {
   portalReady: boolean;
   toPlainPopup: (value: unknown) => AgriPopupConfig;
   toPlainConfig: () => Record<string, unknown>;
-  indicatorChildPropsCache: { signature: string; indicator: AllWidgetProps<any>; yield: AllWidgetProps<any>; unused: AllWidgetProps<any>; reserve: AllWidgetProps<any>; };
-  childProps: (suffix: ChildSuffix, config?: Record<string, unknown>) => AllWidgetProps<any>;
+  indicatorChildPropsCache: IndicatorChildPropsSet & { signature: string };
+  childProps: <P = DashboardChildProps>(suffix: ChildSuffix, config?: Record<string, unknown>) => P;
   mapReadyWatchHandle: { remove?: () => void; };
   mapUpdatingWatchHandle: { remove?: () => void; };
   watchedMapView: unknown;
   mapLoadingRetryTimer: NodeJS.Timeout;
   embeddedMapReady: boolean;
   setMapLoading: (mapLoading: boolean) => void;
-  getMapLoadingState: (jimuMapView: any | null) => boolean;
-  getActiveJimuMapView: () => any | null;
+  getMapLoadingState: (jimuMapView: JimuMapView | null) => boolean;
+  getActiveJimuMapView: () => JimuMapView | null;
   mapViewWatchAttempts: number;
   updateMapLoadingState: () => void;
   attachMapLoadingWatchers: () => void;
@@ -64,7 +69,7 @@ export interface DashboardWidgetHost {
   forceUpdate: (callback?: () => void) => void;
   getIndicatorConfig: (baseConfig: Record<string, unknown>) => Record<string, unknown>;
   getPopupConfig: (baseConfig: Record<string, unknown>) => Record<string, unknown>;
-  getStableIndicatorChildProps: (indicatorConfig: Record<string, unknown>, baseConfig: Record<string, unknown>) => { indicator: AllWidgetProps<any>; yield: AllWidgetProps<any>; unused: AllWidgetProps<any>; reserve: AllWidgetProps<any>; };
+  getStableIndicatorChildProps: (indicatorConfig: Record<string, unknown>, baseConfig: Record<string, unknown>) => IndicatorChildPropsSet;
   indicatorPanelRef: React.RefObject<HTMLDivElement>;
   toggleIndicatorsDrawer: (event: React.MouseEvent<HTMLButtonElement>) => void;
   getRowFrValues: () => { top: number; bottom: number; };

@@ -19,6 +19,23 @@ export const thrownName = (err: unknown): string | undefined => {
   return typeof name === "string" ? name : undefined;
 };
 
+/** Optional fields read off thrown HTTP / esri request errors. */
+export interface ThrownObjectLike {
+  status?: unknown;
+  statusText?: unknown;
+  contentType?: unknown;
+  responseText?: unknown;
+  url?: unknown;
+  message?: unknown;
+}
+
+/** Thrown value as a readable object; null for primitives / nullish. */
+export const asThrownObject = (err: unknown): ThrownObjectLike | null =>
+  err != null && typeof err === "object" ? (err as ThrownObjectLike) : null;
+
+/** `err?.status` for an unknown thrown value. */
+export const thrownStatus = (err: unknown): unknown => asThrownObject(err)?.status;
+
 /** `String(err?.message || err)` — the log/state text used across Graff. */
 export const describeThrown = (err: unknown): string =>
   thrownMessage(err) || String(err);

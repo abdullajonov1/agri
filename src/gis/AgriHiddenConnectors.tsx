@@ -3,14 +3,18 @@ import {
   DataSourceComponent,
   jsx,
   type DataSource,
+  type IMUseDataSource,
   type QueriableDataSource,
+  type UseDataSource,
 } from "jimu-core";
 import { JimuMapViewComponent, type JimuMapView } from "jimu-arcgis";
 import { toPlainArray } from "./agri-data-source-engine";
 
 interface Props {
-  useDataSources?: any;
-  useMapWidgetIds?: any;
+  /** Immutable or plain list of UseDataSource (see toPlainArray). */
+  useDataSources?: unknown;
+  /** Immutable or plain list of map widget ids. */
+  useMapWidgetIds?: unknown;
   onDataSourceCreated?: (ds: QueriableDataSource) => void;
   onActiveViewChange?: (jimuMapView: JimuMapView) => void;
 }
@@ -20,7 +24,7 @@ interface Props {
  * on every child remount floods Network with FeatureServer?f=json loads and
  * does not help map hit-testing (live MapView layers are used instead). */
 export function AgriHiddenConnectors(props: Props): JSX.Element {
-  const selectedUseDataSources = toPlainArray<any>(props.useDataSources);
+  const selectedUseDataSources = toPlainArray<UseDataSource>(props.useDataSources);
   const mapWidgetId = toPlainArray<string>(props.useMapWidgetIds)[0];
   const primaryDs = selectedUseDataSources[0];
 
@@ -29,7 +33,8 @@ export function AgriHiddenConnectors(props: Props): JSX.Element {
       {primaryDs ? (
         <DataSourceComponent
           key={primaryDs?.dataSourceId}
-          useDataSource={primaryDs}
+          // Deep-mutable copy (toPlainArray); jimu only reads its fields.
+          useDataSource={primaryDs as unknown as IMUseDataSource}
           onDataSourceCreated={
             props.onDataSourceCreated
               ? (ds: DataSource) => {

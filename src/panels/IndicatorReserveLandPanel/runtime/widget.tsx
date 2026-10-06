@@ -23,6 +23,12 @@ import {
   type AgriLanguage,
 } from "../../../shared/agri-language";
 import { isStaleMasterFilterEvent } from "../../../shared/agri-indicator-common";
+import {
+  finiteMetaNumber,
+  messageOf,
+  panelEventDetail,
+  type PanelFilterDetail,
+} from "../../panel-filter-detail";
 
 import "../../IndicatorPanel/runtime/KadastrIndicator.css";
 
@@ -51,7 +57,7 @@ interface State {
 }
 
 export default class AgriIndicatorReserveLand extends React.PureComponent<
-  AllWidgetProps<any>,
+  AllWidgetProps<Record<string, unknown>>,
   State
 > {
   private _isMounted = false;
@@ -63,7 +69,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
   /** Do not query until master filter (incl. yil) has been received once. */
   private _hasMasterFilter = false;
 
-  constructor(props: AllWidgetProps<any>) {
+  constructor(props: AllWidgetProps<Record<string, unknown>>) {
     super(props);
     this.state = {
       value: null,
@@ -101,7 +107,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     getAgriReserveLandLayer()
       .then(({ layer }) => {
         if (!this._isMounted) return;
-        this.setState({ layer: layer as any, connectionStatus: "connected" }, () => {
+        this.setState({ layer: layer as __esri.FeatureLayer, connectionStatus: "connected" }, () => {
           // Only query after year filter is known — otherwise the unscoped
           // sum flashes briefly, then drops to 0 when an empty year arrives.
           if (this._hasMasterFilter) this.fetchValue();
@@ -131,8 +137,8 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     );
   }
 
-  private handleThemeChange = (event: any): void => {
-    const detail = (event as CustomEvent)?.detail;
+  private handleThemeChange = (event: Event): void => {
+    const detail = (event as CustomEvent<PanelFilterDetail | null>)?.detail;
     if (detail?.theme) {
       this.setState({ isDarkTheme: detail.theme === "dark" });
     } else {
@@ -142,7 +148,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
 
   private handleLanguageChange = (event: Event): void => {
     if (!this._isMounted) return;
-    const d: any = (event as CustomEvent)?.detail || {};
+    const d = panelEventDetail(event);
     const next = normalizeLanguage(d.lang ?? d.language ?? d.code);
     if (next !== this.state.language) this.setState({ language: next });
   };
@@ -171,18 +177,11 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
 
   private handleMasterFilterChanged = (event: Event): void => {
     if (!this._isMounted) return;
-    const d: any = (event as CustomEvent).detail || {};
+    const d = panelEventDetail(event);
     if (!d?.filters) return;
 
-    const eventTs =
-      typeof d?.meta?.timestamp === "number" && Number.isFinite(d.meta.timestamp)
-        ? d.meta.timestamp
-        : 0;
-    const eventGen =
-      typeof d?.meta?.broadcastGeneration === "number" &&
-      Number.isFinite(d.meta.broadcastGeneration)
-        ? d.meta.broadcastGeneration
-        : 0;
+    const eventTs = finiteMetaNumber(d?.meta, "timestamp");
+    const eventGen = finiteMetaNumber(d?.meta, "broadcastGeneration");
     if (
       isStaleMasterFilterEvent(eventTs, eventGen, {
         lastMasterFilterTs: this._lastMasterFilterTs,
@@ -259,10 +258,10 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
               onStatisticField: layer.objectIdField || "objectid",
               outStatisticFieldName: "cnt",
             },
-          ] as any;
+          ];
           q.returnGeometry = false;
           const response = await layer.queryFeatures(q);
-          const rows = (response?.features || []).map((feature: any) => ({
+          const rows = (response?.features || []).map((feature: __esri.Graphic) => ({
             turi: String(feature?.attributes?.turi || "").trim(),
             cropId: String(feature?.attributes?.crop_id || "").trim(),
           }));
@@ -282,9 +281,9 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
             mappings: Array.from(result.entries()),
           });
           return result;
-        } catch (error: any) {
+        } catch (error) {
           agriLog("crop-id-map:FAILED", {
-            error: String(error?.message || error),
+            error: String(messageOf(error) || error),
           });
           return new Map<string, string[]>();
         }
@@ -361,7 +360,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
       const where = this.buildWhere(cropIds, cropFilterRequested);
 
       agriLog("query:request", {
-        url: (layer as any)?.url,
+        url: layer?.url,
         where,
         outStatistics: [
           {
@@ -392,7 +391,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
         loading: false,
         error: null,
       });
-    } catch (e: any) {
+    } catch {
       if (!this._isMounted || requestId !== this._requestId) return;
       this.setState({ loading: false, value: null, error: null });
     }

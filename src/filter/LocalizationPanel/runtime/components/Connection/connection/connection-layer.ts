@@ -1,16 +1,36 @@
-import type { LocalizationHost } from "../../host";
+import type { LocalizationConfig, LocalizationHost } from "../../host";
+import type { AgriMapLayer } from "../../../../../localization/agri-map-layer";
+import { featureAttributes } from "../../../../../localization/agri-map-layer";
+import { firstCollectionArray } from "../../../../../../gis/agri-layer-types";
 import { JimuMapView } from "jimu-arcgis";
 import { agriLog } from "../../localization-log";
 import { safeLoadMapImageTree, getQueryableLayer } from "../../../../../../gis/feature-layer-data";
-import { DataSourceManager, DataSource, QueriableDataSource } from "jimu-core";
+import { DataSourceManager, DataSource, QueriableDataSource, type IMDataSourceInfo, type IMUseDataSource } from "jimu-core";
 import { getAgriTableDataLayer } from "../../../../../../gis/agri-table-data-source";
 import { dedupedQueryFeatures } from "../../../../../../data/agri-query-gateway";
 import { getAgriVegetationIndicesLayer } from "../../../../../../gis/agri-vegetation-data-source";
 import { errorMessage } from "../../../../../../shared/agri-plain-object";
 
+/** Jimu layer view members read while matching a use-data-source. */
+interface LayerViewLike {
+  layerDataSourceId?: string;
+  dataSourceId?: string;
+  layer?: AgriMapLayer | null;
+}
+
+/** Layer-backed data source members probed during resolution. */
+interface LayerBackedDataSource {
+  getLayer?: () => Promise<AgriMapLayer | null>;
+  url?: string;
+  layer?: { url?: string | null } | null;
+}
+
+/** Data source info as delivered at runtime (may carry `records`). */
+type DataSourceInfoWithRecords = IMDataSourceInfo & { records?: unknown };
+
 export const resolveFeatureLayerFromOneUseDataSource = async (
   host: LocalizationHost,
-  useDs: any,
+  useDs: IMUseDataSource,
   jimuMapView: JimuMapView | null,
 ): Promise<__esri.FeatureLayer | null> => {
   if (!useDs?.dataSourceId) {
@@ -25,7 +45,7 @@ export const resolveFeatureLayerFromOneUseDataSource = async (
     hasMap: !!jimuMapView?.view?.map,
   });
 
-  const jlvList: any[] = jimuMapView?.view?.map
+  const jlvList: LayerViewLike[] = jimuMapView?.view?.map
     ? jimuMapView.getAllJimuLayerViews?.() || []
     : [];
   const matchByDsId = (id: string) =>
@@ -65,11 +85,11 @@ export const resolveFeatureLayerFromOneUseDataSource = async (
   // MapImage parents are never queryable themselves. Prefer first leaf
   // sublayer with createQuery/queryFeatures after load (region-year layers).
   try {
-    const rootLayer: any = jlv?.layer;
-    const leafs =
-      rootLayer?.allSublayers?.toArray?.() ||
-      rootLayer?.sublayers?.toArray?.() ||
-      [];
+    const rootLayer: AgriMapLayer | null | undefined = jlv?.layer;
+    const leafs = firstCollectionArray(
+      rootLayer?.allSublayers,
+      rootLayer?.sublayers,
+    );
     for (const sub of leafs) {
       const nestedKids =
         sub?.sublayers?.toArray?.()?.length || sub?.sublayers?.length || 0;
@@ -92,7 +112,9 @@ export const resolveFeatureLayerFromOneUseDataSource = async (
   }
 
   try {
-    const ds: any = DataSourceManager.getInstance().getDataSource(dsId);
+    const ds = DataSourceManager.getInstance().getDataSource(dsId) as
+      | (DataSource & LayerBackedDataSource)
+      | null;
     agriLog("resolveOne:dsManagerLookup", {
       dsId,
       found: !!ds,
@@ -103,7 +125,7 @@ export const resolveFeatureLayerFromOneUseDataSource = async (
       const queryableLyr = getQueryableLayer(lyr);
       agriLog("resolveOne:ds.getLayer result", {
         dsId,
-        layerType: (lyr as any)?.type,
+        layerType: lyr?.type,
         queryable: !!queryableLyr,
       });
       if (queryableLyr) {
@@ -115,8 +137,8 @@ export const resolveFeatureLayerFromOneUseDataSource = async (
     }
     const url: string | undefined = ds?.url || ds?.layer?.url;
     if (url && jimuMapView?.view?.map) {
-      const layers = jimuMapView.view.map.layers.toArray() as any[];
-      const cand = layers.find((ly: any) => ly?.url === url);
+      const layers: AgriMapLayer[] = jimuMapView.view.map.layers.toArray();
+      const cand = layers.find((ly) => ly?.url === url);
       const queryableCand = getQueryableLayer(cand);
       agriLog("resolveOne:urlMatch", {
         dsId,
@@ -144,11 +166,11 @@ export const resolveSpatialMapLayers = async (
   host: LocalizationHost,
   jimuMapView: JimuMapView | null,
 ): Promise<__esri.FeatureLayer[]> => {
-  const raw =
-    (host.props.useDataSources as any)?.asMutable?.() ??
+  const raw: unknown =
+    host.props.useDataSources?.asMutable?.() ??
     host.props.useDataSources ??
     [];
-  const useDss = Array.isArray(raw) ? raw : [];
+  const useDss = Array.isArray(raw) ? (raw as IMUseDataSource[]) : [];
   const results = await Promise.all(
     useDss.map((useDs) =>
       host.resolveFeatureLayerFromOneUseDataSource(useDs, jimuMapView),
@@ -166,7 +188,7 @@ export const resolveFeatureLayersFromUseDataSources = async (
   try {
     const { layer } = await getAgriTableDataLayer();
     agriLog("resolveAll:agri-table-data", {
-      url: (layer as any)?.url,
+      url: (layer as AgriMapLayer | null)?.url,
     });
     return [layer as __esri.FeatureLayer];
   } catch (e) {
@@ -200,7 +222,7 @@ export const buildLayerViloyatIndex = async (host: LocalizationHost): Promise<vo
           num: 200,
         });
         for (const f of res?.features ?? []) {
-          const raw = (f.attributes as any)?.viloyat;
+          const raw = featureAttributes(f).viloyat;
           const k = host.makeRegionDistrictKey(raw != null ? String(raw) : "");
           if (k) normalizedKeys.add(k);
         }
@@ -242,11 +264,11 @@ export const detectNdviStatusDateFieldsFromLayer = (host: LocalizationHost): voi
   if (!primaryLayer) return;
 
   try {
-    const cfg = (host.props.config || {}) as any;
+    const cfg = (host.props.config || {}) as LocalizationConfig;
     const prefix =
       (cfg.polygonStatusPrefix || "status_").toString().trim() || "status_";
 
-    const fields: any[] = (primaryLayer as any).fields || [];
+    const fields: __esri.Field[] = primaryLayer.fields || [];
     const dateToField: Record<string, string> = {};
     const dateLabels: string[] = [];
 
@@ -316,7 +338,7 @@ export const detectNdviStatusDateFieldsFromLayer = (host: LocalizationHost): voi
 };
 export const onDataSourceCreated = (host: LocalizationHost, ds: DataSource) => {
   const qds = ds as QueriableDataSource;
-  const dsId = ((qds as any)?.id || "").toString();
+  const dsId = (qds?.id || "").toString();
   agriLog("onDataSourceCreated:fired", {
     dsId,
     primaryDataSourceId: host._primaryDataSourceId,
@@ -341,8 +363,8 @@ export const onDataSourceCreated = (host: LocalizationHost, ds: DataSource) => {
     return;
   }
 
-  if (typeof (qds as any).setListenSelection === "function") {
-    (qds as any).setListenSelection(false);
+  if (typeof qds.setListenSelection === "function") {
+    qds.setListenSelection(false);
   }
   host.setState({ dataSource: qds, error: null }, async () => {
     if (host.state.connectionStatus === "connected") {
@@ -365,7 +387,10 @@ export const onDataSourceCreated = (host: LocalizationHost, ds: DataSource) => {
     }
   });
 };
-export const onDataSourceInfoChange = (host: LocalizationHost, info: any) => {
+export const onDataSourceInfoChange = (
+  host: LocalizationHost,
+  info: DataSourceInfoWithRecords | null,
+) => {
   if (!host._isMounted) return;
   if (host.state.connectionStatus !== "connected") return;
   if (!info) return;

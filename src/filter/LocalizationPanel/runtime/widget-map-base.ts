@@ -1,5 +1,5 @@
 import { JimuMapView } from "jimu-arcgis";
-import type { DataSource, IMDataSourceInfo, UseDataSource } from "jimu-core";
+import type { DataSource, IMDataSourceInfo, IMUseDataSource } from "jimu-core";
 import type { AgriMapLayer } from "../../localization/agri-map-layer";
 import { getTuriCropLookupKey } from "../../../shared/agri-crop-labels";
 import { MAX_MAP_CONNECTION_ATTEMPTS } from "../../../shared/map-connection-service";
@@ -220,7 +220,7 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
     return resolveAllowedViloyats(this.host, groups);
   };
 
-  protected getEffectiveUseDataSources(): UseDataSource[] {
+  protected getEffectiveUseDataSources(): IMUseDataSource[] {
     return getEffectiveUseDataSources(this.host);
   }
 
@@ -270,7 +270,7 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
   protected finalizeConnection = (featureLayers: __esri.FeatureLayer[], jimuMapView: JimuMapView | null): Promise<void> =>
     finalizeConnection(this.host, featureLayers, jimuMapView);
 
-  protected resolveFeatureLayerFromOneUseDataSource = (useDs: UseDataSource, jimuMapView: JimuMapView | null): Promise<__esri.FeatureLayer | null> =>
+  protected resolveFeatureLayerFromOneUseDataSource = (useDs: IMUseDataSource, jimuMapView: JimuMapView | null): Promise<__esri.FeatureLayer | null> =>
     resolveFeatureLayerFromOneUseDataSource(this.host, useDs, jimuMapView);
 
   protected resolveSpatialMapLayers = (jimuMapView: JimuMapView | null): Promise<__esri.FeatureLayer[]> =>

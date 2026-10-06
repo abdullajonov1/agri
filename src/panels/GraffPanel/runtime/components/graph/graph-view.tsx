@@ -50,7 +50,7 @@ export const applyGraphData = (host: GraffWidgetHost, nextData: ChartVegetationR
       ? { chartAnimKey: (host.state.chartAnimKey || 0) + 1 }
       : {}),
     ...patch,
-  } as any);
+  } as Pick<AgriGraffWidgetState, keyof AgriGraffWidgetState>);
 };
 export const switchToTable = (host: GraffWidgetHost) => {
   if (host.state.viewMode === "table") return;

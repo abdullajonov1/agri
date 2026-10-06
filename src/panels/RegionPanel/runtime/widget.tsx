@@ -3,7 +3,6 @@
 
 import { JimuMapView, JimuMapViewComponent } from "jimu-arcgis";
 import {
-  AllWidgetProps,
   DataSource,
   DataSourceComponent,
   DataSourceManager,
@@ -178,9 +177,14 @@ import {
 import {
   render,
 } from "./components/render-panel";
-import type { RegionWidgetHost } from "./region-host";
+import type {
+  RegionFilterUpdates,
+  RegionUseDataSourceRef,
+  RegionWidgetHost,
+  RegionWidgetProps,
+} from "./region-host";
 export default class AgriRegion extends React.PureComponent<
-  AllWidgetProps<any>,
+  RegionWidgetProps,
   AgriRegionState
 > {
   /** Tuman select debug — visible when __AGRO_V5_TUMAN_DEBUG !== false (default ON). */
@@ -223,7 +227,7 @@ export default class AgriRegion extends React.PureComponent<
 
   REGIONAL_COLOR = "#00D2FF";
 
-  constructor(props: AllWidgetProps<any>) {
+  constructor(props: RegionWidgetProps) {
     super(props);
     const initialLanguage = resolveInitialLanguage();
 
@@ -348,7 +352,7 @@ export default class AgriRegion extends React.PureComponent<
   /* ---------------------- Notify AgriFilter ---------------------- */
 
   private notifyAgriFilter = (
-    updates: Partial<AgriRegionState["currentFilters"]>,
+    updates: RegionFilterUpdates,
     generation?: number,
   ) => {
     return notifyAgriFilter(this as unknown as RegionWidgetHost, updates, generation);
@@ -371,7 +375,7 @@ export default class AgriRegion extends React.PureComponent<
   };
 
   private resolveFeatureLayerFromOneUseDataSource = async (
-    useDs: any,
+    useDs: RegionUseDataSourceRef | null | undefined,
     jimuMapView: JimuMapView,
   ): Promise<__esri.FeatureLayer | null> => {
     return resolveFeatureLayerFromOneUseDataSource(this as unknown as RegionWidgetHost, useDs, jimuMapView);

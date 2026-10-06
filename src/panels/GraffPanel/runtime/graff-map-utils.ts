@@ -26,14 +26,24 @@ export const isAgriSpatialLayerUrl = (url: string): boolean => {
   return lower.includes("agri");
 };
 
-export const isLayerTreeVisible = (layer: any): boolean => {
+/** Minimal layer-tree node: esri Layer / Sublayer / GroupLayer all fit. */
+interface LayerTreeNode {
+  visible?: boolean;
+  parent?: unknown;
+  layer?: unknown;
+}
+
+const asLayerTreeNode = (value: unknown): LayerTreeNode | null =>
+  value != null && typeof value === "object" ? (value as LayerTreeNode) : null;
+
+export const isLayerTreeVisible = (layer: unknown): boolean => {
   if (!layer) return false;
-  const seen = new Set<any>();
-  let current: any = layer;
+  const seen = new Set<LayerTreeNode>();
+  let current = asLayerTreeNode(layer);
   while (current && !seen.has(current)) {
     seen.add(current);
     if (current.visible === false) return false;
-    current = current.parent || current.layer || null;
+    current = asLayerTreeNode(current.parent || current.layer || null);
   }
   return true;
 };
