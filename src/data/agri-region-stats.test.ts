@@ -88,7 +88,7 @@ describe("agri-region-stats", () => {
   });
 
   test("queryRegionAggregateRows loads the layer then aggregates", async () => {
-    const load = jest.fn(async () => undefined);
+    const load = jest.fn(async (): Promise<void> => undefined);
     (getRegionGroupFeaturesCached as jest.Mock).mockResolvedValue([
       feature({ viloyat: "Andijon", region: 17, sum_m: 3 }),
       feature({ viloyat: "Buxoro", region: 6, sum_m: 1 }),

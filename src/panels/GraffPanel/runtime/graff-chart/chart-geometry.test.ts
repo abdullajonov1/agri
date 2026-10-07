@@ -68,7 +68,7 @@ describe("resolveChartDateRange", () => {
 describe("buildSeriesByIndex", () => {
   test("drops invalid dates / non-finite values and renumbers sourceIndex", () => {
     const rows = [
-      { raster_date: "2024-01-01", ndvi: 0.5, ndvi_min: "0.1", ndvi_max: null },
+      { raster_date: "2024-01-01", ndvi: 0.5, ndvi_min: "0.1", ndvi_max: null as number | null },
       { raster_date: "bad-date", ndvi: 0.6 },
       { raster_date: "2024-01-03", ndvi: null },
       { raster_date: "2024-01-04", ndvi: "0.7", ndvi_min: "x" },

@@ -121,7 +121,7 @@ describe("componentWillUnmount", () => {
     const plain = { definitionExpression: "x=1" };
     const owned = { owned: true, definitionExpression: "y=1" };
     const single = { definitionExpression: "z=1" };
-    const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation((): void => undefined);
     const h = mk({
       _unbindNotificationPack: unbind,
       _notificationPaintFrame: 5,

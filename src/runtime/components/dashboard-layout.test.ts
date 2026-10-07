@@ -115,7 +115,7 @@ describe("observers and map reflow", () => {
     ensureLayoutObservers(host);
     expect(host.layoutObserversReady).toBe(true);
     expect(observed).toHaveLength(3);
-    expect(addSpy.mock.calls.filter(([type]) => type === "resize")).toHaveLength(1);
+    expect(addSpy.mock.calls.filter((call: readonly unknown[]) => call[0] === "resize")).toHaveLength(1);
     addSpy.mockRestore();
   });
 

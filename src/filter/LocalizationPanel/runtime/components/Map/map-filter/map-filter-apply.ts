@@ -7,7 +7,7 @@ import { clearAgriAdminBoundaries, syncAgriAdminBoundaries, queryAgriAdminBounda
 import { zoomGoToDurationMsForReason, isDistrictZoomPath, districtAdminExpandFactor, districtFallbackRegionExpandFactor, shouldSkipHomeGoTo, pickHomeExtentCandidate, homeGoToDurationMs, preferShownRegionYearExtent, raceRegionExtentPick, planCropNdviExtentSource, zoomExpandFactorForReason } from "../../../../../localization/map-zoom-target";
 import { collectShownRegionYearQueryTargets, readQueryableDefinitionExpression, unionMapExtents, unionShownRegionYearFullExtents, canQuerySpatialFeatureExtent, readSpatialFeatureExtentWhere, appendSpatialFeatureExtent } from "../../../../../localization/map-shown-extent";
 import { getDetachedQueryLayerFor, isMapImageOwnedLayer, safeLoadMapLayer } from "../../../../../../gis/feature-layer-data";
-import { errorMessage } from "../../../../../../shared/agri-plain-object";
+import { arcgisEaseInOut, errorMessage, errorName } from "../../../../../../shared/agri-plain-object";
 
 /** View animation members read before goTo (MapView exposes them). */
 interface ViewAnimationLike {
@@ -343,12 +343,12 @@ export const applyMapFiltersOptimized = async (
       await Promise.race([
         view.goTo(target, {
           duration,
-          easing: "ease-in-out",
+          easing: arcgisEaseInOut,
         }),
         new Promise<void>((resolve) => setTimeout(resolve, duration + 1200)),
       ]);
     } catch (error) {
-      if (error?.name !== "AbortError") {
+      if (errorName(error) !== "AbortError") {
         agriLog("zoom:navigate:failed", {
           message: errorMessage(error),
         });
@@ -633,7 +633,7 @@ export const applyMapFiltersOptimized = async (
       });
     }
   } catch (error) {
-    if (error?.name !== "AbortError") {
+    if (errorName(error) !== "AbortError") {
       agriLog("zoom:navigation-failed", {
         reason: zoomRequest.reason,
         message: errorMessage(error),

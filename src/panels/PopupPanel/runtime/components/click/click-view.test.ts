@@ -29,7 +29,7 @@ const asGraphic = (o: Obj): __esri.Graphic => o as unknown as __esri.Graphic;
 const asLayer = (o: Obj): __esri.FeatureLayer => o as unknown as __esri.FeatureLayer;
 
 const geometry = { type: "polygon", extent: { expand: jest.fn(() => ({ target: "expanded" })) } };
-const clickLayer = { url: "https://svc/0", title: "Fields", objectIdField: "OBJECTID", loaded: true, queryable: undefined };
+const clickLayer = { url: "https://svc/0", title: "Fields", objectIdField: "OBJECTID", loaded: true, queryable: undefined as undefined };
 
 interface Ctx {
   host: PopupWidgetHost;
@@ -261,7 +261,7 @@ describe("onViewClick", () => {
     const hit = asGraphic({ attributes: { OBJECTID: 11 }, geometry });
     const s = setup({
       resolveClickFeatureAt: jest.fn(() => Promise.resolve({ graphic: hit, queryHitLayer: null })),
-      toLiveMapLayer: jest.fn(() => null),
+      toLiveMapLayer: jest.fn((): null => null),
     });
     await onViewClick(s.host, ev);
     expect(s.host.state).toMatchObject({ loading: false, showPopup: false });

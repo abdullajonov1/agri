@@ -442,6 +442,16 @@ body.light-theme .agri-dashboard-v3 {
   overflow: visible;
 }
 
+.agri-dashboard-header .agri-v20-brand-logo {
+  display: block !important;
+  height: calc(var(--agri-dashboard-header-height) - 18px) !important;
+  width: auto !important;
+  max-width: 96px !important;
+  max-height: calc(var(--agri-dashboard-header-height) - 18px) !important;
+  object-fit: contain !important;
+  flex-shrink: 0 !important;
+}
+
 .agri-dashboard-header .agri-v20-root,
 .agri-dashboard-header .agri-region-card,
 .agri-dashboard-header .agri-region-content,

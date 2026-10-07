@@ -1,6 +1,7 @@
 import { queryVegFeatures, readVegAttr, agriNotifyLog } from "../veg-base";
 import type { AgriQueryableLayer } from "../../../types/agri-layer";
 import { type AgriAttributes, errorMessage } from "../../agri-layer-types";
+import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 
 export async function listRegionsForProcessedDay(
   layer: AgriQueryableLayer,
@@ -14,13 +15,13 @@ export async function listRegionsForProcessedDay(
     query.where = where;
     query.groupByFieldsForStatistics = [regionField];
     query.orderByFields = [`${regionField} ASC`];
-    query.outStatistics = [
+    query.outStatistics = asStatisticDefinitions([
       {
         statisticType: "count",
         onStatisticField: oidField,
         outStatisticFieldName: "row_cnt",
       },
-    ];
+    ]);
     query.returnGeometry = false;
     query.num = 100;
     const result = await queryVegFeatures(layer, query);

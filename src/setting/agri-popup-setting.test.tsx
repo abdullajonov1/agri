@@ -45,7 +45,7 @@ jest.mock("jimu-ui/basic/color-picker", () => ({
 }));
 jest.mock("./components/popup-data-sources", () => ({
   ...jest.requireActual("./components/popup-data-sources"),
-  initializeDataSources: jest.fn(async () => undefined),
+  initializeDataSources: jest.fn(async (): Promise<void> => undefined),
   cleanupDataSources: jest.fn(),
 }));
 
@@ -57,12 +57,16 @@ const allFields: FieldInfo[] = [
 
 type Change = { config: { agriPopup: Record<string, unknown> } };
 
+function immutable<T>(value: T): T {
+  return (Immutable as unknown as (input: T) => T)(value);
+}
+
 const mount = (agri: Record<string, unknown>, withDs = true) => {
   const onSettingChange = jest.fn<void, [Change]>();
   const props = {
     id: "w1",
-    config: Immutable({ agriPopup: agri }),
-    useDataSources: Immutable(withDs ? [{ dataSourceId: "ds" }] : []),
+    config: immutable({ agriPopup: agri }),
+    useDataSources: immutable(withDs ? [{ dataSourceId: "ds" }] : []),
     onSettingChange,
   } as unknown as AllWidgetSettingProps<IMConfig>;
   const ref = React.createRef<AgriPopupSettingPanel>();

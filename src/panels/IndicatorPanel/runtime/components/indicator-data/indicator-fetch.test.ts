@@ -57,7 +57,7 @@ const setup = (
       nz: (f: string) => `${f} > 0`,
       isRepublicLayer: () => false,
       getFeatureLayerForViloyat: () => undefined,
-      fetchGroupedStats: jest.fn(async () => undefined),
+      fetchGroupedStats: jest.fn(async (): Promise<void> => undefined),
       ...overrides,
     },
   );
@@ -166,7 +166,7 @@ describe("fetchApiData", () => {
 
 describe("fetchData routing", () => {
   it("delegates to the API source when configured", async () => {
-    const fetchApi = jest.fn(async () => undefined);
+    const fetchApi = jest.fn(async (): Promise<void> => undefined);
     const { host } = setup({}, { useApiDataSource: true }, { fetchApiData: fetchApi });
     await fetchData(host);
     expect(fetchApi).toHaveBeenCalled();
@@ -187,7 +187,7 @@ describe("fetchData routing", () => {
   });
 
   it("uses grouped stats when groupByField is configured", async () => {
-    const grouped = jest.fn(async () => undefined);
+    const grouped = jest.fn(async (): Promise<void> => undefined);
     const { host } = setup({ selectedVegetationStatus: "Alo", vhUniqueids: ["a"] }, { groupByField: "turi" }, { fetchGroupedStats: grouped });
     await fetchData(host);
     expect(grouped).toHaveBeenCalled();

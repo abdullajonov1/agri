@@ -6,6 +6,7 @@ import { NDVI_STATUS_TO_VH } from "../../../../filter/localization/vh-constants"
 import { getAgriTableDataLayer } from "../../../../gis/agri-table-data-source";
 import { buildSelectionSymbol, clearMapSelectionGraphics } from "../graff-map-utils";
 import { getQueryableLayer } from "../../../../gis/feature-layer-data";
+import { arcgisEaseInOut } from "../../../../shared/agri-plain-object";
 import { DataSourceManager } from "jimu-core";
 import { getAgriDashboardBootstrap } from "../../../../data/agri-bootstrap";
 import type { AgriLanguage } from "../../../../shared/agri-language";
@@ -339,7 +340,7 @@ export const highlightFeature = async (host: GraffWidgetHost, feature: __esri.Gr
         feature.geometry?.extent?.expand(1.35) || feature.geometry,
         {
         duration: 700,
-        easing: "ease-in-out" as const,
+        easing: arcgisEaseInOut,
       });
     } catch (goToErr) {
       // goTo rejects when interrupted by a newer navigation — harmless.

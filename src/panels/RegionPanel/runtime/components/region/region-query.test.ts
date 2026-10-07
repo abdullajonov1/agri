@@ -171,7 +171,7 @@ describe("resolveFeatureLayerFromOneUseDataSource", () => {
   });
 
   it("returns null when nothing resolves or the manager throws", async () => {
-    mockGetInstance.mockReturnValue({ getDataSource: () => null });
+    mockGetInstance.mockReturnValue({ getDataSource: (): null => null });
     expect(await resolveFeatureLayerFromOneUseDataSource(host, { dataSourceId: "a" }, makeView(true))).toBeNull();
     mockGetInstance.mockImplementation(() => {
       throw new Error("x");

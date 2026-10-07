@@ -1,5 +1,6 @@
 import { React } from "jimu-core";
 import { applyGraffDefinitionExpression, describeThrown, type AgriQueryableLayer } from "./graff-guards";
+import { arcgisEaseInOut } from "../../../shared/agri-plain-object";
 import type { TaggedLayer } from "./components/spatial-candidates";
 import type { JimuMapView } from "jimu-arcgis";
 import {
@@ -198,7 +199,7 @@ export const syncGraffExternalPolygonSelection = (
       try {
         void view.goTo(restoreExtent, {
           duration: 700,
-          easing: "ease-in-out" as const,
+          easing: arcgisEaseInOut,
         });
       } catch {
         /* ignore */
@@ -289,7 +290,7 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
       try {
         await activeMapView.view.goTo(restoreExtent, {
           duration: 700,
-          easing: "ease-in-out" as const,
+          easing: arcgisEaseInOut,
         });
       } catch {
         /* navigation interruption is harmless */
@@ -358,7 +359,7 @@ export const handleGraffRowClick = async (host: GraffMapInteractionHost, record:
     const spatialLayersForHighlight = host.getTableSpatialQueryCandidates();
     graffLog("tableRow:spatial-candidates", {
       count: spatialLayersForHighlight.length,
-      layers: spatialLayersForHighlight.map((layer: AgriQueryableLayer) => ({
+      layers: spatialLayersForHighlight.map((layer: TaggedLayer) => ({
         title: layer?.title || null,
         url:
           layer?.__agriQueryableUrl ||

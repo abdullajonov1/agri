@@ -16,6 +16,10 @@ jest.mock("./access-io", () => ({
   resolveAccessImport: jest.fn(),
 }));
 
+function immutable<T>(value: T): T {
+  return (Immutable as unknown as (input: T) => T)(value);
+}
+
 const mockCopy = io.copyTextToClipboard as jest.Mock<Promise<void>, [string]>;
 const mockDownload = io.downloadAccessConfigJson as jest.Mock<void, [AccessConfig]>;
 const mockResolve = io.resolveAccessImport as jest.Mock<AccessConfig | null, unknown[]>;
@@ -35,7 +39,7 @@ const initial: AccessConfig = {
 const makeProps = (onSettingChange = jest.fn()): AllWidgetSettingProps<IMConfig> =>
   ({
     id: "w1",
-    config: Immutable({ accessConfig: initial }),
+    config: immutable({ accessConfig: initial }),
     onSettingChange,
   }) as unknown as AllWidgetSettingProps<IMConfig>;
 
@@ -48,7 +52,7 @@ const setup = (onSettingChange = jest.fn()) => {
 describe("useAccessSetting", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(window, "alert").mockImplementation(() => undefined);
+    jest.spyOn(window, "alert").mockImplementation((): void => undefined);
   });
   afterEach(() => jest.restoreAllMocks());
 

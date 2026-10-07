@@ -92,12 +92,12 @@ describe("resolveFeatureLayerFromOneUseDataSource", () => {
   it("falls back to matching a map layer by data source url", async () => {
     const cand = { url: "u", q: true };
     m(DataSourceManager.getInstance).mockReturnValue({ getDataSource: () => ({ url: "u" }) });
-    const view = asView({ view: { map: { layers: { toArray: () => [{ url: "x" }, cand] } } }, getAllJimuLayerViews: () => [] });
+    const view = asView({ view: { map: { layers: { toArray: () => [{ url: "x" }, cand] } } }, getAllJimuLayerViews: (): never[] => [] });
     expect(await resolveFeatureLayerFromOneUseDataSource(host(), useDs({ dataSourceId: "d" }), view)).toBe(cand);
   });
 
   it("returns null when nothing resolves, and when lookups throw", async () => {
-    m(DataSourceManager.getInstance).mockReturnValue({ getDataSource: () => null });
+    m(DataSourceManager.getInstance).mockReturnValue({ getDataSource: (): null => null });
     expect(await resolveFeatureLayerFromOneUseDataSource(host(), useDs({ dataSourceId: "d" }), null)).toBeNull();
     m(DataSourceManager.getInstance).mockImplementation(() => { throw new Error("boom"); });
     m(safeLoadMapImageTree).mockRejectedValue(new Error("load"));

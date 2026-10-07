@@ -86,7 +86,7 @@ const asAgri = (o: Obj): AgriLayerLike => o as unknown as AgriLayerLike;
 const asJmv = (o: Obj): JimuMapView => o as unknown as JimuMapView;
 const asView = (o: Obj): __esri.MapView => o as unknown as __esri.MapView;
 const asGeom = (o: Obj): __esri.Geometry => o as unknown as __esri.Geometry;
-const q = (url: string, extra: Obj = {}): Obj => ({ url, queryFeatures: () => undefined, ...extra });
+const q = (url: string, extra: Obj = {}): Obj => ({ url, queryFeatures: (): undefined => undefined, ...extra });
 
 beforeEach(() => {
   [mockDetachedFor, mockFindByUrl, mockFindById, mockAllLayers, mockLoadLayer, mockDiscover, mockGetInstance, mockGetDataSource, mockSelectedIds].forEach((m) => m.mockReset());
@@ -420,7 +420,7 @@ describe("map-handlers: map view readiness scheduling", () => {
   });
 
   test("scheduleMapViewFallback does nothing without a linked map id", () => {
-    const { host } = makePopupHost({}, {}, { getLinkedMapWidgetId: jest.fn(() => null), getMapViewFromManager: jest.fn(() => null), onActiveViewChange: jest.fn() });
+    const { host } = makePopupHost({}, {}, { getLinkedMapWidgetId: jest.fn((): null => null), getMapViewFromManager: jest.fn((): null => null), onActiveViewChange: jest.fn() });
     scheduleMapViewFallback(host);
     expect(host.mapViewFallbackTimer).toBeUndefined();
   });
@@ -446,7 +446,7 @@ describe("map-handlers: map view readiness scheduling", () => {
     jest.useFakeTimers();
     const { host } = makePopupHost({}, {}, {
       getLinkedMapWidgetId: jest.fn(() => "m1"),
-      getMapViewFromManager: jest.fn(() => null),
+      getMapViewFromManager: jest.fn((): null => null),
       onActiveViewChange: jest.fn(),
     });
     scheduleMapViewFallback(host);
@@ -552,7 +552,7 @@ describe("map-handlers: data source resolution", () => {
     mockFindById.mockReturnValueOnce(byId);
     expect(toLiveMapLayer(host, asAgri({ url: "u", id: 1 }), map)).toBe(byId);
     expect(mockFindById).toHaveBeenCalledWith(map, "1");
-    const self = asAgri({ id: "x", queryFeatures: () => undefined });
+    const self = asAgri({ id: "x", queryFeatures: (): undefined => undefined });
     expect(toLiveMapLayer(host, self, map)).toBe(self);
     const plain = asAgri({ url: "p" });
     expect(toLiveMapLayer(host, plain, null)).toBe(plain);
@@ -707,7 +707,7 @@ describe("map-handlers: initializeMapConnection", () => {
       snapshotDefinitionExpressions: jest.fn(() => new Map()),
       restoreDriftedDefinitionExpressions: jest.fn(),
       toLiveMapLayer: jest.fn((l) => l as never),
-      collectLayersFromDataSources: jest.fn(() => ({ layers: [], layerKeyToDsId: {} })),
+      collectLayersFromDataSources: jest.fn((): { layers: never[]; layerKeyToDsId: Record<string, string> } => ({ layers: [], layerKeyToDsId: {} })),
       resolveFeatureLayerForUseDataSource: jest.fn(() => Promise.resolve(null)),
       attachMapClick: jest.fn(),
       scheduleMapInitRetry: jest.fn(),

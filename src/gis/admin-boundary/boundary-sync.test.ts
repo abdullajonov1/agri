@@ -84,7 +84,7 @@ function fakeView(): { view: AdminBoundaryView; map: FakeMap } {
   const map = fakeMap();
   const view = {
     map: map as unknown as EsriMap,
-    graphics: { toArray: () => [], remove: jest.fn(), add: jest.fn() },
+    graphics: { toArray: (): never[] => [], remove: jest.fn(), add: jest.fn() },
   } as unknown as AdminBoundaryView;
   return { view, map };
 }

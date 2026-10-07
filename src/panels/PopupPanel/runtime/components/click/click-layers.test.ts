@@ -117,7 +117,7 @@ describe("click-layers: toClickQueryGeometry", () => {
     expect(res.x).toBe(10);
     expect(res.y).toBe(20);
     expect(res.spatialReference).toEqual({ wkid: 1 });
-    const own = toClickQueryGeometry(host, asView({ toMap: () => null }), { x: 0, y: 0 }, { x: 1, y: 2, spatialReference: { wkid: 9 } }) as unknown as Obj;
+    const own = toClickQueryGeometry(host, asView({ toMap: (): null => null }), { x: 0, y: 0 }, { x: 1, y: 2, spatialReference: { wkid: 9 } }) as unknown as Obj;
     expect(own.spatialReference).toEqual({ wkid: 9 });
   });
 
@@ -191,7 +191,7 @@ describe("click-layers: hit graphic selection", () => {
 
 describe("click-layers: getClickTargetLayers", () => {
   beforeEach(() => mockCollect.mockReset());
-  const queryable = (url: string): Obj => ({ url, queryFeatures: () => undefined });
+  const queryable = (url: string): Obj => ({ url, queryFeatures: (): undefined => undefined });
 
   const build = (state: Parameters<typeof makePopupHost>[0], dashboard = false): PopupWidgetHost =>
     makePopupHost(state, {}, {
@@ -268,10 +268,10 @@ describe("click-layers: resolveClickFeatureAt", () => {
     const restore = jest.fn();
     const host = makePopupHost({}, {}, {
       toClickQueryGeometry: jest.fn(() => geom as unknown as __esri.Point),
-      getClickTargetLayers: jest.fn(() => []),
+      getClickTargetLayers: jest.fn((): never[] => []),
       snapshotDefinitionExpressions: jest.fn(() => new Map()),
       restoreDriftedDefinitionExpressions: restore,
-      pickClickGraphic: jest.fn(() => null),
+      pickClickGraphic: jest.fn((): null => null),
       isLayerEffectivelyVisible: jest.fn(() => true),
       isAgriculturalFieldLayer: jest.fn(() => true),
       getDetachedQueryLayer: jest.fn(() => Promise.resolve(null)),
@@ -322,7 +322,7 @@ describe("click-layers: resolveClickFeatureAt", () => {
     const isVis = jest.fn((l: unknown) => l !== hidden);
     const { host } = build({ isLayerEffectivelyVisible: isVis as never });
     expect(await resolveClickFeatureAt(host, ev, view, [hidden, bad])).toBeNull();
-    const none = build({ toClickQueryGeometry: jest.fn(() => null) }).host;
+    const none = build({ toClickQueryGeometry: jest.fn((): null => null) }).host;
     expect(await resolveClickFeatureAt(none, ev, view, [bad])).toBeNull();
     const nonAgri = build({ isAgriculturalFieldLayer: jest.fn(() => false) }).host;
     expect(await resolveClickFeatureAt(nonAgri, ev, view, [bad])).toBeNull();

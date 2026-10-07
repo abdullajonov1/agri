@@ -355,7 +355,7 @@ describe("hover tooltip", () => {
     expect(tooltip.classList.contains("is-visible")).toBe(false);
   });
   test("update is a no-op without tooltip; default index is NDVI", () => {
-    const none = makeHost({}, { ensureVegetationHoverTooltipEl: jest.fn(() => null) });
+    const none = makeHost({}, { ensureVegetationHoverTooltipEl: jest.fn((): null => null) });
     expect(() => mi.updateGraffHoverTooltip(none, 1, 1, 1)).not.toThrow();
     const bare = document.createElement("div");
     const host = makeHost({}, { ensureVegetationHoverTooltipEl: jest.fn(() => bare), getIndexDisplayColor: jest.fn(() => "blue") });
@@ -444,7 +444,7 @@ describe("attachGraffRasterHover", () => {
     mi.attachGraffRasterHover(host, view as unknown as __esri.MapView);
     expect(view.on).not.toHaveBeenCalled();
     const v2 = makeView();
-    attach(v2, { ensureVegetationHoverTooltipEl: jest.fn(() => null) });
+    attach(v2, { ensureVegetationHoverTooltipEl: jest.fn((): null => null) });
     expect(v2.on).not.toHaveBeenCalled();
   });
   test("pointer-move shows tooltip at screen position; leave hides it", () => {
@@ -456,7 +456,7 @@ describe("attachGraffRasterHover", () => {
     expect(asMock(host.hideVegetationHoverTooltip)).toHaveBeenCalled();
   });
   test("pointer-move hides on every miss path", () => {
-    const cases: Array<Partial<FakeView>> = [{ toMap: jest.fn(() => null) }, { toScreen: jest.fn(() => null) }, { container: null }, { toMap: jest.fn(() => { throw new Error("t"); }) }];
+    const cases: Array<Partial<FakeView>> = [{ toMap: jest.fn((): null => null) }, { toScreen: jest.fn((): null => null) }, { container: null }, { toMap: jest.fn(() => { throw new Error("t"); }) }];
     for (const over of cases) {
       const view = makeView(over);
       const host = attach(view);
@@ -465,7 +465,7 @@ describe("attachGraffRasterHover", () => {
       expect(asMock(host.updateVegetationHoverTooltip)).not.toHaveBeenCalled();
     }
     const nullSample = makeView();
-    const h = attach(nullSample, { sampleVegetationRasterValue: jest.fn(() => null) });
+    const h = attach(nullSample, { sampleVegetationRasterValue: jest.fn((): null => null) });
     moveHandler(nullSample)({ x: 0, y: 0 });
     expect(asMock(h.hideVegetationHoverTooltip)).toHaveBeenCalled();
   });

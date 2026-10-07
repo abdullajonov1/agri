@@ -8,6 +8,7 @@ import { agriVhIndicatorLog } from "../../../../../gis/agri-debug-log";
 import { canonicalIndicatorApiPlaces } from "./indicator-api-places";
 import { requestIndicatorApiValue } from "./indicator-api-client";
 import { isAbortError } from "../../../../../shared/agri-http";
+import { asStatisticDefinitions } from "../../../../../shared/agri-plain-object";
 
 const vhWhereSummary = (where: string) => ({
   whereLength: where.length,
@@ -411,13 +412,13 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
 
     const q = fl.createQuery();
     q.where = where;
-    q.outStatistics = [
+    q.outStatistics = asStatisticDefinitions([
       {
         onStatisticField: onField,
         statisticType: statMap[op],
         outStatisticFieldName: "agg",
       },
-    ];
+    ]);
     q.returnGeometry = false;
 
     const stats = await fl.queryFeatures(q);

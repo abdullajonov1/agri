@@ -49,7 +49,7 @@ jest.mock("./assets/CompressLight.svg", () => "compress.svg", { virtual: true })
 jest.mock("./assets/basemap.svg", () => "basemap.svg", { virtual: true });
 jest.mock("../gis/agri-admin-boundary-layer", () => ({
   readAgriAdminBordersVisible: jest.fn(() => true),
-  setAgriAdminBordersVisible: jest.fn(async () => undefined),
+  setAgriAdminBordersVisible: jest.fn(async (): Promise<void> => undefined),
 }));
 jest.mock("../gis/feature-layer-data", () => ({
   looksLikeRegionYearLayerHaystack: (h: string) => h.includes("region-year"),
@@ -59,7 +59,7 @@ jest.mock("jimu-core", () => ({
   getAppStore: () => ({ getState: () => ({ portalUrl: "https://portal.test/" }) }),
   DataSourceManager: { getInstance: jest.fn() },
   DataSourceComponent: ({ onDataSourceCreated }: { onDataSourceCreated: (ds: object) => void }) => (
-    <button type="button" data-testid="ds-component" onClick={() => onDataSourceCreated({ ready: async () => undefined })} />
+    <button type="button" data-testid="ds-component" onClick={() => onDataSourceCreated({ ready: async (): Promise<void> => undefined })} />
   ),
 }));
 jest.mock("jimu-arcgis", () => ({
@@ -95,8 +95,8 @@ class FakeViewCtor {
   center = { x: 1 };
   constraints = { minZoom: 5 };
   ui = { remove: jest.fn() };
-  when = jest.fn(async () => undefined);
-  goTo = jest.fn(async (_target: unknown, _opts?: unknown) => undefined);
+  when = jest.fn(async (): Promise<void> => undefined);
+  goTo = jest.fn(async (_target: unknown, _opts?: unknown): Promise<void> => undefined);
   destroy = jest.fn();
   resize = jest.fn();
   constructor(args: { map: FakeMap }) {
@@ -137,7 +137,7 @@ describe("EmbeddedAgriMap", () => {
     mockLoad.mockReset();
     mockLoad.mockResolvedValue([FakeMapCtor, FakeMapCtor, FakeViewCtor, class { constructor(public args: unknown) {} }]);
     mockViewManager.mockReturnValue({ createJimuMapView: state.createJimu, destroyJimuMapView: state.destroyJimu });
-    mockDsManager.mockReturnValue({ getDataSource: jest.fn(() => null) });
+    mockDsManager.mockReturnValue({ getDataSource: jest.fn((): null => null) });
     window.localStorage.clear();
     document.documentElement.className = "";
     jest.mocked(setAgriAdminBordersVisible).mockClear();
@@ -192,7 +192,7 @@ describe("EmbeddedAgriMap", () => {
       { title: "Roads", url: "", type: "feature", visible: true, opacity: 1 },
     ];
     mockDsManager.mockReturnValue({
-      getDataSource: jest.fn(() => ({ itemId: "item1", portalUrl: "https://p.test/", ready: async () => undefined })),
+      getDataSource: jest.fn(() => ({ itemId: "item1", portalUrl: "https://p.test/", ready: async (): Promise<void> => undefined })),
     });
     const cb = mount({ webMapDataSourceId: "wm" });
     await readyView(cb);
@@ -208,7 +208,7 @@ describe("EmbeddedAgriMap", () => {
     expect(state.views).toHaveLength(0);
     expect(cb.onViewReady).not.toHaveBeenCalled();
     // the hidden DataSourceComponent supplies the source once created
-    mockDsManager.mockReturnValue({ getDataSource: jest.fn(() => null) });
+    mockDsManager.mockReturnValue({ getDataSource: jest.fn((): null => null) });
     fireEvent.click(screen.getByTestId("ds-component"));
     await readyView(cb);
     expect(state.views).toHaveLength(1);
@@ -295,8 +295,8 @@ describe("EmbeddedAgriMap", () => {
   });
 
   test("fullscreen button requests fullscreen on the map slot and exits when active", async () => {
-    const request = jest.fn(async () => undefined);
-    const exit = jest.fn(async () => undefined);
+    const request = jest.fn(async (): Promise<void> => undefined);
+    const exit = jest.fn(async (): Promise<void> => undefined);
     Element.prototype.requestFullscreen = request;
     document.exitFullscreen = exit;
     const { container } = mount();
@@ -334,7 +334,7 @@ describe("EmbeddedAgriMap", () => {
   });
 
   test("feature layer root ids are used when no web map is configured", async () => {
-    const getDataSource = jest.fn(() => ({ ready: async () => undefined }));
+    const getDataSource = jest.fn(() => ({ ready: async (): Promise<void> => undefined }));
     mockDsManager.mockReturnValue({ getDataSource });
     const cb = mount({ featureUseDataSources: [{ dataSourceId: "root-layer1" } as never] });
     await readyView(cb);

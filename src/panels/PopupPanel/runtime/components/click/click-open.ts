@@ -9,6 +9,7 @@ import { AGRI_TABLE_JOIN_FIELD, queryAgriRecordByUniqueId } from "../../../../..
 import { escapeArcGIS } from "../../../../../data/agri-sql";
 import { getAgriLayerMapKey } from "../../../../../gis/feature-layer-data";
 import { agriMapClickDebug, agriMapClickWarn } from "../../../../../gis/agri-map-click-debug";
+import { arcgisEaseInOut } from "../../../../../shared/agri-plain-object";
 import { findAttributeValueCaseInsensitive as findAttributeValueCaseInsensitiveShared } from "../../popup-format-helpers";
 import { queryVegetationSeriesForUniqueId, formatArcgisDateToYmd } from "../../../../../gis/agri-vegetation-data-source";
 import { VEG_INDEX_FIELDS as popupVegIndexFields } from "../../popup-constants";
@@ -199,7 +200,7 @@ export const openPopupForUniqueid = async (host: PopupWidgetHost, uniqueid: stri
           f.geometry.extent?.expand?.(1.08) || f.geometry;
         void view.goTo(
           { target },
-          { duration: 650, easing: "ease-in-out" },
+          { duration: 650, easing: arcgisEaseInOut },
         );
       } catch {
         /* zoom is cosmetic — the popup is already open */

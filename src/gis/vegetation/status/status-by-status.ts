@@ -1,5 +1,6 @@
 import { type VegetationStatusCountsParams, type VegetationStatusCount, buildVegetationStatusWhere, vegetationStatusStatsCache, getAgriVegetationIndicesLayer, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, type VegQuery } from "../veg-base";
 import { rememberAsync } from "../../../data/agri-persistent-cache";
+import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 
 /**
  * Lightweight VH totals for republic overview: ONE grouped stats query per
@@ -31,7 +32,7 @@ export async function queryVegetationStatusCountsByStatus(
       query.groupByFieldsForStatistics = ["ndvi_status"];
       query.orderByFields = ["ndvi_status ASC"];
       query.outFields = ["ndvi_status"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "count",
           onStatisticField: oidField,
@@ -42,7 +43,7 @@ export async function queryVegetationStatusCountsByStatus(
           onStatisticField: "px_all",
           outStatisticFieldName: "sum_px_all",
         },
-      ];
+      ]);
       query.returnGeometry = false;
       // Status cardinality is tiny (4 buckets); one page is enough.
       query.num = 50;

@@ -92,7 +92,7 @@ describe("Indicator map-handlers lifecycle", () => {
   });
 
   test("onActiveViewChange clears on null and connects ready or later-ready views", () => {
-    const init = jest.fn(async () => undefined);
+    const init = jest.fn(async (): Promise<void> => undefined);
     const { host } = makeIndicatorHost({}, {}, { initializeMapConnection: init });
     onActiveViewChange(host, null as unknown as JimuMapView);
     expect(host.state.featureLayer).toBeNull();

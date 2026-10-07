@@ -56,14 +56,18 @@ jest.mock("./agri-access-setting", () => ({ __esModule: true, default: () => <di
 
 type Change = { id: string; config?: { [k: string]: unknown }; useDataSources?: UseDataSource[] };
 
+function immutable<T>(value: T): T {
+  return (Immutable as unknown as (input: T) => T)(value);
+}
+
 const ds = (id: string): UseDataSource => ({ dataSourceId: id, mainDataSourceId: id }) as unknown as UseDataSource;
 
 const setup = (config: Record<string, unknown> | undefined, useDataSources: UseDataSource[] = []) => {
   const onSettingChange = jest.fn<void, [Change]>();
   const props = {
     id: "w1",
-    config: config ? Immutable(config) : undefined,
-    useDataSources: Immutable(useDataSources),
+    config: config ? immutable(config) : undefined,
+    useDataSources: immutable(useDataSources),
     onSettingChange,
   } as unknown as AllWidgetSettingProps<IMConfig>;
   render(<Setting {...props} />);
@@ -159,7 +163,7 @@ describe("Setting", () => {
     const scroll = jest.fn();
     Element.prototype.scrollIntoView = scroll;
     const { container } = render(
-      <Setting {...({ id: "w1", config: undefined, useDataSources: Immutable([]), onSettingChange: jest.fn() } as unknown as AllWidgetSettingProps<IMConfig>)} />,
+      <Setting {...({ id: "w1", config: undefined, useDataSources: immutable([]), onSettingChange: jest.fn() } as unknown as AllWidgetSettingProps<IMConfig>)} />,
     );
     window.dispatchEvent(new CustomEvent("agri-main:map-settings-request", { detail: { widgetId: "other" } }));
     expect(scroll).not.toHaveBeenCalled();
@@ -177,7 +181,7 @@ describe("Setting", () => {
     const scroll = jest.fn();
     Element.prototype.scrollIntoView = scroll;
     const { unmount } = render(
-      <Setting {...({ id: "w1", config: undefined, useDataSources: Immutable([]), onSettingChange: jest.fn() } as unknown as AllWidgetSettingProps<IMConfig>)} />,
+      <Setting {...({ id: "w1", config: undefined, useDataSources: immutable([]), onSettingChange: jest.fn() } as unknown as AllWidgetSettingProps<IMConfig>)} />,
     );
     unmount();
     window.dispatchEvent(new CustomEvent("agri-main:map-settings-request", { detail: { widgetId: "w1" } }));

@@ -105,10 +105,11 @@ export async function installPbfJsonWorkaround(): Promise<void> {
     if (!interceptors) return;
     interceptors.push({
       urls: /sgm\.uzspace\.uz/i,
-      before: (params: __esri.BeforeInterceptorCallbackParams) => {
-        const q = params?.requestOptions?.query as
-          | Record<string, unknown>
-          | undefined;
+      before: (params) => {
+        const request = params as {
+          requestOptions?: { query?: Record<string, unknown> };
+        };
+        const q = request?.requestOptions?.query;
         if (!q || typeof q !== "object") return;
         const fmt = String(q.f ?? "").toLowerCase();
         if (fmt === "pbf") q.f = "json";

@@ -31,6 +31,7 @@ import {
 } from "../../panel-filter-detail";
 
 import "../../IndicatorPanel/runtime/KadastrIndicator.css";
+import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 
 /** Logger disabled — keep call sites without console noise. */
 function agriLog(_phase: string, _detail?: Record<string, unknown>): void {
@@ -252,13 +253,13 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
           const q = layer.createQuery();
           q.where = "1=1";
           q.groupByFieldsForStatistics = ["turi", "crop_id"];
-          q.outStatistics = [
+          q.outStatistics = asStatisticDefinitions([
             {
               statisticType: "count",
               onStatisticField: layer.objectIdField || "objectid",
               outStatisticFieldName: "cnt",
             },
-          ];
+          ]);
           q.returnGeometry = false;
           const response = await layer.queryFeatures(q);
           const rows = (response?.features || []).map((feature: __esri.Graphic) => ({

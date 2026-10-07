@@ -9,10 +9,14 @@ jest.mock("./access/use-portal-groups", () => ({
   usePortalGroups: () => ({ groupsInfo: {}, groupsLoading: false }),
 }));
 
+function immutable<T>(value: T): T {
+  return (Immutable as unknown as (input: T) => T)(value);
+}
+
 const makeProps = (onSettingChange = jest.fn()): AllWidgetSettingProps<IMConfig> =>
   ({
     id: "w1",
-    config: Immutable({
+    config: immutable({
       accessConfig: {
         fullAccessGroups: ["gFull"],
         rules: [{ id: "f1", title: "Region", field: "viloyat", rules: [] }],

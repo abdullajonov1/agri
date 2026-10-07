@@ -19,11 +19,25 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-# agri-main -> widgets -> your-extensions -> client
-EXB_CLIENT="$(cd "$ROOT/../../.." && pwd)"
+# Agro_widgetV5 -> Agri3 -> widgets -> your-extensions -> client
+# Older layout (widget directly under widgets/) is one level higher.
+if [ -d "$ROOT/../../../../dist" ]; then
+  EXB_CLIENT="$(cd "$ROOT/../../../.." && pwd)"
+elif [ -d "$ROOT/../../../dist" ]; then
+  EXB_CLIENT="$(cd "$ROOT/../../.." && pwd)"
+else
+  echo "Cannot find the Experience Builder client dist folder from $ROOT"
+  exit 1
+fi
 WIDGET_NAME="$(basename "$ROOT")"
-DIST_SRC="$EXB_CLIENT/dist/widgets/$WIDGET_NAME"
-PROD_SRC="$EXB_CLIENT/dist-prod/widgets/$WIDGET_NAME"
+PARENT_NAME="$(basename "$(dirname "$ROOT")")"
+if [ -d "$EXB_CLIENT/dist/widgets/$PARENT_NAME/$WIDGET_NAME" ]; then
+  DIST_REL="widgets/$PARENT_NAME/$WIDGET_NAME"
+else
+  DIST_REL="widgets/$WIDGET_NAME"
+fi
+DIST_SRC="$EXB_CLIENT/dist/$DIST_REL"
+PROD_SRC="$EXB_CLIENT/dist-prod/$DIST_REL"
 CHUNKS_SRC="$EXB_CLIENT/dist/widgets/chunks"
 PROD_CHUNKS="$EXB_CLIENT/dist-prod/widgets/chunks"
 WORK="${TMPDIR:-/tmp}/agri-publish-$$"

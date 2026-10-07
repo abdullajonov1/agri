@@ -37,6 +37,7 @@ import {
   shiftYmd,
   vegetationRecentDaysCacheKey,
   VH_CATEGORY_TO_NDVI_STATUS,
+  type VegetationRecentDayGroup,
 } from "./veg-base";
 import {
   DEFAULT_VEG_FIELDS,
@@ -263,7 +264,7 @@ describe("recent-days cache key and peek", () => {
 
   test("peek returns only a persisted array", () => {
     expect(peekVegetationRecentDayRegionCounts(5)).toBeNull();
-    const groups = [{ date: "2024-09-13", regions: [], totalFields: 0 }];
+    const groups: VegetationRecentDayGroup[] = [{ date: "2024-09-13", regions: [], totalFields: 0 }];
     setAgriPersistentCache("veg-recent-days", vegetationRecentDaysCacheKey(5), groups);
     expect(peekVegetationRecentDayRegionCounts(5)).toEqual(groups);
     setAgriPersistentCache("veg-recent-days", vegetationRecentDaysCacheKey(3), { bad: 1 });

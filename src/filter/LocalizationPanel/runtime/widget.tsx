@@ -1,4 +1,5 @@
 import { React } from "jimu-core";
+import "./AgriFilter.css";
 import { type ShownRegionYearLayer } from "../../../gis/feature-layer-data";
 import { logoutFromAccount } from "../../../shared/agri-logout";
 import { buildTurlarSqlClause } from "../../../shared/agri-crop-labels";

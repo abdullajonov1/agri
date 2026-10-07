@@ -7,6 +7,10 @@ import * as h from "./popup-setting-handlers";
 
 type Patch = Partial<State> | ((s: State) => Partial<State>);
 
+function immutable<T>(value: T): T {
+  return (Immutable as unknown as (input: T) => T)(value);
+}
+
 interface HostStub {
   host: PopupSettingHost;
   onSettingChange: jest.Mock<void, [{ id: string; config: { agriPopup?: AgriPopupConfig } }]>;
@@ -37,8 +41,8 @@ const makeHost = (
   const host = {
     props: {
       id: "w1",
-      config: agri === undefined ? undefined : Immutable({ agriPopup: agri }),
-      useDataSources: Immutable([]),
+      config: agri === undefined ? undefined : immutable({ agriPopup: agri }),
+      useDataSources: immutable([]),
       onSettingChange,
     } as unknown as AllWidgetSettingProps<IMConfig>,
     get state() {
@@ -85,7 +89,7 @@ describe("config helpers", () => {
   test("toPlainAgri unwraps immutable, copies plain and tolerates empty", () => {
     const { host } = makeHost({});
     expect(h.toPlainAgri(host, undefined)).toEqual({});
-    expect(h.toPlainAgri(host, Immutable({ titleField: "a" }))).toEqual({ titleField: "a" });
+    expect(h.toPlainAgri(host, immutable({ titleField: "a" }))).toEqual({ titleField: "a" });
     const plain = { titleField: "b" };
     const copy = h.toPlainAgri(host, plain);
     expect(copy).toEqual(plain);
@@ -245,7 +249,7 @@ describe("lifecycle", () => {
 
   test("update re-initializes data sources only when the key changes", () => {
     const s = makeHost({});
-    const prev = { ...s.host.props, useDataSources: Immutable([{ dataSourceId: "x" } as unknown as IMUseDataSource]) } as unknown as AllWidgetSettingProps<IMConfig>;
+    const prev = { ...s.host.props, useDataSources: immutable([{ dataSourceId: "x" } as unknown as IMUseDataSource]) } as unknown as AllWidgetSettingProps<IMConfig>;
     h.componentDidUpdate(s.host, prev, s.stateOf());
     expect(s.host.initializeDataSources).toHaveBeenCalledTimes(1);
     h.componentDidUpdate(s.host, s.host.props, s.stateOf());
@@ -257,7 +261,7 @@ describe("lifecycle", () => {
       { fieldsToShow: ["a"], fieldOrder: ["b", "a"], settings: { zoomToSelection: false, showMapPopup: true } },
       { fieldsToShowLocal: [], fieldOrder: [] },
     );
-    const prev = { ...s.host.props, config: Immutable({}) } as unknown as AllWidgetSettingProps<IMConfig>;
+    const prev = { ...s.host.props, config: immutable({}) } as unknown as AllWidgetSettingProps<IMConfig>;
     h.componentDidUpdate(s.host, prev, s.stateOf());
     expect(s.stateOf()).toMatchObject({
       fieldsToShowLocal: ["a"],
@@ -269,7 +273,7 @@ describe("lifecycle", () => {
 
   test("update keeps the local order when the config has none", () => {
     const s = makeHost({ fieldsToShow: [] }, { fieldOrder: ["z"] });
-    const prev = { ...s.host.props, config: Immutable({}) } as unknown as AllWidgetSettingProps<IMConfig>;
+    const prev = { ...s.host.props, config: immutable({}) } as unknown as AllWidgetSettingProps<IMConfig>;
     h.componentDidUpdate(s.host, prev, s.stateOf());
     expect(s.stateOf().fieldOrder).toEqual(["z"]);
   });

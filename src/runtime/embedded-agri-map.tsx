@@ -258,7 +258,7 @@ export default function EmbeddedAgriMap(props: Props) {
     const map = viewRef.current?.map || mapRef.current;
     if (!map || viewRef.current?.destroyed) return;
     if (String(map.basemap?.id || map.basemap || "") !== automaticBasemapId) {
-      map.basemap = automaticBasemapId;
+      map.basemap = automaticBasemapId as unknown as __esri.Basemap;
     }
     setActiveBasemapId(automaticBasemapId);
     setBasemapMenuOpen(false);
@@ -360,7 +360,7 @@ export default function EmbeddedAgriMap(props: Props) {
   const selectBasemap = React.useCallback((basemapId: string): void => {
     const view = viewRef.current;
     if (!view?.map || view.destroyed) return;
-    view.map.basemap = basemapId;
+    view.map.basemap = basemapId as unknown as __esri.Basemap;
     setActiveBasemapId(basemapId);
     setBasemapMenuOpen(false);
   }, []);
