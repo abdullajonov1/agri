@@ -19,9 +19,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-EXB_CLIENT="$(cd "$ROOT/../../../.." && pwd)"
-DIST_SRC="$EXB_CLIENT/dist/widgets/Agri3/Agro_widgetV5"
-PROD_SRC="$EXB_CLIENT/dist-prod/widgets/Agri3/Agro_widgetV5"
+# agri-main -> widgets -> your-extensions -> client
+EXB_CLIENT="$(cd "$ROOT/../../.." && pwd)"
+WIDGET_NAME="$(basename "$ROOT")"
+DIST_SRC="$EXB_CLIENT/dist/widgets/$WIDGET_NAME"
+PROD_SRC="$EXB_CLIENT/dist-prod/widgets/$WIDGET_NAME"
 CHUNKS_SRC="$EXB_CLIENT/dist/widgets/chunks"
 PROD_CHUNKS="$EXB_CLIENT/dist-prod/widgets/chunks"
 WORK="${TMPDIR:-/tmp}/agri-publish-$$"
@@ -62,7 +64,29 @@ mkdir -p "$WORK/widgets/Agro_widgetV6" "$WORK/widgets/chunks"
 cp -r "$SRC/dist" "$WORK/widgets/Agro_widgetV6/"
 cp "$ROOT/config.json" "$WORK/widgets/Agro_widgetV6/config.json"
 cp "$ROOT/icon.svg" "$WORK/widgets/Agro_widgetV6/icon.svg"
-cp -r "$CHUNKS/." "$WORK/widgets/chunks/"
+# dist/widgets/chunks is shared by every widget built on this machine. Copy
+# only the chunks this widget references (directly or via another copied
+# chunk) so other projects' code is never published.
+needed_chunks() {
+  local scan_dirs=("$SRC/dist")
+  local found=1
+  : > "$WORK/.chunks"
+  while [ "$found" -eq 1 ]; do
+    found=0
+    for f in "$CHUNKS"/*.js; do
+      name="$(basename "$f" .js)"
+      grep -qxF "$name" "$WORK/.chunks" && continue
+      if grep -rqF "\"$name\"" "${scan_dirs[@]}" "$WORK/widgets/chunks" 2>/dev/null; then
+        echo "$name" >> "$WORK/.chunks"
+        cp "$f" "$WORK/widgets/chunks/"
+        found=1
+      fi
+    done
+  done
+}
+needed_chunks
+echo "Chunks copied: $(wc -l < "$WORK/.chunks")"
+rm -f "$WORK/.chunks"
 
 # Mirror ExB widget source so the agri repo stays a usable clone target.
 cp -r "$ROOT/src" "$WORK/src"
@@ -125,30 +149,8 @@ EOF
 # Pages from repo root
 touch "$WORK/.nojekyll"
 
-# README for portal users
-cat > "$WORK/README.md" <<'EOF'
-# agri — Space Agro Monitoring (Agro_widgetV5 / V6)
-
-## Portal (Experience Builder)
-
-Stable manifest URL (use this in Portal custom widgets):
-
-https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.json
-
-After each code change, republish the built package (`bash scripts/publish-agri.sh` from the ExB widget folder). Then in Portal: **Custom widgets → Agro_widgetV6 → Update**.
-
-GitHub Pages updates automatically on push; Portal caches the old build until you click **Update**.
-
-## Local development
-
-Clone this repo into ExB:
-
-`client/your-extensions/widgets/Agro_widgetV5/`
-
-Then `npm start` in the ExB client.
-
-Do **not** register the raw GitHub source URL as a custom widget — Portal needs `widgets/Agro_widgetV6` + `widgets/chunks`.
-EOF
+# README for portal users (kept in sync with the source README)
+cp "$ROOT/README.md" "$WORK/README.md"
 
 cd "$WORK"
 # Source .gitignore ignores "dist/" — force-add the portal package tree.
