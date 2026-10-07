@@ -15,10 +15,11 @@ module.exports = {
   roots: ['<rootDir>/your-extensions/widgets/agri-main/src'],
   globals,
   // Type checking is done by `tsc --noEmit -p tsconfig.jest.json`; ts-jest only
-  // transpiles, which keeps each worker well under the default heap limit.
+  // transpiles (isolatedModules is set in tsconfig.jest.json), which keeps
+  // each worker well under the default heap limit.
   workerIdleMemoryLimit: '1GB',
   transform: {
     ...base.transform,
-    '^.+\\.tsx?$': ['ts-jest', { tsconfig: path.join(__dirname, 'tsconfig.jest.json'), isolatedModules: true }]
+    '^.+\\.tsx?$': ['ts-jest', { tsconfig: path.join(__dirname, 'tsconfig.jest.json') }]
   }
 }

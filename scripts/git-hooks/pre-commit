@@ -5,6 +5,8 @@ set -e
 WIDGET_DIR="$(git rev-parse --show-toplevel)"
 CLIENT_DIR="$WIDGET_DIR/../../.."
 cd "$CLIENT_DIR"
+LOG="$(mktemp)"
+trap 'rm -f "$LOG"' EXIT
 
 echo "[pre-commit] quality gate"
 node your-extensions/widgets/agri-main/scripts/check-quality.mjs > /dev/null
@@ -13,4 +15,8 @@ node your-extensions/widgets/agri-main/scripts/check-network-timeouts.mjs
 echo "[pre-commit] eslint"
 npx eslint your-extensions/widgets/agri-main/src --ext .ts,.tsx
 echo "[pre-commit] jest"
-npx jest -c your-extensions/widgets/agri-main/jest.config.js --silent
+if ! npx jest -c your-extensions/widgets/agri-main/jest.config.js --silent > "$LOG" 2>&1; then
+  grep -E "^FAIL|●|^Tests:|^Test Suites:" "$LOG" || cat "$LOG"
+  exit 1
+fi
+grep -E "^Tests:|^Test Suites:" "$LOG"
