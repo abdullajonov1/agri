@@ -32,22 +32,22 @@ PAGES_URL="https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.j
 VERSION="$(cd "$ROOT" && node -p "JSON.parse(require('fs').readFileSync('manifest.json','utf8')).version")"
 VERSION="${VERSION:-6.1.2}"
 
+# Chunks must come from the same build as the widget: dev and prod builds use
+# different module ids, so mixing them breaks lazy import() in Portal.
 SRC=""
 CHUNKS=""
 if [ -d "$PROD_SRC/dist" ]; then
   SRC="$PROD_SRC"
+  CHUNKS="$PROD_CHUNKS"
 elif [ -d "$DIST_SRC/dist" ]; then
   SRC="$DIST_SRC"
+  CHUNKS="$CHUNKS_SRC"
 else
   echo "No built widget found. Run EXB client (npm start) or build:prod first."
   exit 1
 fi
-if [ -d "$PROD_CHUNKS" ]; then
-  CHUNKS="$PROD_CHUNKS"
-elif [ -d "$CHUNKS_SRC" ]; then
-  CHUNKS="$CHUNKS_SRC"
-else
-  echo "No widgets/chunks folder found — portal will fail import()."
+if [ ! -d "$CHUNKS" ]; then
+  echo "No widgets/chunks folder next to the build ($CHUNKS) — portal will fail import()."
   exit 1
 fi
 
