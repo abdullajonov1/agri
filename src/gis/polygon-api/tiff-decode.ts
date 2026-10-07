@@ -131,7 +131,9 @@ export async function decodeExportImageTiff(
 
   let noData: number | null = null;
   try {
-    const gd = Number(image.getGDALNoData());
+    // getGDALNoData() is null without the tag; Number(null) would be 0.
+    const gdRaw = image.getGDALNoData();
+    const gd = gdRaw == null ? Number.NaN : Number(gdRaw);
     noData = Number.isFinite(gd) ? gd : null;
   } catch (err: unknown) {
     // No GDAL_NODATA tag — treat every finite pixel as data.

@@ -163,6 +163,18 @@ export const validateAccessConfigImport = (
     errors.push("rules must be an array");
   }
 
+  // Check operators on the raw input: normalization coerces unknown ones to
+  // "equal", which would silently turn a bad import into an equality rule.
+  for (const fieldRule of Array.isArray(raw.rules) ? raw.rules : []) {
+    if (!isPlainRecord(fieldRule) || !Array.isArray(fieldRule.rules)) continue;
+    for (const rule of fieldRule.rules) {
+      const operator = isPlainRecord(rule) ? rule.operator : undefined;
+      if (operator !== undefined && normalizeOperator(operator) == null) {
+        errors.push(`Invalid operator on ${String(fieldRule.field ?? "")}`);
+      }
+    }
+  }
+
   if (errors.length) {
     return { ok: false, errors };
   }
@@ -193,9 +205,6 @@ export const validateAccessConfigImport = (
     }
 
     for (const rule of fieldRule.rules) {
-      if (normalizeOperator(rule.operator) == null) {
-        errors.push(`Invalid operator on ${fieldRule.field}`);
-      }
       for (const groupId of rule.groups) {
         if (!isSafeGroupId(groupId)) {
           errors.push(`Invalid rule group id: ${groupId}`);
@@ -487,8 +496,12 @@ export const combineAccessWhereIfFieldsExist = (
     Array.from(layerFieldNames, (name) => String(name || "").toLowerCase()),
   );
   if (!available.size) return base;
-  // Identifiers that look like field names in the access clause.
-  const referenced = access.match(/\b[A-Za-z_][A-Za-z0-9_]*\b/g) || [];
+  // Identifiers that look like field names in the access clause. Quoted
+  // values ('Andijon') are blanked first: they are data, not fields, and
+  // counting them made every string-valued rule fall back to the
+  // unrestricted base WHERE.
+  const withoutLiterals = access.replace(/'(?:[^']|'')*'/g, "''");
+  const referenced = withoutLiterals.match(/\b[A-Za-z_][A-Za-z0-9_]*\b/g) || [];
   const sqlKeywords = new Set([
     "and",
     "or",

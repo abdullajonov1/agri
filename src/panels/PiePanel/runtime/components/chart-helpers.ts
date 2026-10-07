@@ -20,7 +20,7 @@ export const getSliceBorderColor = (host: PieWidgetHost): string =>
 
 export const getSliceFillStyle = (host: PieWidgetHost, baseColor: string): string | { type: "linear"; x: number; y: number; x2: number; y2: number; colorStops: Array<{ offset: number; color: string }> } => {
   const color = (baseColor || "#3b82f6").toLowerCase();
-  if (color === "#E8E1D1" || color === "#fff") {
+  if (color === "#e8e1d1" || color === "#fff") {
     return {
       type: "linear",
       x: 0,

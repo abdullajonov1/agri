@@ -40,8 +40,11 @@ export const resolveCropIdForUniqueid = (host: GraffWidgetHost, uniqueid: string
     record?.crop_id ??
     record?.cropId ??
     null;
-  const n = Number(raw);
-  if (Number.isFinite(n)) return n;
+  // Number(null) and Number("") are 0, so only convert a real value.
+  if (raw != null && raw !== "") {
+    const n = Number(raw);
+    if (Number.isFinite(n)) return n;
+  }
   // Wheat is crop_id=6 in api-agri; map by name when the table has no id yet.
   const turiKey = getTuriCropLookupKey(turi);
   if (turiKey === "bugdoy") return 6;

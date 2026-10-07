@@ -28,7 +28,7 @@ export function childSublayers(layer: AgriLayerLike | null | undefined): AgriLay
 
 /** ArcGIS map layer id suffix embedded in Experience Builder child DS ids. */
 export function extractMapLayerIdFromDsId(dsId: string): string | null {
-  const match = String(dsId || "").match(/([0-9a-f]+-layer-d+)$/i);
+  const match = String(dsId || "").match(/([0-9a-f]+-layer-\d+)$/i);
   return match ? match[1] : null;
 }
 
