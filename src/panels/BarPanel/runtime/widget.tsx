@@ -12,10 +12,16 @@ import {
 } from "recharts";
 import AgriChartLoader from "../../../shared/AgriChartLoader";
 import { agriNoDataLabel } from "../../../shared/agriNoDataLabel";
-import { renderStatusBarShape } from "./statusBarShape";
+import { renderStatusBarShape, type StatusBarShapeProps } from "./statusBarShape";
 import { bindMasterFilter } from "../../../data/agri-filter-bus";
 import { agroV5Log } from "../../../gis/agri-debug-log";
 import { resolveInitialLanguage } from "../../../shared/agri-language";
+import {
+  readPanelEventDetail,
+  readTurlar,
+  toPanelLanguage,
+  type CssVarStyle,
+} from "../../panel-filter-detail";
 
 const BAR_ANIM_MS = 680;
 const BAR_STAGGER_MS = 70;
@@ -36,7 +42,7 @@ const StatusBarChart = (props: {
     props;
   const data = useMemo<ChartDatum[]>(() => [{ fill }], [fill]);
   const barShape = useMemo(
-    () => (p: any) =>
+    () => (p: StatusBarShapeProps) =>
       renderStatusBarShape(p, color, selected, dimmed, theme),
     [color, selected, dimmed, theme],
   );
@@ -84,13 +90,28 @@ interface VHDataItem {
   order: number;
 }
 
-interface AgriBarProps extends AllWidgetProps<any> {
-  externalFilters?: {
-    tuman?: string;
-    viloyat?: string;
-    yil?: string;
-    tur?: string;
-  };
+/**
+ * VH bar rows arrive untyped through the filter store; the producer
+ * (Localization vh-bar prep) emits VHDataItem-shaped objects.
+ */
+const toVhCategoryRows = (
+  rows: unknown[] | undefined,
+): Array<VHDataItem & { label?: string }> =>
+  (Array.isArray(rows) ? rows : []).filter(
+    (row): row is VHDataItem & { label?: string } =>
+      row != null && typeof row === "object",
+  );
+
+interface AgriBarExternalFilters {
+  tuman?: string;
+  viloyat?: string;
+  yil?: string;
+  tur?: string;
+}
+
+/** Config is the dashboard's plain record; the Bar panel does not read it. */
+interface AgriBarProps extends AllWidgetProps<Record<string, unknown>> {
+  externalFilters?: AgriBarExternalFilters;
 }
 
 interface AgriBarState {
@@ -194,31 +215,30 @@ export default class AgriBar extends React.PureComponent<
   };
 
   private handleMasterFilterChange = (event: Event) => {
-    const d: any = (event as CustomEvent).detail || {};
-    if (!d.filters) return;
+    const d = readPanelEventDetail(event);
+    const filters = d.filters;
+    if (!filters) return;
 
-    const nextYear = d.filters.yil || "";
+    const nextYear = filters.yil || "";
     const nextLockedVil = d?.scope?.lockedViloyat
       ? String(d.scope.lockedViloyat)
       : null;
-    const nextVil = nextLockedVil || d.filters.viloyat || "";
-    const nextTum = d.filters.tuman || "";
-    const nextTurlar = Array.isArray(d.filters.turlar)
-      ? d.filters.turlar.map((value: unknown) => String(value || "")).filter(Boolean)
-      : d.filters.turi
-        ? [String(d.filters.turi)]
-        : [];
+    const nextVil = nextLockedVil || filters.viloyat || "";
+    const nextTum = filters.tuman || "";
+    const nextTurlar = readTurlar(filters);
     const nextTur = nextTurlar.length === 1 ? nextTurlar[0] : "";
-    const nextVh = d.filters.vh || "";
-    const nextLanguage: "uz_cyr" | "uz_lat" | "ru" | "en" =
-      (d.filters.language as any) || this.state.language || "ru";
+    const nextVh = filters.vh || "";
+    const nextLanguage = toPanelLanguage(
+      filters.language,
+      this.state.language || "ru",
+    );
 
     const vhBarDataPending = d.vhBarDataPending === true;
     const vhBarData = d.vhBarData ?? null;
     if (vhBarDataPending) {
       // Keep spinner, but paint progressive republic totals when present so
       // the user sees 1/8 → 8/8 growth instead of a blank long wait.
-      const patch: Record<string, unknown> = {
+      const patch: Partial<AgriBarState> = {
         selectedYear: nextYear,
         selectedViloyat: nextVil,
         selectedTuman: nextTum,
@@ -232,7 +252,7 @@ export default class AgriBar extends React.PureComponent<
       };
       if (vhBarData) {
         patch.vhData = {
-          categories: (vhBarData.categories || []).map(
+          categories: toVhCategoryRows(vhBarData.categories).map(
             (c: VHDataItem & { label?: string }) => ({
               ...c,
               label: this.getLocalizedCategoryLabel(
@@ -244,12 +264,12 @@ export default class AgriBar extends React.PureComponent<
           totalCount: vhBarData.totalCount ?? 0,
         };
       }
-      this.setState(patch as any);
+      this.setState(patch as AgriBarState);
       return;
     }
 
     const nextVhData = {
-      categories: (vhBarData?.categories || []).map(
+      categories: toVhCategoryRows(vhBarData?.categories).map(
         (c: VHDataItem & { label?: string }) => ({
         ...c,
         label: this.getLocalizedCategoryLabel(
@@ -286,7 +306,7 @@ export default class AgriBar extends React.PureComponent<
       "agriV11ThemeToggled",
       this.handleThemeChange as EventListener,
     );
-    document.addEventListener("resetAllFilters", this._onReset as any);
+    document.addEventListener("resetAllFilters", this._onReset);
 
     // responsive sizing (deferred to ensure DOM is ready)
     setTimeout(() => {
@@ -334,7 +354,7 @@ export default class AgriBar extends React.PureComponent<
       "agriV11ThemeToggled",
       this.handleThemeChange as EventListener,
     );
-    document.removeEventListener("resetAllFilters", this._onReset as any);
+    document.removeEventListener("resetAllFilters", this._onReset);
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
@@ -375,17 +395,15 @@ export default class AgriBar extends React.PureComponent<
     }
   }
 
-  private updateFiltersFromProps(filters: any): void {
-    try {
-      this.setState({
-        selectedViloyat: (filters.viloyat || "").trim(),
-        selectedTuman: (filters.tuman || "").trim(),
-        selectedYear: filters.yil ? String(filters.yil) : "",
-        selectedtur: (filters.tur || "").trim(),
-        error: null,
-        lockedViloyat: null,
-      });
-    } catch (_) {}
+  private updateFiltersFromProps(filters: AgriBarExternalFilters): void {
+    this.setState({
+      selectedViloyat: String(filters.viloyat || "").trim(),
+      selectedTuman: String(filters.tuman || "").trim(),
+      selectedYear: filters.yil ? String(filters.yil) : "",
+      selectedtur: String(filters.tur || "").trim(),
+      error: null,
+      lockedViloyat: null,
+    });
   }
 
   handleDisplayCountChange(count: number) {
@@ -402,7 +420,9 @@ export default class AgriBar extends React.PureComponent<
   /** Debounce rapid bar clicks so Localization only resolves the last VH. */
   private _vhDispatchTimer: ReturnType<typeof setTimeout> | null = null;
 
-  handleVHSelectionClick = (arg: any) => {
+  handleVHSelectionClick = (
+    arg: { category?: string; payload?: { category?: string } } | null,
+  ) => {
     const effectiveVil = (
       this.state.lockedViloyat ||
       this.state.selectedViloyat ||
@@ -630,7 +650,7 @@ export default class AgriBar extends React.PureComponent<
                       ]
                         .filter(Boolean)
                         .join(" ")}
-                      style={{ ["--accent" as any]: item.color }}
+                      style={{ "--accent": item.color } as CssVarStyle}
                       onClick={() =>
                         chartInteractive &&
                         !showRefreshLoader &&

@@ -4,6 +4,7 @@ import { VH_TO_NDVI_STATUS } from "../../../../../localization/vh-constants";
 import { resolveRegionNumberFromMaps, resolveDistrictNumberFromMaps, buildVhUniqueIdCacheKey } from "../../../../../localization/resolve-geo-codes";
 import { queryVegetationAvailableDates, queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-vegetation-data-source";
 import { agriLog } from "../../localization-log";
+import { errorMessage } from "../../../../../../shared/agri-plain-object";
 
 /**
  * Resolve polygon uniqueids for the current Vegetatsiya Holati selection.
@@ -338,7 +339,7 @@ export const resolveVhMapUniqueIds = async (
             host._reuseVhBarDataOnNextBroadcast = true;
             host.broadcastFilterState();
           })
-          .catch((e: any) => {
+          .catch((e: unknown) => {
             if (
               !host._isMounted ||
               gen !== host._vhResolveGen ||
@@ -350,7 +351,7 @@ export const resolveVhMapUniqueIds = async (
               "vhRegionChartUniqueIds:parallel-FAILED",
               {
                 vhCategory,
-                error: String(e?.message || e),
+                error: errorMessage(e),
               },
             );
             host._vhRegionChartUniqueIds = [];
@@ -436,11 +437,11 @@ export const resolveVhMapUniqueIds = async (
     }
 
     return ids;
-  } catch (e: any) {
+  } catch (e) {
     if (!stillOk()) return host._vhMapUniqueIds;
     agriLog("vhMapUniqueIds:FAILED", {
       vhCategory,
-      error: String(e?.message || e),
+      error: errorMessage(e),
     });
     host._vhMapUniqueIds = [];
     host._vhRegionChartUniqueIds = [];

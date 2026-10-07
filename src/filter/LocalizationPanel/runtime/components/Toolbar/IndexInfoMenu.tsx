@@ -3,6 +3,9 @@ import ReactDOM from "react-dom";
 import { ChevronRight, FunctionSquare, Sprout, X } from "lucide-react";
 import type { GeoWidgetState } from "../../widget";
 
+/** Inline style carrying the per-index accent CSS custom property. */
+type IndexAccentStyle = React.CSSProperties & { "--index-accent"?: string };
+
 export const INDEX_INFO: Array<{
   key: string;
   color: string;
@@ -178,7 +181,7 @@ export const IndexInfoDetail = (props: IndexInfoDetailProps) => {
         className="agri-v20-index-info-detail-card"
         role="dialog"
         aria-label={item.key}
-        style={{ ["--index-accent" as any]: item.color }}
+        style={{ "--index-accent": item.color } as IndexAccentStyle}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="agri-v20-index-info-detail-header">
@@ -271,7 +274,7 @@ export const IndexInfoMenu = (props: IndexInfoMenuProps) => {
             key={item.key}
             role="button"
             tabIndex={0}
-            style={{ ["--index-accent" as any]: item.color }}
+            style={{ "--index-accent": item.color } as IndexAccentStyle}
             onClick={() => props.openIndexInfoDetail(item.key)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {

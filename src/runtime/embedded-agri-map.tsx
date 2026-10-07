@@ -6,6 +6,8 @@ import {
   jsx,
   React,
   type DataSource,
+  type IMUseDataSource,
+  type UseDataSource,
 } from "jimu-core";
 import {
   JimuMapView,
@@ -26,13 +28,16 @@ import { looksLikeRegionYearLayerHaystack } from "../gis/feature-layer-data";
 interface Props {
   mapWidgetId: string;
   webMapDataSourceId?: string;
-  webMapUseDataSource?: any;
-  featureUseDataSources?: any[];
+  webMapUseDataSource?: UseDataSource | null;
+  featureUseDataSources?: UseDataSource[];
   onViewReady?: (jimuMapView: JimuMapView) => void;
   onLoadingChange?: (loading: boolean) => void;
   onError?: (message: string) => void;
 }
 
+
+/** MapView exposes `resize()` at runtime although it is not in the public typings. */
+type ResizableMapView = __esri.MapView & { resize?: () => void };
 
 type MapLanguage = "uz_lat" | "uz_cyr" | "ru" | "en";
 
@@ -113,17 +118,31 @@ const BASEMAP_TEXT: Record<MapLanguage, {
   },
 };
 
-function getPortalUrl(dataSource: any): string {
+/** Portal-item fields read from a WebMap data source (some live only on the instance). */
+interface PortalItemDataSourceLike {
+  portalUrl?: string;
+  itemId?: string;
+  getDataSourceJson?: () => { portalUrl?: string; itemId?: string } | null;
+}
+
+/** `appConfig.portalUrl` is present at runtime but not declared on AppConfig. */
+const readUndeclaredPortalUrl = (value: unknown): unknown =>
+  (value as { portalUrl?: unknown } | null | undefined)?.portalUrl;
+
+type WindowWithJimuConfig = Window & { jimuConfig?: { portalUrl?: string } };
+
+function getPortalUrl(dataSource: PortalItemDataSourceLike | null): string {
   const json = dataSource?.getDataSourceJson?.();
-  const state = getAppStore().getState() as any;
+  const state = getAppStore().getState();
   return String(
     dataSource?.portalUrl || json?.portalUrl || state?.portalUrl ||
-      state?.appConfig?.portalUrl || (window as any)?.jimuConfig?.portalUrl ||
+      readUndeclaredPortalUrl(state?.appConfig) ||
+      (window as WindowWithJimuConfig)?.jimuConfig?.portalUrl ||
       "https://www.arcgis.com",
   ).replace(/\/$/, "");
 }
 
-function getItemId(dataSource: any): string {
+function getItemId(dataSource: PortalItemDataSourceLike | null): string {
   const json = dataSource?.getDataSourceJson?.();
   return String(dataSource?.itemId || json?.itemId || "").trim();
 }
@@ -203,7 +222,7 @@ export default function EmbeddedAgriMap(props: Props) {
   );
   const containerRef = React.useRef<HTMLDivElement>(null);
   const viewRef = React.useRef<__esri.MapView | null>(null);
-  const mapRef = React.useRef<any>(null);
+  const mapRef = React.useRef<__esri.Map | null>(null);
   const jimuMapViewRef = React.useRef<JimuMapView | null>(null);
   const automaticBasemapId = hasSelectedRegion
     ? "satellite"
@@ -238,8 +257,8 @@ export default function EmbeddedAgriMap(props: Props) {
   React.useEffect(() => {
     const map = viewRef.current?.map || mapRef.current;
     if (!map || viewRef.current?.destroyed) return;
-    if (String((map as any).basemap?.id || (map as any).basemap || "") !== automaticBasemapId) {
-      (map as any).basemap = automaticBasemapId;
+    if (String(map.basemap?.id || map.basemap || "") !== automaticBasemapId) {
+      map.basemap = automaticBasemapId;
     }
     setActiveBasemapId(automaticBasemapId);
     setBasemapMenuOpen(false);
@@ -260,7 +279,7 @@ export default function EmbeddedAgriMap(props: Props) {
       setIsFullscreen(Boolean(mapSlot && activeElement === mapSlot));
       window.requestAnimationFrame(() => {
         try {
-          (viewRef.current as any)?.resize?.();
+          (viewRef.current as ResizableMapView | null)?.resize?.();
         } catch {
           /* MapView resize observer will handle it */
         }
@@ -285,11 +304,11 @@ export default function EmbeddedAgriMap(props: Props) {
   const zoomBy = React.useCallback((delta: number): void => {
     const view = viewRef.current;
     if (!view || view.destroyed) return;
-    const minZoom = Number((view.constraints as any)?.minZoom ?? 5);
+    const minZoom = Number(view.constraints?.minZoom ?? 5);
     const targetZoom = Math.max(minZoom, Number(view.zoom || minZoom) + delta);
     void view.goTo(
       { center: view.center, zoom: targetZoom },
-      { animate: true, duration: 420, easing: "ease-in-out" } as any,
+      { animate: true, duration: 420, easing: "ease-in-out" },
     ).catch((): undefined => undefined);
   }, []);
 
@@ -341,7 +360,7 @@ export default function EmbeddedAgriMap(props: Props) {
   const selectBasemap = React.useCallback((basemapId: string): void => {
     const view = viewRef.current;
     if (!view?.map || view.destroyed) return;
-    (view.map as any).basemap = basemapId;
+    view.map.basemap = basemapId;
     setActiveBasemapId(basemapId);
     setBasemapMenuOpen(false);
   }, []);
@@ -641,7 +660,8 @@ export default function EmbeddedAgriMap(props: Props) {
       {effectiveRootUseDataSource && (
         <div style={{ display: "none" }} aria-hidden="true">
           <DataSourceComponent
-            useDataSource={effectiveRootUseDataSource}
+            // Plain (mutable) use-data-source object, exactly as before.
+            useDataSource={effectiveRootUseDataSource as unknown as IMUseDataSource}
             widgetId={mapWidgetId}
             onDataSourceCreated={(dataSource: DataSource) => setRootDataSource(dataSource)}
           />

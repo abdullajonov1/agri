@@ -1,9 +1,10 @@
 import { agriLog } from "../localization-log";
-import type { LocalizationHost } from "../host";
+import type { LocalizationConfig, LocalizationHost } from "../host";
 import { syncMasterFilterSnapshot } from "../../../../../data/agri-filter-store";
 import { getPieVhFilterUniqueIdsSig } from "../../../../../gis/agri-chart-filter-order";
 import { resolveVhUniqueidSlices, buildBarCategoryBroadcast, buildBroadcastGeoSnapshot, isBroadcastGeoCurrent } from "../../../../localization/broadcast-detail";
 import type { VHBarData } from "../../../../localization/vh-constants";
+import { errorMessage } from "../../../../../shared/agri-plain-object";
 
 export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnly?: boolean }) => {
   if (!host._isMounted) return;
@@ -58,7 +59,7 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
   });
 
   // Bar chart uses status_YYYY_MM_DD field; broadcast that attribute + value so Pie/Indicator filter like Graff
-  const cfg = (host.props.config || {}) as any;
+  const cfg = (host.props.config || {}) as LocalizationConfig;
   const { barCategoryField, barCategoryValue } = buildBarCategoryBroadcast({
     polygonStatusPrefix: cfg.polygonStatusPrefix,
     effectiveNdviDate,
@@ -172,7 +173,7 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
       options: detail.options,
       scope: detail.scope,
       vhUniqueids: detail.vhUniqueids,
-      vhRegionChartUniqueids: (detail as any).vhRegionChartUniqueids,
+      vhRegionChartUniqueids: detail.vhRegionChartUniqueids,
       pieVhUniqueIdsSig: getPieVhFilterUniqueIdsSig(),
       vhBarData,
       vhBarDataPending,
@@ -194,10 +195,10 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
         ? detail.vhUniqueids.length
         : detail.vhUniqueids,
       vhRegionChartUniqueidsCount: Array.isArray(
-        (detail as any).vhRegionChartUniqueids,
+        detail.vhRegionChartUniqueids,
       )
-        ? (detail as any).vhRegionChartUniqueids.length
-        : (detail as any).vhRegionChartUniqueids,
+        ? detail.vhRegionChartUniqueids.length
+        : detail.vhRegionChartUniqueids,
       turlar: detail.filters.turlar,
       viloyat: detail.filters.viloyat,
       tuman: detail.filters.tuman,
@@ -259,9 +260,9 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
         // Empty final result (not abort): clear pending with zeros.
         send(null, false);
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         agriLog("broadcastFilterState:vh-data-failed", {
-          error: String(error?.message || error),
+          error: errorMessage(error),
         });
         if (!isBroadcastCurrent()) return;
         if (host.makeVhBarComputeKey() !== vhKeyAtStart) return;

@@ -1,4 +1,6 @@
 import type { GraffWidgetHost } from "../graff-host";
+import { applyGraffDefinitionExpression } from "../graff-guards";
+import { describeThrown, thrownMessage } from "../graff-guards";
 import type { AgriGraffWidgetState, RecordData } from "../widget";
 import { isMapImageOwnedLayer } from "../../../../gis/feature-layer-data";
 import { buildSpatialJoinWhere, queryAgriUniqueIdsForWhere } from "../../../../gis/agri-table-data-source";
@@ -18,7 +20,6 @@ export const fetchFilterOptions = (host: GraffWidgetHost): Promise<void> => {
 export const fetchFilterOptionsOnce = async (host: GraffWidgetHost): Promise<void> => {
   if (!host._isMounted) return;
   if (host.state.connectionStatus !== "connected") {
-
     return;
   }
 
@@ -101,11 +102,11 @@ export const fetchFilterOptionsOnce = async (host: GraffWidgetHost): Promise<voi
     if (currentState.viewMode === "graph" && !currentState.selecteduniqueid) {
       host.fetchRegionalTimeseries();
     }
-  } catch (error: any) {
+  } catch (error) {
     if (!host._isMounted) return;
 
     host.setState({
-      error: `Бошланғич маълумот юклана олмади: ${error.message || error}`,
+      error: `Бошланғич маълумот юклана олмади: ${describeThrown(error)}`,
       loadingFilters: false,
     });
   }
@@ -159,7 +160,6 @@ export const getUniqueValues = async (host: GraffWidgetHost, fieldName: string):
 
     return [...new Set(values)].sort();
   } catch (error) {
-
     return [];
   }
 };
@@ -264,7 +264,7 @@ export const fetchData = async (host: GraffWidgetHost, opts?: { preservePage?: b
     // queryFeatures does not AND with a wrong geography filter.
     if (!isMapImageOwnedLayer(featureLayer)) {
       try {
-        (featureLayer as any).definitionExpression = whereClause;
+        featureLayer.definitionExpression = whereClause;
       } catch {
         /* non-fatal */
       }
@@ -308,9 +308,9 @@ export const fetchData = async (host: GraffWidgetHost, opts?: { preservePage?: b
 
     const features = queryResult?.features ?? [];
     let records: RecordData[] = features.map((ft) => {
-      const a: any = ft.attributes || {};
+      const a: Record<string, unknown> = ft.attributes || {};
       // Keep compatibility with existing code expecting `record.objectid`.
-      return { ...a, objectid: a?.[oidField] ?? a?.objectid };
+      return { ...a, objectid: (a[oidField] ?? a.objectid) as number | undefined };
     });
 
     // Safety net: never display another district's rows under a named
@@ -322,7 +322,7 @@ export const fetchData = async (host: GraffWidgetHost, opts?: { preservePage?: b
       const before = records.length;
       records = records.filter((row) => {
         const got = host.makeRegionDistrictKey(
-          String((row as any).tuman || ""),
+          String(row.tuman || ""),
         );
         if (!got) return true;
         const gotBase = got.replace(/\s+tumani$/i, "").trim();
@@ -354,10 +354,10 @@ export const fetchData = async (host: GraffWidgetHost, opts?: { preservePage?: b
       rowCount: records.length,
       sampleTumans: records
         .slice(0, 5)
-        .map((r) => String((r as any).tuman || "")),
+        .map((r) => String(r.tuman || "")),
       sampleUniqueids: records
         .slice(0, 3)
-        .map((r) => String((r as any).uniqueid || "")),
+        .map((r) => String(r.uniqueid || "")),
     });
     host.setState(
       {
@@ -385,12 +385,12 @@ export const fetchData = async (host: GraffWidgetHost, opts?: { preservePage?: b
         void host.ensureSelectedRowVisible(pending);
       },
     );
-  } catch (error: any) {
+  } catch (error) {
     if (isStale()) return;
 
     host._hasCompletedTableFetch = true;
     host.setState({
-      error: error.message || "Күтүлмаган хатолик юз берди",
+      error: thrownMessage(error) || "Күтүлмаган хатолик юз берди",
       loading: false,
     });
   }
@@ -413,11 +413,7 @@ export async function applyMapFilters(host: GraffWidgetHost): Promise<void> {
     // NEVER for MapImage-owned sublayers: their tuman/turi definitionExpression is
     // owned by AgriLocalization's syncRegionYearLayerVisibility — overwriting it
     // forces a fresh export that briefly paints every district's fields.
-    if (featureLayer && !isMapImageOwnedLayer(featureLayer)) {
-      (featureLayer as any).definitionExpression = where;
-    }
-
-    (dataSource as any)?.setDefinitionExpression?.(where);
+    applyGraffDefinitionExpression(featureLayer, dataSource, where);
   } catch (e) {
     // non-fatal
   }

@@ -1,6 +1,7 @@
 import { canonicalizeRegionFilterValue } from "./lookup-region";
 import { normalizeRegionToken, REGION_ALIAS_GROUPS, type TextMatchKind, expandRegionVariants, expandDistrictVariants, apostropheVariants, matchIndexedValues, layerFieldKind, valueIndexCache, getQueryUrl, normalizeValueToken } from "../primitives";
 import { escapeArcGIS } from "../../../data/agri-sql";
+import type { AgriLayerLike } from "../../agri-layer-types";
 
 /** Region name tokens for matching layer titles like "Water Fergana region 2025 year". */
 export function getRegionMatchTokens(viloyat: string): string[] {
@@ -29,7 +30,7 @@ export function literalVariantsForMatch(
 export function addTextEqTerms(
   field: string,
   literals: string[],
-  layer: any | undefined,
+  layer: AgriLayerLike | null | undefined,
   value: string,
   addTerm: (term: string) => void,
 ): void {
@@ -56,7 +57,7 @@ export function addTextEqTerms(
   }
 }
 export function matchRegionValuesFromIndex(
-  layer: any,
+  layer: AgriLayerLike | null | undefined,
   field: string,
   canonical: string,
   soato?: string | null,

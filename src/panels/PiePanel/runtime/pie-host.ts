@@ -2,11 +2,20 @@ import type { JimuMapView } from "jimu-arcgis";
 import type { DataSource, React } from "jimu-core";
 import type { AgriCropLanguage } from "../../../shared/agri-crop-labels";
 import type { AgriPieProps, AgriPieState } from "./widget";
+import type { PieECharts } from "./echarts-setup";
+
+/** One donut slice as produced by getChartDataForPie. */
+export interface PieChartDatum {
+  name: string;
+  rawKey: string;
+  value: number;
+  percentage?: number;
+}
 
 export interface PieWidgetHost {
   props: AgriPieProps;
   state: AgriPieState;
-  setState: React.Component<any, AgriPieState>["setState"];
+  setState: React.Component<AgriPieProps, AgriPieState>["setState"];
   fetchCategoryData: () => void;
   _isMounted: boolean;
   findFieldByPossibleNames: (possibleNames: string[]) => string | null;
@@ -42,9 +51,9 @@ export interface PieWidgetHost {
   findAreaStatisticField: (fl: __esri.FeatureLayer) => string | null;
   updateFiltersFromProps: (filters: { yil?: string; viloyat?: string; tuman?: string; turi?: string; }) => void;
   MAX_CONNECTION_ATTEMPTS: number;
-  _fetchDebounceTimer: any;
+  _fetchDebounceTimer: ReturnType<typeof setTimeout> | null;
   detachPieResizeObserver: () => void;
-  _pieChart: echarts.ECharts;
+  _pieChart: PieECharts | null;
   _pieChartHostEl: HTMLDivElement;
   _pieHasRendered: boolean;
   _pieStableKeys: string[];
@@ -60,8 +69,8 @@ export interface PieWidgetHost {
   handleSliceClick: (data: { rawKey?: string; name?: string; }, index: number) => void;
   attachPieResizeObserver: (host: HTMLDivElement) => void;
   getCenterAllLabel: () => string;
-  ensurePieChart: () => any;
-  getChartDataForPie: () => { name: any; rawKey: string; value: number; percentage: number; }[];
+  ensurePieChart: () => PieECharts | null;
+  getChartDataForPie: () => PieChartDatum[];
   getSliceBorderColor: () => string;
   getCropColor: (rawKey: string, index: number) => string;
   resolveNdviDateForVhPie: () => string;
@@ -79,10 +88,10 @@ export interface PieWidgetHost {
   queryCategoryStatsJSON: (fl: __esri.FeatureLayer, where: string, categoryField: string) => Promise<Array<{ key: string; value: number; }>>;
   forceUpdate: () => void;
   onDataSourceCreated: (ds: DataSource) => void;
-  onDataSourceInfoChange: (info: any) => void;
+  onDataSourceInfoChange: (info: unknown) => void;
   onActiveViewChange: (jimuMapView: JimuMapView) => Promise<void>;
   retryMapConnection: () => void;
-  renderRadarPieChart: (_chartData: any[], _containerWidth?: number, _containerHeight?: number) => JSX.Element;
+  renderRadarPieChart: (_chartData: PieChartDatum[], _containerWidth?: number, _containerHeight?: number) => JSX.Element;
   getPieCenterContent: (chartData: Array<{ name: string; rawKey?: string; value: number; percentage?: number; }>) => { showPercent: boolean; percent: number; area: number; label: string; };
   formatCenterPercent: (value: number) => string;
   formatCenterArea: (value: number) => string;

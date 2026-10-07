@@ -1,8 +1,10 @@
 /**
  * Pure layer identity / field / match helpers for LocalizationPanel.
  */
+import type { AgriMapLayer } from "./agri-map-layer";
+import type { AgriFieldLike } from "../../gis/agri-layer-types";
 
-export function getFeatureLayerKey(layer: any): string {
+export function getFeatureLayerKey(layer: AgriMapLayer | null | undefined): string {
   const id = (layer?.id || "").toString().trim();
   const url = (layer?.url || "").toString().trim();
   const title = (layer?.title || "").toString().trim();
@@ -11,11 +13,11 @@ export function getFeatureLayerKey(layer: any): string {
 
 /** Exact → case-insensitive → partial field name match. */
 export function findLayerFieldName(
-  layer: any,
+  layer: AgriMapLayer | null | undefined,
   name: string,
 ): string | null {
   try {
-    const fields: any[] = layer?.fields || [];
+    const fields: AgriFieldLike[] = layer?.fields || [];
     if (!Array.isArray(fields) || !fields.length) return null;
     const exact = fields.find((f) => String(f?.name || "") === name);
     if (exact?.name) return exact.name;
@@ -35,7 +37,7 @@ export function findLayerFieldName(
 }
 
 export function buildCropDistinctCacheKey(
-  layer: any,
+  layer: AgriMapLayer | null | undefined,
   field: string,
   where: string,
 ): string {
@@ -53,10 +55,10 @@ export type LayerViloyatMatchState = "match" | "mismatch" | "unknown";
  */
 export function getLayerMatchStateForViloyat(opts: {
   effectiveViloyat: string;
-  layer: any;
+  layer: AgriMapLayer | null | undefined;
   viloyatKeyToLayerKeys: Record<string, string[]>;
   makeRegionDistrictKey: (raw: string | null | undefined) => string;
-  getLayerKey?: (layer: any) => string;
+  getLayerKey?: (layer: AgriMapLayer | null | undefined) => string;
 }): LayerViloyatMatchState {
   const { effectiveViloyat, layer, viloyatKeyToLayerKeys } = opts;
   if (!effectiveViloyat) return "unknown";

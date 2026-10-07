@@ -11,7 +11,17 @@
 import { escapeAgriValue } from "../data/agri-sql";
 import { combineAccessWhere } from "../shared/agri-access-config";
 import { getAgriServiceUrls } from "../shared/agri-service-urls";
-import { createSingletonLayerLoader } from "../shared/agri-singleton-layer-loader";
+import {
+  createSingletonLayerLoader,
+  type AgriSingletonLayerHandle,
+} from "../shared/agri-singleton-layer-loader";
+import { type AgriAttributes, featureAttributeBag } from "./agri-layer-types";
+
+/** esri Query plus the REST paging props the JS API typings omit. */
+type AgriTableQuery = __esri.Query & {
+  resultRecordCount?: number;
+  resultOffset?: number;
+};
 
 export { escapeAgriValue };
 
@@ -30,10 +40,8 @@ export function getAgriTableDataUrl(): string {
 /** Join key linking a clicked polygon feature (spatial layer) to its Agri_table_data record. */
 export const AGRI_TABLE_JOIN_FIELD = "uniqueid";
 
-export interface AgriTableLayerHandle {
-  layer: any;
-  fields: string[];
-}
+/** Loaded Agri_table_data FeatureLayer + its field names. */
+export type AgriTableLayerHandle = AgriSingletonLayerHandle;
 
 const getAgriTableDataLayerCached = createSingletonLayerLoader(
   getAgriTableDataUrl,
@@ -54,7 +62,7 @@ export async function getAgriTableDataLayer(): Promise<AgriTableLayerHandle> {
  */
 export async function queryAgriRecordByUniqueId(
   uniqueId: string,
-): Promise<Record<string, any> | null> {
+): Promise<AgriAttributes | null> {
   const raw = String(uniqueId ?? "").trim();
   if (!raw) return null;
 
@@ -132,18 +140,18 @@ async function pageAgriUniqueIdsForWhere(where: string): Promise<string[]> {
   let offset = 0;
 
   for (let page = 0; page < AGRI_QUERY_MAX_PAGES; page++) {
-    const query = layer.createQuery();
+    const query: AgriTableQuery = layer.createQuery();
     const oidField = layer.objectIdField || "objectid";
     query.where = clean;
     query.outFields = [AGRI_TABLE_JOIN_FIELD, oidField];
     query.returnGeometry = false;
     // DISTINCT uniqueid + ORDER BY objectid is invalid in PostgreSQL
     // (SQLSTATE 42P10). The Set below already removes duplicate uniqueids.
-    (query as any).returnDistinctValues = false;
+    query.returnDistinctValues = false;
     // Stable ordering is required for resultOffset paging to not skip/repeat rows.
     query.orderByFields = [`${oidField} ASC`];
-    (query as any).resultOffset = offset;
-    (query as any).resultRecordCount = AGRI_QUERY_PAGE_SIZE;
+    query.resultOffset = offset;
+    query.resultRecordCount = AGRI_QUERY_PAGE_SIZE;
 
     const result = await layer.queryFeatures(query);
     const features = result?.features ?? [];
@@ -176,14 +184,14 @@ export async function getAgriTableUniqueIdSamples(): Promise<string[]> {
   if (!agriTableUniqueIdSamplesPromise) {
     agriTableUniqueIdSamplesPromise = (async () => {
       const { layer } = await getAgriTableDataLayer();
-      const query = layer.createQuery();
+      const query: AgriTableQuery = layer.createQuery();
       query.where = agriTableUniqueIdSampleWhere();
       query.outFields = [AGRI_TABLE_JOIN_FIELD];
       query.returnGeometry = false;
-      (query as any).num = 5;
-      (query as any).resultRecordCount = 5;
+      query.num = 5;
+      query.resultRecordCount = 5;
       const result = await layer.queryFeatures(query);
-      return ((result?.features ?? []) as any[])
+      return (result?.features ?? [])
         .map((feature) =>
           String(
             feature?.attributes?.[AGRI_TABLE_JOIN_FIELD] ??
@@ -336,13 +344,13 @@ export async function queryAgriRegionDistrictMappings(): Promise<
           onStatisticField: layer.objectIdField || "objectid",
           outStatisticFieldName: "cnt",
         },
-      ] as any;
+      ];
       query.returnGeometry = false;
 
       const result = await layer.queryFeatures(query);
       const rows: AgriRegionDistrictMappingRow[] = [];
       for (const feature of result?.features ?? []) {
-        const attrs = (feature as any)?.attributes || {};
+        const attrs = featureAttributeBag(feature);
         const viloyat = String(attrs.viloyat ?? "").trim();
         const tuman = String(attrs.tuman ?? "").trim();
         const region = Number(attrs.region);
@@ -390,13 +398,13 @@ export async function queryAgriTuriCropMappings(): Promise<
           onStatisticField: layer.objectIdField || "objectid",
           outStatisticFieldName: "cnt",
         },
-      ] as any;
+      ];
       query.returnGeometry = false;
 
       const result = await layer.queryFeatures(query);
       const rows: AgriTuriCropMappingRow[] = [];
       for (const feature of result?.features ?? []) {
-        const attrs = (feature as any)?.attributes || {};
+        const attrs = featureAttributeBag(feature);
         const turi = String(attrs.turi ?? "").trim();
         const cropId = String(attrs.crop_id ?? "").trim();
         if (!turi || !cropId) continue;

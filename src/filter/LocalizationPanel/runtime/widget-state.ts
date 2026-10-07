@@ -9,7 +9,7 @@ interface RecordData {
   yil?: string | number;
   tur?: string;
   vh?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface FilterState {

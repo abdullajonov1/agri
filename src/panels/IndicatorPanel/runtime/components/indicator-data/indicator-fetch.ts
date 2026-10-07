@@ -6,6 +6,8 @@ import { matchIndicatorDashboardPack } from "../../../../../data/agri-dashboard-
 import { queryIndicatorOutStatNullable } from "../../../../../data/agri-indicator-stats";
 import { agriVhIndicatorLog } from "../../../../../gis/agri-debug-log";
 import { canonicalIndicatorApiPlaces } from "./indicator-api-places";
+import { requestIndicatorApiValue } from "./indicator-api-client";
+import { isAbortError } from "../../../../../shared/agri-http";
 
 const vhWhereSummary = (where: string) => ({
   whereLength: where.length,
@@ -27,11 +29,13 @@ export const fetchApiData = async (host: IndicatorWidgetHost) => {
   }
 
   const requestId = ++host._requestId;
+  let controller: AbortController | null = null;
 
   try {
     if (host._abortController) host._abortController.abort();
-    host._abortController = new AbortController();
-    const signal = host._abortController.signal;
+    controller = new AbortController();
+    host._abortController = controller;
+    const signal = controller.signal;
 
     host.setState({
       loading: host.state.vegetationArea == null,
@@ -76,65 +80,17 @@ export const fetchApiData = async (host: IndicatorWidgetHost) => {
 
     const url = `${endpoint}?${qp.toString()}`;
 
-    const opts: RequestInit = {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal,
-    };
-
     // apiKey / useAuthentication were never declared on IMConfig — the
     // Bearer branch was unreachable schema drift. Do not resurrect a
     // browser-delivered secret here.
-
-    const resp = await fetch(url, opts);
-    if (!host._isMounted || requestId !== host._requestId) return;
-    if (signal.aborted) {
-      host.setState({ loading: false });
-      return;
-    }
-    if (!resp.ok)
-      throw new Error(`API request failed with status ${resp.status}`);
-
-    const data = await resp.json();
+    const value = await requestIndicatorApiValue(
+      url,
+      signal,
+      host.props.config?.responseField || "",
+    );
     if (!host._isMounted || requestId !== host._requestId) return;
 
-    const cfgField = (host.props.config?.responseField || "").trim();
-    const candidates = [
-      cfgField,
-      "total",
-      "value",
-      "count",
-      "maydon",
-    ].filter(Boolean) as string[];
-
-    let value: number | null = null;
-    for (const key of candidates) {
-      if (key && data && typeof data === "object" && key in data) {
-        const v = Number(data[key]);
-        if (!Number.isNaN(v)) {
-          value = v;
-          break;
-        }
-      }
-      if (
-        key &&
-        data?.result &&
-        typeof data.result === "object" &&
-        key in data.result
-      ) {
-        const v = Number(data.result[key]);
-        if (!Number.isNaN(v)) {
-          value = v;
-          break;
-        }
-      }
-    }
-    if (value == null && typeof data === "number") value = Number(data);
-
-    let finalValue = 0;
-    if (value != null && !Number.isNaN(value)) {
-      finalValue = value;
-    }
+    const finalValue = value ?? 0;
 
     const rounded = formatIndicatorStatValue(
       finalValue,
@@ -150,16 +106,17 @@ export const fetchApiData = async (host: IndicatorWidgetHost) => {
       lastUpdate: new Date(),
       error: null,
     });
-  } catch (err: any) {
-    if (err?.name === "AbortError") return;
+  } catch (err: unknown) {
+    if (isAbortError(err)) return;
     if (!host._isMounted || requestId !== host._requestId) return;
 
     host.setState({
-      error: err?.message || "Failed to fetch data from API",
+      error: (err instanceof Error && err.message) || "Failed to fetch data from API",
       loading: false,
     });
   } finally {
-    host._abortController = null;
+    // A late, superseded request must not drop the newer request's controller.
+    if (host._abortController === controller) host._abortController = null;
   }
 };
 export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boolean) => {
@@ -205,10 +162,12 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
   }
 
   const requestId = ++host._requestId;
+  let controller: AbortController | null = null;
 
   try {
     if (host._abortController) host._abortController.abort();
-    host._abortController = new AbortController();
+    controller = new AbortController();
+    host._abortController = controller;
 
     host.setState({
       loading: host.state.vegetationArea == null,
@@ -243,7 +202,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         vh: host.state.selectedVegetationStatus,
         op,
         field,
-        layerUrl: (fl as any)?.url,
+        layerUrl: fl?.url,
         vhUniqueidsCount: host.state.vhUniqueids?.length ?? null,
         joinExpandedCount: host._vhJoinExpanded?.length ?? null,
         joinUsesExpanded:
@@ -362,8 +321,8 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         // Republic overview: Agri_table_data is one national table — summing
         // every non-republic layer duplicates the same FeatureServer query.
         const sameUrlAsCanonical = (layer: __esri.FeatureLayer) => {
-          const a = String((layer as any)?.url || "").replace(/\/+$/, "");
-          const b = String((fl as any)?.url || "").replace(/\/+$/, "");
+          const a = String(layer?.url || "").replace(/\/+$/, "");
+          const b = String(fl?.url || "").replace(/\/+$/, "");
           return !!a && !!b && a === b;
         };
         const nonRepublicLayers = allLayers.filter(
@@ -371,7 +330,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         );
         const distinctLayerUrls = new Set(
           nonRepublicLayers
-            .map((l) => String((l as any)?.url || "").replace(/\/+$/, ""))
+            .map((l) => String(l?.url || "").replace(/\/+$/, ""))
             .filter(Boolean),
         );
         if (
@@ -394,7 +353,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         );
         if (!layerFields.includes(onField.toLowerCase())) {
           layerResults.push({
-            url: (layer as any)?.url,
+            url: layer?.url,
             skipped: `maydon yo'q: ${onField}`,
           });
           continue;
@@ -410,7 +369,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
           })) ?? null;
         if (!host._isMounted || requestId !== host._requestId) return;
         layerResults.push({
-          url: (layer as any)?.url,
+          url: layer?.url,
           raw: rawLayer,
           noRows: rawLayer == null,
           ms: Date.now() - t0,
@@ -458,7 +417,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         statisticType: statMap[op],
         outStatisticFieldName: "agg",
       },
-    ] as any;
+    ];
     q.returnGeometry = false;
 
     const stats = await fl.queryFeatures(q);
@@ -488,26 +447,27 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
       lastUpdate: new Date(),
       error: null,
     });
-  } catch (e: any) {
+  } catch (e) {
+    const err = e as { name?: string; message?: string; details?: unknown } | null | undefined;
     if (vhActive) {
       agriVhIndicatorLog("4-XATO", {
         widgetId: host.props?.id,
         vh: host.state.selectedVegetationStatus,
-        name: e?.name,
-        message: String(e?.message || e),
-        details: e?.details,
+        name: err?.name,
+        message: String(err?.message || e),
+        details: err?.details,
         stale: !host._isMounted || requestId !== host._requestId,
       });
     }
-    if (e?.name === "AbortError") {
+    if (err?.name === "AbortError") {
       if (!host._isMounted || requestId !== host._requestId) return;
       host.setState({ loading: false });
       return;
     }
 
     if (!host._isMounted || requestId !== host._requestId) return;
-    host.setState({ loading: false, error: e?.message || "Query failed" });
+    host.setState({ loading: false, error: err?.message || "Query failed" });
   } finally {
-    host._abortController = null;
+    if (host._abortController === controller) host._abortController = null;
   }
 };

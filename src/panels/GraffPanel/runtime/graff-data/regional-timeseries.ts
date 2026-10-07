@@ -1,8 +1,10 @@
 import type { AgriGraffWidgetState, ChartVegetationRow, VegetationIndex } from "../widget";
+import type { GraffWidgetProps } from "../graff-state";
 import { React } from "jimu-core";
 import type { GraffPendingOverlayWalk } from "../graff-raster-overlay";
 import type { VegetationIndiceType, PolygonExportImageResult } from "../../../../gis/agri-polygon-api-source";
 import { graffLog } from "../graff-log";
+import { describeThrown, thrownMessage } from "../graff-guards";
 import { snapshotGraffRegionalFilters, isGraffRegionalFilterSnapshotStale, extractGraffYearToken } from "../../../../data/agri-graff-date";
 import { getTuriCropLookupKey } from "../../../../shared/agri-crop-labels";
 import { buildGraffRegionalScopeKey, queryGraffRegionalTimeseriesMerged } from "../../../../data/agri-graff-stats";
@@ -15,7 +17,7 @@ import { matchGraffDashboardPack } from "../../../../data/agri-dashboard-pack-ma
 
 export interface GraffDataServiceHost {
   state: AgriGraffWidgetState;
-  setState: React.Component<any, AgriGraffWidgetState>["setState"];
+  setState: React.Component<GraffWidgetProps, AgriGraffWidgetState>["setState"];
   _isMounted: boolean;
   _hasCompletedGraphFetch: boolean;
   _vegetationDataRequestId: number;
@@ -70,7 +72,7 @@ export interface GraffDataServiceHost {
     fingerprint: string;
   };
   cancelVegetationImageOverlay: () => void;
-  resolveAgainstAvailableDates: (rawDate: any, availableDates: string[]) => string | null;
+  resolveAgainstAvailableDates: (rawDate: unknown, availableDates: string[]) => string | null;
 }
 export const fetchGraffRegionalTimeseries = async (host: GraffDataServiceHost) => {
   // Polygon mode owns vegetationData — never start (or apply) a regional
@@ -499,9 +501,9 @@ export const fetchGraffRegionalTimeseries = async (host: GraffDataServiceHost) =
       dateRangeStartIndex: null,
       dateRangeEndIndex: null,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     graffLog("fetchRegionalTimeseries:FAILED", {
-      error: String(err?.message || err),
+      error: describeThrown(err),
     });
     if (isStale()) return;
     if (host._regionalTimeseriesRequestKey === requestKey) {
@@ -513,7 +515,7 @@ export const fetchGraffRegionalTimeseries = async (host: GraffDataServiceHost) =
     host.setState({
       vegetationData: [],
       loadingVegetation: false,
-      vegetationError: err?.message || "Вилоят вақт қатори юклана олмади.",
+      vegetationError: thrownMessage(err) || "Вилоят вақт қатори юклана олмади.",
     });
   }
 };

@@ -25,78 +25,81 @@ import { fetchFilterOptions, fetchFilterOptionsOnce, getUniqueValues, fetchData,
 import { beginGraphFetch, applyGraphData, switchToTable, switchToGraph, renderViewModeToggle, renderGraphLegend, renderGraphHeader, wrapGraphFrame, toggleMonthPicker, resolveMonthPickerPlacement, handleMonthOptionClick, resolveCurrentRegionId, publishVegetationOverlayContext, resolveCurrentYear, broadcastDateIndexSelection, getNavigableDateIndexDates, handleDateIndexNavigate, clearVegetationImageSurfaceLoading, beginVegetationImageSurfaceLoading, cancelVegetationImageOverlay, removeVegetationImageOverlay, getIndexDisplayColor, resolveHoverIndexRange, retryOverlayWithUsableDate, preparePolygonGraphSeries, handleIndexChange, handleToggleAllIndices, localizeRuntimeMessage, INDEX_COLORS as GraffIndexColors } from "./components/graph-handlers";
 import { render } from "./components/render-panel";
 import { createInitialGraffState } from "./components/initial-state";
-import type { AgriGraffWidgetState, ChartVegetationRow, ConfiguredFilters, RecordData, VegetationIndex } from "./graff-state";
+import type { AgriGraffWidgetState, ChartVegetationRow, ConfiguredFilters, GraffWidgetProps, RecordData, TimerHandle, VegetationIndex } from "./graff-state";
+import type { DebouncedFunc } from "lodash";
+import type { ImmutableObject, UseDataSource } from "jimu-core";
+import type { TaggedLayer } from "./components/spatial-candidates";
 const WIDGET_ID = "AgriGraffWidget";
 export type { AgriGraffWidgetState, ChartVegetationRow, ConfiguredFilters, RecordData, VegetationIndex };
-export default class AgriGraffWidget extends React.PureComponent<AllWidgetProps<any>, AgriGraffWidgetState> {
-    private _barCategoryField = "";
-    private _barCategoryValue = "";
+export default class AgriGraffWidget extends React.PureComponent<GraffWidgetProps, AgriGraffWidgetState> implements GraffWidgetHost, GraffGraphHost, GraffDataServiceHost, GraffRasterOverlayHost, GraffMapInteractionHost {
+_barCategoryField = "";
+_barCategoryValue = "";
     /** Tuman / Jadval debug — visible when __AGRO_V5_TUMAN_DEBUG !== false (default ON). */
     private static graffLog(phase: string, detail?: Record<string, unknown>): void {
         graffLog(phase, detail);
     }
-    private _prevDefinitionExpression = "";
-    private _mapUpdateScheduled = false;
-    private _onReset: () => void;
-    private initializationTimer: any;
-    private _retryTimeout: any;
-    private _isMounted: boolean = false;
-    private _unbindMasterFilter: (() => void) | null = null;
+_prevDefinitionExpression = "";
+_mapUpdateScheduled = false;
+_onReset: () => void;
+initializationTimer: TimerHandle | null = null;
+_retryTimeout: TimerHandle | null = null;
+_isMounted: boolean = false;
+_unbindMasterFilter: (() => void) | null = null;
     /** MapView and fallback startup share one filter-options request batch. */
-    private _filterOptionsPromise: Promise<void> | null = null;
+_filterOptionsPromise: Promise<void> | null = null;
     /** MediaLayer showing the export-image raster for the selected polygon+date; removed on deselect/change. */
-    private _vegetationImageLayer: __esri.MediaLayer | null = null;
+_vegetationImageLayer: __esri.MediaLayer | null = null;
     /** Guards against a stale export-image response landing after a newer selection. */
-    private _vegetationImageRequestId = 0;
+_vegetationImageRequestId = 0;
     /** Last successfully placed overlay cache key (skip redundant re-apply). */
-    private _vegetationOverlayAppliedKey = "";
+_vegetationOverlayAppliedKey = "";
     /** In-flight overlay key so series+dates paths do not cancel each other. */
-    private _vegetationOverlayPendingKey = "";
+_vegetationOverlayPendingKey = "";
     /**
      * Last raster date that successfully painted on the map (any polygon).
      * Same satellite scene often covers the whole district — optimistic first
      * paint uses this before /available-dates returns.
      */
-    private _lastSuccessfulOverlayDate: string | null = null;
-    private _lastSuccessfulOverlayIndex: VegetationIndiceType = "ndvi";
+_lastSuccessfulOverlayDate: string | null = null;
+_lastSuccessfulOverlayIndex: VegetationIndiceType = "ndvi";
     /**
      * Region (and year) `_lastSuccessfulOverlayDate` belongs to. Scene dates are
      * region-specific, so reusing one across regions makes export-image reply
      * 400 for a raster_date that has no scene for the new polygon.
      */
-    private _lastSuccessfulOverlayRegionId: number | null = null;
-    private _lastSuccessfulOverlayYear: number | null = null;
+_lastSuccessfulOverlayRegionId: number | null = null;
+_lastSuccessfulOverlayYear: number | null = null;
     /** Per-polygon latest date from /available-dates (session). */
-    private _latestRasterDateByUniqueid = new Map<string, string>();
+_latestRasterDateByUniqueid = new Map<string, string>();
     /** `${uniqueid}|${date}` pairs export-image already served (HTTP 200). */
-    private _verifiedOverlayDates = new Set<string>();
+_verifiedOverlayDates = new Set<string>();
     /**
      * In-flight available-dates → export-image walk for the selected polygon.
      * Series/pack-driven overlay calls wait on it instead of firing their own
      * unverified date (the ArcGIS series has rows for days the region raster
      * is missing → guaranteed 400).
      */
-    private _pendingOverlayWalk: GraffPendingOverlayWalk | null = null;
-    private _unbindPopupPolygonSelection: (() => void) | null = null;
-    private _mapHoverPrefetchHandle: __esri.Handle | null = null;
-    private _hoverPrefetchTimer: number | null = null;
-    private _hoverPrefetchUniqueid = "";
+_pendingOverlayWalk: GraffPendingOverlayWalk | null = null;
+_unbindPopupPolygonSelection: (() => void) | null = null;
+_mapHoverPrefetchHandle: __esri.Handle | null = null;
+_hoverPrefetchTimer: number | null = null;
+_hoverPrefetchUniqueid = "";
     /** Date captured before setState clears selectedNdviDate on polygon switch. */
-    private _optimisticDateBeforeClear: string | null = null;
+_optimisticDateBeforeClear: string | null = null;
     /** Export rasters confirmed missing by the API; prevents repeated 404 requests. */
-    private _missingVegetationRasterKeys = new Set<string>();
+_missingVegetationRasterKeys = new Set<string>();
     /** Per-polygon count of date step-backs after an export-image 400. */
-    private _inSeasonRetryAttempts = new Map<string, number>();
+_inSeasonRetryAttempts = new Map<string, number>();
     /**
      * uniqueid that `polygonAvailableDates` belongs to. Prevents a previous
      * polygon's date list from blocking the next field's overlay (SKIP-unavailable).
      */
-    private _polygonAvailableDatesUniqueid = "";
+_polygonAvailableDatesUniqueid = "";
     /** Pixel values + georef for the active vegetation overlay (map hover tooltip). */
-    private _vegetationRasterSample: GraffVegetationRasterSample | null = null;
-    private _vegetationHoverHandle: __esri.Handle | null = null;
-    private _vegetationHoverLeaveHandle: __esri.Handle | null = null;
-    private _vegetationHoverTooltipEl: HTMLDivElement | null = null;
+_vegetationRasterSample: GraffVegetationRasterSample | null = null;
+_vegetationHoverHandle: __esri.Handle | null = null;
+_vegetationHoverLeaveHandle: __esri.Handle | null = null;
+_vegetationHoverTooltipEl: HTMLDivElement | null = null;
     /**
      * Guards against a stale fetchVegetationData() response (chart series +
      * available-dates) landing after the user has already switched to a
@@ -105,7 +108,7 @@ export default class AgriGraffWidget extends React.PureComponent<AllWidgetProps<
      * overwriting a newer polygon's already-loaded chart, which then fed a
      * date click for the wrong polygon's raster_date list.
      */
-    private _vegetationDataRequestId = 0;
+_vegetationDataRequestId = 0;
     /**
      * Invalidates in-flight fetchRegionalTimeseries results. Without this, a
      * regional fetch started on filter change (or before a polygon click)
@@ -113,23 +116,23 @@ export default class AgriGraffWidget extends React.PureComponent<AllWidgetProps<
      * with aggregate dates that are not in /available-dates — clicks then
      * hit SKIP-unavailable-date and show nothing on the field.
      */
-    private _regionalTimeseriesRequestId = 0;
+_regionalTimeseriesRequestId = 0;
     /** Last regional query signature, used to collapse duplicate mount/filter broadcasts. */
-    private _regionalTimeseriesRequestKey = "";
+_regionalTimeseriesRequestKey = "";
     /** Signature of the regional series currently shown in vegetationData. */
-    private _regionalTimeseriesAppliedKey = "";
+_regionalTimeseriesAppliedKey = "";
     /**
      * Index fields already loaded for `_regionalTimeseriesAppliedKey` (republic
      * incremental fetch). Cleared on scope change, polygon mode, or failed fetch.
      * Viloyat/tuman full queries mark every CORE field as loaded.
      */
-    private _regionalTimeseriesLoadedAvgFields = new Set<string>();
+_regionalTimeseriesLoadedAvgFields = new Set<string>();
     /** True after a graph fetch finishes (success/empty/error) — prevents no-data flash. */
-    private _hasCompletedGraphFetch = false;
+_hasCompletedGraphFetch = false;
     /** True after a table fetch finishes (success/empty/error) — prevents no-data flash. */
-    private _hasCompletedTableFetch = false;
+_hasCompletedTableFetch = false;
     /** Invalidates in-flight table page fetches when leaving table view mid-load. */
-    private _tableDataRequestId = 0;
+_tableDataRequestId = 0;
     /**
      * Wall-clock time of the most recently APPLIED polygon selection, from
      * whichever source won the race — this widget's own handleMapClick, or an
@@ -140,41 +143,41 @@ export default class AgriGraffWidget extends React.PureComponent<AllWidgetProps<
      * timestamp than what's already applied must be dropped, or it silently
      * reverts the selected polygon back to a stale one.
      */
-    private _lastAppliedPolygonClickedAt = 0;
+_lastAppliedPolygonClickedAt = 0;
     /** Scroll/center this uniqueid in the jadval after the matching page loads. */
-    private _pendingScrollUniqueid: string | null = null;
-    private _selectionPageResolveToken = 0;
+_pendingScrollUniqueid: string | null = null;
+_selectionPageResolveToken = 0;
     /**
      * Drops late masterFilterChanged payloads whose meta.timestamp /
      * broadcastGeneration is older than what we already applied — prevents a
      * slow VH-bar broadcast for the previous viloyat/tuman from overwriting
      * the chart after the user already moved on.
      */
-    private _lastMasterFilterTs = 0;
-    private _lastMasterFilterBroadcastGeneration = 0;
+_lastMasterFilterTs = 0;
+_lastMasterFilterBroadcastGeneration = 0;
     /** View extent before a table-row polygon is selected; restored on toggle-off. */
-    private _extentBeforeTableSelection: __esri.Extent | null = null;
+_extentBeforeTableSelection: __esri.Extent | null = null;
     /**
      * Where the current polygon selection came from.
      * Table selection can also be deactivated by clicking the same polygon on the map.
      */
-    private _polygonSelectionOrigin: "table" | "map" | null = null;
+_polygonSelectionOrigin: "table" | "map" | null = null;
     /** Wall time when selection was committed — ignores echo "same-id" deselects. */
-    private _selectionCommittedAt = 0;
+_selectionCommittedAt = 0;
     /** Detached query layers prevent MapImage sublayer queries from clearing its live district filter. */
-    private _detachedSpatialQueryLayers = new Map<string, __esri.FeatureLayer>();
+_detachedSpatialQueryLayers = new Map<string, __esri.FeatureLayer>();
     /** Cancels stale table-row geometry lookups when the user clicks another row. */
-    private _tableRowClickGeneration = 0;
-    private tableContainerRef: React.RefObject<HTMLDivElement>;
-    private graphContainerRef: React.RefObject<HTMLDivElement>;
-    private graphSvgWrapRef: React.RefObject<HTMLDivElement>;
-    private monthPickerRef: React.RefObject<HTMLDivElement>;
-    private graphResizeObserver: ResizeObserver | null = null;
-    private _graphViewportRaf: number | null = null;
-    private _chartGeometryCacheKey = "";
-    private _chartGeometryCache: GraffChartGeometryCache | null = null;
+_tableRowClickGeneration = 0;
+tableContainerRef: React.RefObject<HTMLDivElement>;
+graphContainerRef: React.RefObject<HTMLDivElement>;
+graphSvgWrapRef: React.RefObject<HTMLDivElement>;
+monthPickerRef: React.RefObject<HTMLDivElement>;
+graphResizeObserver: ResizeObserver | null = null;
+_graphViewportRaf: number | null = null;
+_chartGeometryCacheKey = "";
+_chartGeometryCache: GraffChartGeometryCache | null = null;
     // Single coalesced refresh: push WHERE to DS/layer, then fetch
-    private scheduleRefresh = debounce(async () => {
+scheduleRefresh = debounce(async () => {
         if (!this._isMounted || this.state.connectionStatus !== "connected")
             return;
         // Show loader immediately so UI never flashes "no data" during map-filter await.
@@ -184,63 +187,63 @@ export default class AgriGraffWidget extends React.PureComponent<AllWidgetProps<
         await this.applyMapFilters();
         await this.fetchData();
     }, 250);
-    private _allowClearOnce = false;
+_allowClearOnce = false;
     /** Viloyat name → region number (from layer attribute `region`). Used in WHERE and API as region/district. */
-    private _viloyatToRegion: Record<string, number> = {};
+_viloyatToRegion: Record<string, number> = {};
     /** Region/viloyat + tuman → district number (from layer attribute `district`). */
-    private _tumanToDistrict: Record<string, number> = {};
+_tumanToDistrict: Record<string, number> = {};
     /** Vote weights for majority-pick when Agri_table has conflicting district codes. */
-    private _tumanToDistrictVotes: Record<string, number> = {};
+_tumanToDistrictVotes: Record<string, number> = {};
     /**
      * Crop type name (turi) → crop_id. agri_vegetation_indices doesn't carry
      * the human-readable `turi` name, only `crop_id`, so the regional
      * vegetation timeseries needs this resolved from Agri_table_data (which
      * has both) the same way viloyat/tuman get resolved to region/district.
      */
-    private _turiToCropId: Record<string, string> = {};
+_turiToCropId: Record<string, string> = {};
     /** Viloyat normalized key → resolved feature layer index. */
-    private _viloyatKeyToLayerIndex: Record<string, number> = {};
+_viloyatKeyToLayerIndex: Record<string, number> = {};
     // Debounce timer for external updates
-    private _updateDebounceTimer: any = null;
-    private _debounceTimer: any = null;
-    private _searchDebounceTimer: any = null;
-    private _activeController: AbortController | null = null;
-    private normalizeApos(s: string): string {
-        return normalizeApos(this as unknown as GraffWidgetHost, s);
+_updateDebounceTimer: TimerHandle | null = null;
+_debounceTimer: TimerHandle | null = null;
+_searchDebounceTimer: TimerHandle | null = null;
+_activeController: AbortController | null = null;
+normalizeApos(s: string): string {
+        return normalizeApos(this, s);
     }
-    private makeRegionDistrictKey(raw: string | null | undefined): string {
-        return makeRegionDistrictKey(this as unknown as GraffWidgetHost, raw);
+makeRegionDistrictKey(raw: string | null | undefined): string {
+        return makeRegionDistrictKey(this, raw);
     }
-    private resolveCropIdForTuri = (turi: string): string | undefined => {
-        return resolveCropIdForTuri(this as unknown as GraffWidgetHost, turi);
+resolveCropIdForTuri = (turi: string): string | undefined => {
+        return resolveCropIdForTuri(this, turi);
     };
-    private resolveCropIdForUniqueid = (uniqueid: string | null | undefined): number | null => {
-        return resolveCropIdForUniqueid(this as unknown as GraffWidgetHost, uniqueid);
+resolveCropIdForUniqueid = (uniqueid: string | null | undefined): number | null => {
+        return resolveCropIdForUniqueid(this, uniqueid);
     };
-    private resolveDistrictNumber(viloyat: string, tuman: string, regionHint?: number): number | undefined {
-        return resolveDistrictNumber(this as unknown as GraffWidgetHost, viloyat, tuman, regionHint);
+resolveDistrictNumber(viloyat: string, tuman: string, regionHint?: number): number | undefined {
+        return resolveDistrictNumber(this, viloyat, tuman, regionHint);
     }
-    private storeRegionDistrictMappingRow = (viloyatRaw: string | null | undefined, regionRaw: unknown, tumanRaw: string | null | undefined, districtRaw: unknown, count: number = 1): void => {
-        return storeRegionDistrictMappingRow(this as unknown as GraffWidgetHost, viloyatRaw, regionRaw, tumanRaw, districtRaw, count);
+storeRegionDistrictMappingRow = (viloyatRaw: string | null | undefined, regionRaw: unknown, tumanRaw: string | null | undefined, districtRaw: unknown, count: number = 1): void => {
+        return storeRegionDistrictMappingRow(this, viloyatRaw, regionRaw, tumanRaw, districtRaw, count);
     };
-    private ensureRegionDistrictForSelection = async (): Promise<void> => {
-        return ensureRegionDistrictForSelection(this as unknown as GraffWidgetHost);
+ensureRegionDistrictForSelection = async (): Promise<void> => {
+        return ensureRegionDistrictForSelection(this);
     };
-    private eqAposSmart(field: string, raw: string): string {
-        return eqAposSmart(this as unknown as GraffWidgetHost, field, raw);
+eqAposSmart(field: string, raw: string): string {
+        return eqAposSmart(this, field, raw);
     }
-    private buildTumanNameClause(tuman: string, viloyat?: string): string {
-        return buildTumanNameClause(this as unknown as GraffWidgetHost, tuman, viloyat);
+buildTumanNameClause(tuman: string, viloyat?: string): string {
+        return buildTumanNameClause(this, tuman, viloyat);
     }
-    private formatLocalDateYmd = (dt: Date): string => {
-        return formatLocalDateYmd(this as unknown as GraffWidgetHost, dt);
+formatLocalDateYmd = (dt: Date): string => {
+        return formatLocalDateYmd(this, dt);
     };
-    private resolveAgainstAvailableDates = (rawDate: any, availableDates: string[]): string | null => resolveAgainstAvailableDates(this as unknown as GraffWidgetHost, rawDate, availableDates);
+resolveAgainstAvailableDates = (rawDate: unknown, availableDates: string[]): string | null => resolveAgainstAvailableDates(this, rawDate, availableDates);
     MAX_CONNECTION_ATTEMPTS = MAX_MAP_CONNECTION_ATTEMPTS;
     /** Same page size as Agrobank ContoursTable. */
     RECORDS_PER_PAGE = 50;
-    private throttledFetchData: any;
-    constructor(props: AllWidgetProps<any>) {
+throttledFetchData: DebouncedFunc<() => Promise<void>>;
+    constructor(props: GraffWidgetProps) {
         super(props);
         let initialIsDarkTheme = true;
         try {
@@ -296,49 +299,49 @@ export default class AgriGraffWidget extends React.PureComponent<AllWidgetProps<
         this.toggleMonthPicker = this.toggleMonthPicker.bind(this);
         this.handleMonthOptionClick = this.handleMonthOptionClick.bind(this);
     }
-    private updateGraphViewportSize = () => {
-        return updateGraphViewportSize(this as unknown as GraffWidgetHost);
+updateGraphViewportSize = () => {
+        return updateGraphViewportSize(this);
     };
-    private scheduleGraphViewportRefresh = () => {
-        return scheduleGraphViewportRefresh(this as unknown as GraffWidgetHost);
+scheduleGraphViewportRefresh = () => {
+        return scheduleGraphViewportRefresh(this);
     };
-    private observeGraphViewport = () => {
-        return observeGraphViewport(this as unknown as GraffWidgetHost);
+observeGraphViewport = () => {
+        return observeGraphViewport(this);
     };
-    private handleDocumentMouseDown = (event: MouseEvent) => {
-        return handleDocumentMouseDown(this as unknown as GraffWidgetHost, event);
+handleDocumentMouseDown = (event: MouseEvent) => {
+        return handleDocumentMouseDown(this, event);
     };
-    private builduniqueidWhere = (raw: string, field: string = "uniqueid") => builduniqueidWhere(this as unknown as GraffWidgetHost, raw, field);
-    private resolveFieldCaseInsensitive = (name: string): string | null => {
-        return resolveFieldCaseInsensitive(this as unknown as GraffWidgetHost, name);
+builduniqueidWhere = (raw: string, field: string = "uniqueid") => builduniqueidWhere(this, raw, field);
+resolveFieldCaseInsensitive = (name: string): string | null => {
+        return resolveFieldCaseInsensitive(this, name);
     };
-    private isRegionalInteractionEnabled = (): boolean => isRegionalInteractionEnabled(this as unknown as GraffWidgetHost);
-    private handlePopupPolygonSelectionFastPath = (event: Event): void => {
-        return handlePopupPolygonSelectionFastPath(this as unknown as GraffWidgetHost, event);
+isRegionalInteractionEnabled = (): boolean => isRegionalInteractionEnabled(this);
+handlePopupPolygonSelectionFastPath = (event: Event): void => {
+        return handlePopupPolygonSelectionFastPath(this, event);
     };
-    private getCarriedOverlayDate(regionId: number | undefined, year: number | undefined): string | null {
-        return getCarriedOverlayDate(this as unknown as GraffWidgetHost, regionId, year);
+getCarriedOverlayDate(regionId: number | undefined, year: number | undefined): string | null {
+        return getCarriedOverlayDate(this, regionId, year);
     }
-    private kickOptimisticVegetationOverlay = (uniqueid: string): void => {
-        return kickOptimisticVegetationOverlay(this as unknown as GraffWidgetHost, uniqueid);
+kickOptimisticVegetationOverlay = (uniqueid: string): void => {
+        return kickOptimisticVegetationOverlay(this, uniqueid);
     };
-    private markOverlayDateVerified = (cleanId: string, date: string): void => {
-        return markOverlayDateVerified(this as unknown as GraffWidgetHost, cleanId, date);
+markOverlayDateVerified = (cleanId: string, date: string): void => {
+        return markOverlayDateVerified(this, cleanId, date);
     };
-    private awaitPendingOverlayWalk = async (cleanId: string, timeoutMs = 8000): Promise<string | null | undefined> => {
-        return awaitPendingOverlayWalk(this as unknown as GraffWidgetHost, cleanId, timeoutMs);
+awaitPendingOverlayWalk = async (cleanId: string, timeoutMs = 8000): Promise<string | null | undefined> => {
+        return awaitPendingOverlayWalk(this, cleanId, timeoutMs);
     };
-    private rememberRasterDateForUniqueid = (uniqueid: string, dates: string[]): void => {
-        return rememberRasterDateForUniqueid(this as unknown as GraffWidgetHost, uniqueid, dates);
+rememberRasterDateForUniqueid = (uniqueid: string, dates: string[]): void => {
+        return rememberRasterDateForUniqueid(this, uniqueid, dates);
     };
-    private detachMapHoverPrefetch = (): void => {
-        return detachMapHoverPrefetch(this as unknown as GraffWidgetHost);
+detachMapHoverPrefetch = (): void => {
+        return detachMapHoverPrefetch(this);
     };
-    private attachMapHoverPrefetch = (view: __esri.MapView | __esri.SceneView): void => {
-        return attachMapHoverPrefetch(this as unknown as GraffWidgetHost, view);
+attachMapHoverPrefetch = (view: __esri.MapView | __esri.SceneView): void => {
+        return attachMapHoverPrefetch(this, view);
     };
-    private prefetchVegetationForMapPoint = async (view: __esri.MapView | __esri.SceneView, event: any, regionId: number, year: number): Promise<void> => {
-        return prefetchVegetationForMapPoint(this as unknown as GraffWidgetHost, view, event, regionId, year);
+prefetchVegetationForMapPoint = async (view: __esri.MapView | __esri.SceneView, event: __esri.ViewPointerMoveEvent, regionId: number, year: number): Promise<void> => {
+        return prefetchVegetationForMapPoint(this, view, event, regionId, year);
     };
     /**
      * Enters/exits "single polygon" chart mode in response to a polygon
@@ -348,280 +351,280 @@ export default class AgriGraffWidget extends React.PureComponent<AllWidgetProps<
      * definitionExpression narrowing — the widget that owns the selection
      * (AgriPopup) already handles that on its own layer.
      */
-    private syncExternalPolygonSelection = (uniqueid: string, polygonMode: boolean, regionIdHint?: number | null, clickedAt?: number): void => syncGraffExternalPolygonSelection(this as unknown as GraffMapInteractionHost, uniqueid, polygonMode, regionIdHint, clickedAt);
-    private clearPolygonSelectionFromMapClick = (): void => {
-        return clearPolygonSelectionFromMapClick(this as unknown as GraffWidgetHost);
+syncExternalPolygonSelection = (uniqueid: string, polygonMode: boolean, regionIdHint?: number | null, clickedAt?: number): void => syncGraffExternalPolygonSelection(this, uniqueid, polygonMode, regionIdHint, clickedAt);
+clearPolygonSelectionFromMapClick = (): void => {
+        return clearPolygonSelectionFromMapClick(this);
     };
-    private handleMasterFilterChanged = (event: Event) => {
-        return handleMasterFilterChanged(this as unknown as GraffWidgetHost, event);
+handleMasterFilterChanged = (event: Event) => {
+        return handleMasterFilterChanged(this, event);
     };
-    private getSearchField = (): "uniqueid" | "gidv" => {
-        return getSearchField(this as unknown as GraffWidgetHost);
+getSearchField = (): "uniqueid" | "gidv" => {
+        return getSearchField(this);
     };
-    private buildGidvWhere = (raw: string, field: string = "gidv") => buildGidvWhere(this as unknown as GraffWidgetHost, raw, field);
-    private buildSearchWhere = (raw: string): string => {
-        return buildSearchWhere(this as unknown as GraffWidgetHost, raw);
+buildGidvWhere = (raw: string, field: string = "gidv") => buildGidvWhere(this, raw, field);
+buildSearchWhere = (raw: string): string => {
+        return buildSearchWhere(this, raw);
     };
-    private findSpatialFeatureByUniqueId = async (uniqueId: string): Promise<__esri.Graphic | null> => {
-        return findSpatialFeatureByUniqueId(this as unknown as GraffWidgetHost, uniqueId);
+findSpatialFeatureByUniqueId = async (uniqueId: string): Promise<__esri.Graphic | null> => {
+        return findSpatialFeatureByUniqueId(this, uniqueId);
     };
-    private getTableSpatialQueryCandidates = (): __esri.FeatureLayer[] => {
-        return getTableSpatialQueryCandidates(this as unknown as GraffWidgetHost);
+getTableSpatialQueryCandidates = (): TaggedLayer[] => {
+        return getTableSpatialQueryCandidates(this);
     };
-    private runAutoSearch = async (termRaw: string) => {
-        return runAutoSearch(this as unknown as GraffWidgetHost, termRaw);
+runAutoSearch = async (termRaw: string) => {
+        return runAutoSearch(this, termRaw);
     };
-    private clearSelectionAfterSearchClear = async () => {
-        return clearSelectionAfterSearchClear(this as unknown as GraffWidgetHost);
+clearSelectionAfterSearchClear = async () => {
+        return clearSelectionAfterSearchClear(this);
     };
-    private handleExternalTableSearchChanged = (event: Event) => {
-        return handleExternalTableSearchChanged(this as unknown as GraffWidgetHost, event);
+handleExternalTableSearchChanged = (event: Event) => {
+        return handleExternalTableSearchChanged(this, event);
     };
-    private handleExternalTableRowSelected = async (event: Event) => {
-        return handleExternalTableRowSelected(this as unknown as GraffWidgetHost, event);
+handleExternalTableRowSelected = async (event: Event) => {
+        return handleExternalTableRowSelected(this, event);
     };
-    private buildWhereClause(): string {
-        return buildWhereClause(this as unknown as GraffWidgetHost);
+buildWhereClause(): string {
+        return buildWhereClause(this);
     }
-    private fetchAndStoreRegionDistrictMappings = async (): Promise<void> => {
-        return fetchAndStoreRegionDistrictMappings(this as unknown as GraffWidgetHost);
+fetchAndStoreRegionDistrictMappings = async (): Promise<void> => {
+        return fetchAndStoreRegionDistrictMappings(this);
     };
     /* ---------------------- ENHANCED EVENT HANDLERS FOR ALL 4 WIDGETS ---------------------- */
-    private handleConstructionYearChange = (event: CustomEvent) => {
-        return handleConstructionYearChange(this as unknown as GraffWidgetHost, event);
+handleConstructionYearChange = (event: CustomEvent) => {
+        return handleConstructionYearChange(this, event);
     };
-    private getDisplayFields(): string[] {
-        return getDisplayFields(this as unknown as GraffWidgetHost);
+getDisplayFields(): string[] {
+        return getDisplayFields(this);
     }
-    private getMaydonSortFieldName(): string | null {
-        return getMaydonSortFieldName(this as unknown as GraffWidgetHost);
+getMaydonSortFieldName(): string | null {
+        return getMaydonSortFieldName(this);
     }
-    private getTableOrderByFields = (): string[] => {
-        return getTableOrderByFields(this as unknown as GraffWidgetHost);
+getTableOrderByFields = (): string[] => {
+        return getTableOrderByFields(this);
     };
-    private toggleMaydonSort = (): void => {
-        return toggleMaydonSort(this as unknown as GraffWidgetHost);
+toggleMaydonSort = (): void => {
+        return toggleMaydonSort(this);
     };
-    private buildVhUniqueIdsClause(): string {
-        return buildVhUniqueIdsClause(this as unknown as GraffWidgetHost);
+buildVhUniqueIdsClause(): string {
+        return buildVhUniqueIdsClause(this);
     }
-    private getStatusFieldNameForCurrentDate(): string | null {
-        return getStatusFieldNameForCurrentDate(this as unknown as GraffWidgetHost);
+getStatusFieldNameForCurrentDate(): string | null {
+        return getStatusFieldNameForCurrentDate(this);
     }
-    private buildNdviStatusClauseForCurrentVh(): string {
-        return buildNdviStatusClauseForCurrentVh(this as unknown as GraffWidgetHost);
+buildNdviStatusClauseForCurrentVh(): string {
+        return buildNdviStatusClauseForCurrentVh(this);
     }
-    private getFieldDisplayName(fieldName: string): string {
-        return getFieldDisplayName(this as unknown as GraffWidgetHost, fieldName);
+getFieldDisplayName(fieldName: string): string {
+        return getFieldDisplayName(this, fieldName);
     }
-    private handleLandCategoryChange = (event: CustomEvent) => {
-        return handleLandCategoryChange(this as unknown as GraffWidgetHost, event);
+handleLandCategoryChange = (event: CustomEvent) => {
+        return handleLandCategoryChange(this, event);
     };
-    private handleRegionalChange = (event: CustomEvent) => {
-        return handleRegionalChange(this as unknown as GraffWidgetHost, event);
+handleRegionalChange = (event: CustomEvent) => {
+        return handleRegionalChange(this, event);
     };
-    private handleGeneralFilterChange = (event: CustomEvent) => {
-        return handleGeneralFilterChange(this as unknown as GraffWidgetHost, event);
+handleGeneralFilterChange = (event: CustomEvent) => {
+        return handleGeneralFilterChange(this, event);
     };
-    private processExternalFilterUpdate = (sourceWidget: string, updates: ConfiguredFilters) => {
-        return processExternalFilterUpdate(this as unknown as GraffWidgetHost, sourceWidget, updates);
+processExternalFilterUpdate = (sourceWidget: string, updates: ConfiguredFilters) => {
+        return processExternalFilterUpdate(this, sourceWidget, updates);
     };
-    private applyExternalFilterUpdate = async (sourceWidget: string, updates: ConfiguredFilters) => {
-        return applyExternalFilterUpdate(this as unknown as GraffWidgetHost, sourceWidget, updates);
+applyExternalFilterUpdate = async (sourceWidget: string, updates: ConfiguredFilters) => {
+        return applyExternalFilterUpdate(this, sourceWidget, updates);
     };
     /* ---------------------- Table pagination (Agrobank ContoursTable) ---------------------- */
-    private normalizeUniqueidKey = (value: string | null | undefined): string => normalizeUniqueidKey(this as unknown as GraffWidgetHost, value);
-    private recordMatchesUniqueid = (record: RecordData, uniqueid: string): boolean => recordMatchesUniqueid(this as unknown as GraffWidgetHost, record, uniqueid);
-    private scrollSelectedRowIntoCenter = (): void => {
-        return scrollSelectedRowIntoCenter(this as unknown as GraffWidgetHost);
+normalizeUniqueidKey = (value: string | null | undefined): string => normalizeUniqueidKey(this, value);
+recordMatchesUniqueid = (record: RecordData, uniqueid: string): boolean => recordMatchesUniqueid(this, record, uniqueid);
+scrollSelectedRowIntoCenter = (): void => {
+        return scrollSelectedRowIntoCenter(this);
     };
-    private scheduleScrollSelectedRowIntoCenter = (): void => {
-        return scheduleScrollSelectedRowIntoCenter(this as unknown as GraffWidgetHost);
+scheduleScrollSelectedRowIntoCenter = (): void => {
+        return scheduleScrollSelectedRowIntoCenter(this);
     };
-    private buildUniqueidWhere = (uniqueid: string): string => buildUniqueidWhere(this as unknown as GraffWidgetHost, uniqueid);
-    private async resolveTablePageForUniqueid(uniqueid: string): Promise<number | null> {
-        return resolveTablePageForUniqueid(this as unknown as GraffWidgetHost, uniqueid);
+buildUniqueidWhere = (uniqueid: string): string => buildUniqueidWhere(this, uniqueid);
+async resolveTablePageForUniqueid(uniqueid: string): Promise<number | null> {
+        return resolveTablePageForUniqueid(this, uniqueid);
     }
-    private ensureSelectedRowVisible = async (uniqueid?: string | null): Promise<void> => {
-        return ensureSelectedRowVisible(this as unknown as GraffWidgetHost, uniqueid);
+ensureSelectedRowVisible = async (uniqueid?: string | null): Promise<void> => {
+        return ensureSelectedRowVisible(this, uniqueid);
     };
-    private goToTablePage = (page: number): void => {
-        return goToTablePage(this as unknown as GraffWidgetHost, page);
+goToTablePage = (page: number): void => {
+        return goToTablePage(this, page);
     };
     retryMapConnection() {
-        return retryMapConnection(this as unknown as GraffWidgetHost);
+        return retryMapConnection(this);
     }
     onActiveViewChange = (jimuMapView: JimuMapView) => {
-        return onActiveViewChange(this as unknown as GraffWidgetHost, jimuMapView);
+        return onActiveViewChange(this, jimuMapView);
     };
-    private formatFieldValue(fieldName: string, value: any): string {
-        return formatFieldValue(this as unknown as GraffWidgetHost, fieldName, value);
+formatFieldValue(fieldName: string, value: unknown): string {
+        return formatFieldValue(this, fieldName, value);
     }
-    private getStatusValueForRecord(record: RecordData): string {
-        return getStatusValueForRecord(this as unknown as GraffWidgetHost, record);
+getStatusValueForRecord(record: RecordData): string {
+        return getStatusValueForRecord(this, record);
     }
-    private initializeMapConnection = async (jimuMapView: JimuMapView) => {
-        return initializeMapConnection(this as unknown as GraffWidgetHost, jimuMapView);
+initializeMapConnection = async (jimuMapView: JimuMapView) => {
+        return initializeMapConnection(this, jimuMapView);
     };
-    private addSelectionGlow = (view: __esri.MapView | __esri.SceneView, feature: __esri.Graphic) => {
-        return addSelectionGlow(this as unknown as GraffWidgetHost, view, feature);
+addSelectionGlow = (view: __esri.MapView | __esri.SceneView, feature: __esri.Graphic) => {
+        return addSelectionGlow(this, view, feature);
     };
-    private highlightFeature = async (feature: __esri.Graphic, activeMapView: JimuMapView) => {
-        return highlightFeature(this as unknown as GraffWidgetHost, feature, activeMapView);
+highlightFeature = async (feature: __esri.Graphic, activeMapView: JimuMapView) => {
+        return highlightFeature(this, feature, activeMapView);
     };
-    private getConfiguredFilterFields(): string[] {
-        return getConfiguredFilterFields(this as unknown as GraffWidgetHost);
+getConfiguredFilterFields(): string[] {
+        return getConfiguredFilterFields(this);
     }
-    private refreshFiltersFromConfig() {
-        return refreshFiltersFromConfig(this as unknown as GraffWidgetHost);
+refreshFiltersFromConfig() {
+        return refreshFiltersFromConfig(this);
     }
-    private resolveFeatureLayerFromDataSource = async (jimuMapView: JimuMapView, useDsOverride?: any): Promise<__esri.FeatureLayer | null> => {
-        return resolveFeatureLayerFromDataSource(this as unknown as GraffWidgetHost, jimuMapView, useDsOverride);
+resolveFeatureLayerFromDataSource = async (jimuMapView: JimuMapView, useDsOverride?: UseDataSource | ImmutableObject<UseDataSource>): Promise<__esri.FeatureLayer | null> => {
+        return resolveFeatureLayerFromDataSource(this, jimuMapView, useDsOverride);
     };
-    private resolveFeatureLayersFromUseDataSources = async (jimuMapView: JimuMapView): Promise<__esri.FeatureLayer[]> => {
-        return resolveFeatureLayersFromUseDataSources(this as unknown as GraffWidgetHost, jimuMapView);
+resolveFeatureLayersFromUseDataSources = async (jimuMapView: JimuMapView): Promise<__esri.FeatureLayer[]> => {
+        return resolveFeatureLayersFromUseDataSources(this, jimuMapView);
     };
-    private buildViloyatKeyToLayerIndex = async (): Promise<void> => {
-        return buildViloyatKeyToLayerIndex(this as unknown as GraffWidgetHost);
+buildViloyatKeyToLayerIndex = async (): Promise<void> => {
+        return buildViloyatKeyToLayerIndex(this);
     };
-    private getFeatureLayerForViloyat = (viloyat: string): __esri.FeatureLayer | undefined => {
-        return getFeatureLayerForViloyat(this as unknown as GraffWidgetHost, viloyat);
+getFeatureLayerForViloyat = (viloyat: string): __esri.FeatureLayer | undefined => {
+        return getFeatureLayerForViloyat(this, viloyat);
     };
     ensureInitialization = () => {
-        return ensureInitialization(this as unknown as GraffWidgetHost);
+        return ensureInitialization(this);
     };
     componentDidMount() {
-        return componentDidMount(this as unknown as GraffWidgetHost);
+        return componentDidMount(this);
     }
-    componentDidUpdate(prevProps: AllWidgetProps<any>, prevState: AgriGraffWidgetState) {
-        return componentDidUpdate(this as unknown as GraffWidgetHost, prevProps, prevState);
+    componentDidUpdate(prevProps: GraffWidgetProps, prevState: AgriGraffWidgetState) {
+        return componentDidUpdate(this, prevProps, prevState);
     }
     componentWillUnmount() {
-        return componentWillUnmount(this as unknown as GraffWidgetHost);
+        return componentWillUnmount(this);
     }
-    private initializeTheme = (): void => {
-        return initializeTheme(this as unknown as GraffWidgetHost);
+initializeTheme = (): void => {
+        return initializeTheme(this);
     };
-    private handleAppLanguageChanged = (event: Event): void => {
-        return handleAppLanguageChanged(this as unknown as GraffWidgetHost, event);
+handleAppLanguageChanged = (event: Event): void => {
+        return handleAppLanguageChanged(this, event);
     };
     handleThemeChange = (event: CustomEvent<{
         isDarkTheme?: boolean;
     }> | Event): void => {
-        return handleThemeChange(this as unknown as GraffWidgetHost, event);
+        return handleThemeChange(this, event);
     };
     onDataSourceCreated = (ds: DataSource) => {
-        return onDataSourceCreated(this as unknown as GraffWidgetHost, ds);
+        return onDataSourceCreated(this, ds);
     };
-    onDataSourceInfoChange = (info: any) => {
-        return onDataSourceInfoChange(this as unknown as GraffWidgetHost, info);
+    onDataSourceInfoChange = (info: unknown) => {
+        return onDataSourceInfoChange(this, info);
     };
     fetchFilterOptions = (): Promise<void> => {
-        return fetchFilterOptions(this as unknown as GraffWidgetHost);
+        return fetchFilterOptions(this);
     };
-    private fetchFilterOptionsOnce = async (): Promise<void> => {
-        return fetchFilterOptionsOnce(this as unknown as GraffWidgetHost);
+fetchFilterOptionsOnce = async (): Promise<void> => {
+        return fetchFilterOptionsOnce(this);
     };
     getUniqueValues = async (fieldName: string): Promise<string[]> => {
-        return getUniqueValues(this as unknown as GraffWidgetHost, fieldName);
+        return getUniqueValues(this, fieldName);
     };
     fetchData = async (opts?: {
         preservePage?: boolean;
     }) => {
-        return fetchData(this as unknown as GraffWidgetHost, opts);
+        return fetchData(this, opts);
     };
-    private async applyMapFilters(): Promise<void> {
-        return applyMapFilters(this as unknown as GraffWidgetHost);
+async applyMapFilters(): Promise<void> {
+        return applyMapFilters(this);
     }
     handleFilterChange = async (field: string, value: string) => {
-        return handleFilterChange(this as unknown as GraffWidgetHost, field, value);
+        return handleFilterChange(this, field, value);
     };
     handleResetFilters = async () => {
-        return handleResetFilters(this as unknown as GraffWidgetHost);
+        return handleResetFilters(this);
     };
-    private handleRowClick = (record: RecordData) => handleGraffRowClick(this as unknown as GraffMapInteractionHost, record);
-    private filtersChanged(a: typeof this.state.regionalFilters, b: typeof this.state.regionalFilters) {
-        return filtersChanged(this as unknown as GraffWidgetHost, a, b);
+handleRowClick = (record: RecordData) => handleGraffRowClick(this, record);
+filtersChanged(a: typeof this.state.regionalFilters, b: typeof this.state.regionalFilters) {
+        return filtersChanged(this, a, b);
     }
-    private handleGeoFilterChanged = (event: CustomEvent) => {
-        return handleGeoFilterChanged(this as unknown as GraffWidgetHost, event);
+handleGeoFilterChanged = (event: CustomEvent) => {
+        return handleGeoFilterChanged(this, event);
     };
-    private handleResetAll = () => {
-        return handleResetAll(this as unknown as GraffWidgetHost);
+handleResetAll = () => {
+        return handleResetAll(this);
     };
-    private refetchDebounced = () => {
-        return refetchDebounced(this as unknown as GraffWidgetHost);
+refetchDebounced = () => {
+        return refetchDebounced(this);
     };
-    private refetchNow = () => {
-        return refetchNow(this as unknown as GraffWidgetHost);
+refetchNow = () => {
+        return refetchNow(this);
     };
-    private buildApiUrlWithFilters(baseUrl: string): string {
-        return buildApiUrlWithFilters(this as unknown as GraffWidgetHost, baseUrl);
+buildApiUrlWithFilters(baseUrl: string): string {
+        return buildApiUrlWithFilters(this, baseUrl);
     }
-    private getCategoryFieldName(): string | null {
-        return getCategoryFieldName(this as unknown as GraffWidgetHost);
+getCategoryFieldName(): string | null {
+        return getCategoryFieldName(this);
     }
-    private getVhFieldName(): string | null {
-        return getVhFieldName(this as unknown as GraffWidgetHost);
+getVhFieldName(): string | null {
+        return getVhFieldName(this);
     }
-    private getPolygonJoinFieldName(): string {
-        return getPolygonJoinFieldName(this as unknown as GraffWidgetHost);
+getPolygonJoinFieldName(): string {
+        return getPolygonJoinFieldName(this);
     }
     /* ==================== GRAPH VIEW FUNCTIONS ==================== */
-    private beginGraphFetch = (): void => {
-        return beginGraphFetch(this as unknown as GraffWidgetHost);
+beginGraphFetch = (): void => {
+        return beginGraphFetch(this);
     };
-    private applyGraphData = (nextData: ChartVegetationRow[], extra?: Partial<AgriGraffWidgetState>, options?: {
+applyGraphData = (nextData: ChartVegetationRow[], extra?: Partial<AgriGraffWidgetState>, options?: {
         animate?: boolean;
     }): void => {
-        return applyGraphData(this as unknown as GraffWidgetHost, nextData, extra, options);
+        return applyGraphData(this, nextData, extra, options);
     };
     /** Fetch regional timeseries when no polygon is selected (uses viloyat, optional tuman, optional yil for date range). */
-    private fetchRegionalTimeseries = () => fetchGraffRegionalTimeseries(this as unknown as GraffDataServiceHost);
-    private switchToTable = () => {
-        return switchToTable(this as unknown as GraffWidgetHost);
+fetchRegionalTimeseries = () => fetchGraffRegionalTimeseries(this);
+switchToTable = () => {
+        return switchToTable(this);
     };
-    private switchToGraph = () => {
-        return switchToGraph(this as unknown as GraffWidgetHost);
+switchToGraph = () => {
+        return switchToGraph(this);
     };
-    private renderViewModeToggle = (activeMode: "table" | "graph") => {
-        return renderViewModeToggle(this as unknown as GraffWidgetHost, activeMode);
+renderViewModeToggle = (activeMode: "table" | "graph") => {
+        return renderViewModeToggle(this, activeMode);
     };
-    private renderGraphLegend = () => {
-        return renderGraphLegend(this as unknown as GraffWidgetHost);
+renderGraphLegend = () => {
+        return renderGraphLegend(this);
     };
-    private renderGraphHeader = () => {
-        return renderGraphHeader(this as unknown as GraffWidgetHost);
+renderGraphHeader = () => {
+        return renderGraphHeader(this);
     };
-    private wrapGraphFrame = (body: React.ReactNode, options?: {
+wrapGraphFrame = (body: React.ReactNode, options?: {
         refreshLoading?: boolean;
-    }) => wrapGraphFrame(this as unknown as GraffWidgetHost, body, options);
-    private toggleMonthPicker = () => {
-        return toggleMonthPicker(this as unknown as GraffWidgetHost);
+    }) => wrapGraphFrame(this, body, options);
+toggleMonthPicker = () => {
+        return toggleMonthPicker(this);
     };
-    private resolveMonthPickerPlacement = (): "up" | "down" => {
-        return resolveMonthPickerPlacement(this as unknown as GraffWidgetHost);
+resolveMonthPickerPlacement = (): "up" | "down" => {
+        return resolveMonthPickerPlacement(this);
     };
-    private handleMonthOptionClick = (month: number | null) => {
-        return handleMonthOptionClick(this as unknown as GraffWidgetHost, month);
+handleMonthOptionClick = (month: number | null) => {
+        return handleMonthOptionClick(this, month);
     };
-    private resolveCurrentRegionId(): number | undefined {
-        return resolveCurrentRegionId(this as unknown as GraffWidgetHost);
+resolveCurrentRegionId(): number | undefined {
+        return resolveCurrentRegionId(this);
     }
-    private publishVegetationOverlayContext = (): void => {
-        return publishVegetationOverlayContext(this as unknown as GraffWidgetHost);
+publishVegetationOverlayContext = (): void => {
+        return publishVegetationOverlayContext(this);
     };
-    private resolveCurrentYear(): number | undefined {
-        return resolveCurrentYear(this as unknown as GraffWidgetHost);
+resolveCurrentYear(): number | undefined {
+        return resolveCurrentYear(this);
     }
-    private broadcastDateIndexSelection = (): void => {
-        return broadcastDateIndexSelection(this as unknown as GraffWidgetHost);
+broadcastDateIndexSelection = (): void => {
+        return broadcastDateIndexSelection(this);
     };
-    private getNavigableDateIndexDates = (): string[] => {
-        return getNavigableDateIndexDates(this as unknown as GraffWidgetHost);
+getNavigableDateIndexDates = (): string[] => {
+        return getNavigableDateIndexDates(this);
     };
-    private handleDateIndexNavigate = (event: Event): void => {
-        return handleDateIndexNavigate(this as unknown as GraffWidgetHost, event);
+handleDateIndexNavigate = (event: Event): void => {
+        return handleDateIndexNavigate(this, event);
     };
     /** Removes the current vegetation-index image overlay from the map, if any. */
     /** Fixed id stamped on every vegetation-image MediaLayer we add — lets
@@ -634,39 +637,39 @@ export default class AgriGraffWidget extends React.PureComponent<AllWidgetProps<
      * instance's _vegetationImageLayer starts back at null and has nothing
      * to remove, even though the old layer is still sitting on the map. */
     private static readonly VEGETATION_IMAGE_LAYER_ID = VEGETATION_IMAGE_LAYER_ID;
-    private clearVegetationImageSurfaceLoading = (requestId: number): void => {
-        return clearVegetationImageSurfaceLoading(this as unknown as GraffWidgetHost, requestId);
+clearVegetationImageSurfaceLoading = (requestId: number): void => {
+        return clearVegetationImageSurfaceLoading(this, requestId);
     };
-    private beginVegetationImageSurfaceLoading = (): void => {
-        return beginVegetationImageSurfaceLoading(this as unknown as GraffWidgetHost);
+beginVegetationImageSurfaceLoading = (): void => {
+        return beginVegetationImageSurfaceLoading(this);
     };
-    private cancelVegetationImageOverlay = (): void => {
-        return cancelVegetationImageOverlay(this as unknown as GraffWidgetHost);
+cancelVegetationImageOverlay = (): void => {
+        return cancelVegetationImageOverlay(this);
     };
-    private removeVegetationImageOverlay = (): void => {
-        return removeVegetationImageOverlay(this as unknown as GraffWidgetHost);
+removeVegetationImageOverlay = (): void => {
+        return removeVegetationImageOverlay(this);
     };
-    private ensureVegetationHoverTooltipEl = (): HTMLDivElement | null => ensureGraffHoverTooltipEl(this as unknown as GraffMapInteractionHost);
+ensureVegetationHoverTooltipEl = (): HTMLDivElement | null => ensureGraffHoverTooltipEl(this);
     private static readonly INDEX_COLORS: Record<string, string> = GraffIndexColors;
-    private getIndexDisplayColor = (indexKey?: string | null): string => {
-        return getIndexDisplayColor(this as unknown as GraffWidgetHost, indexKey);
+getIndexDisplayColor = (indexKey?: string | null): string => {
+        return getIndexDisplayColor(this, indexKey);
     };
-    private updateVegetationHoverTooltip = (value: number, clientX: number, clientY: number): void => updateGraffHoverTooltip(this as unknown as GraffMapInteractionHost, value, clientX, clientY);
-    private hideVegetationHoverTooltip = (): void => hideGraffHoverTooltip(this as unknown as GraffMapInteractionHost);
-    private detachVegetationRasterHover = (): void => detachGraffRasterHover(this as unknown as GraffMapInteractionHost);
-    private sampleVegetationRasterValue = (mapPoint: __esri.Point): number | null => sampleGraffRasterValue(this as unknown as GraffMapInteractionHost, mapPoint);
-    private resolveHoverIndexRange = (indiceType: string, rasterDate: string, fromExport?: {
+updateVegetationHoverTooltip = (value: number, clientX: number, clientY: number): void => updateGraffHoverTooltip(this, value, clientX, clientY);
+hideVegetationHoverTooltip = (): void => hideGraffHoverTooltip(this);
+detachVegetationRasterHover = (): void => detachGraffRasterHover(this);
+sampleVegetationRasterValue = (mapPoint: __esri.Point): number | null => sampleGraffRasterValue(this, mapPoint);
+resolveHoverIndexRange = (indiceType: string, rasterDate: string, fromExport?: {
         indexMin: number | null;
         indexMax: number | null;
     } | null): {
         indexMin: number | null;
         indexMax: number | null;
     } => {
-        return resolveHoverIndexRange(this as unknown as GraffWidgetHost, indiceType, rasterDate, fromExport);
+        return resolveHoverIndexRange(this, indiceType, rasterDate, fromExport);
     };
-    private attachVegetationRasterHover = (view: __esri.MapView | __esri.SceneView): void => attachGraffRasterHover(this as unknown as GraffMapInteractionHost, view);
-    private retryOverlayWithUsableDate = async (cleanId: string, regionId: number, refusedDate: string, indiceType: VegetationIndiceType): Promise<void> => {
-        return retryOverlayWithUsableDate(this as unknown as GraffWidgetHost, cleanId, regionId, refusedDate, indiceType);
+attachVegetationRasterHover = (view: __esri.MapView | __esri.SceneView): void => attachGraffRasterHover(this, view);
+retryOverlayWithUsableDate = async (cleanId: string, regionId: number, refusedDate: string, indiceType: VegetationIndiceType): Promise<void> => {
+        return retryOverlayWithUsableDate(this, cleanId, regionId, refusedDate, indiceType);
     };
     /**
      * Fetches + decodes the export-image raster (api-agri, response_format=tiff)
@@ -679,27 +682,27 @@ export default class AgriGraffWidget extends React.PureComponent<AllWidgetProps<
      * Pass `prefetched` when the date-walk already decoded the TIFF so we
      * skip a second network/decode round-trip before MediaLayer paint.
      */
-    private applyVegetationImageOverlay = (uniqueid: string, rasterDate: string, indiceType: VegetationIndiceType = "ndvi", prefetched?: PolygonExportImageResult | null): Promise<void> => applyGraffVegetationImageOverlay(this as unknown as GraffRasterOverlayHost, uniqueid, rasterDate, indiceType, prefetched);
-    private preparePolygonGraphSeries = (rows: VegetationIndex[], availableDates: string[]): {
+applyVegetationImageOverlay = (uniqueid: string, rasterDate: string, indiceType: VegetationIndiceType = "ndvi", prefetched?: PolygonExportImageResult | null): Promise<void> => applyGraffVegetationImageOverlay(this, uniqueid, rasterDate, indiceType, prefetched);
+preparePolygonGraphSeries = (rows: VegetationIndex[], availableDates: string[]): {
         sorted: VegetationIndex[];
         nextDate: string | null;
         nextIndexKey: VegetationIndiceType | null;
         fingerprint: string;
     } => {
-        return preparePolygonGraphSeries(this as unknown as GraffWidgetHost, rows, availableDates);
+        return preparePolygonGraphSeries(this, rows, availableDates);
     };
-    private fetchVegetationData = () => fetchGraffVegetationData(this as unknown as GraffDataServiceHost);
-    private handleIndexChange = (index: "ndvi" | "savi" | "rvi" | "ci" | "evi" | "ndwi") => {
-        return handleIndexChange(this as unknown as GraffWidgetHost, index);
+fetchVegetationData = () => fetchGraffVegetationData(this);
+handleIndexChange = (index: "ndvi" | "savi" | "rvi" | "ci" | "evi" | "ndwi") => {
+        return handleIndexChange(this, index);
     };
-    private handleToggleAllIndices = () => {
-        return handleToggleAllIndices(this as unknown as GraffWidgetHost);
+handleToggleAllIndices = () => {
+        return handleToggleAllIndices(this);
     };
-    private localizeRuntimeMessage = (value: unknown): string => {
-        return localizeRuntimeMessage(this as unknown as GraffWidgetHost, value);
+localizeRuntimeMessage = (value: unknown): string => {
+        return localizeRuntimeMessage(this, value);
     };
-    private renderGraph = () => renderGraffGraph(this as unknown as GraffGraphHost);
+renderGraph = () => renderGraffGraph(this);
     render() {
-        return render(this as unknown as GraffWidgetHost);
+        return render(this);
     }
 }

@@ -2,7 +2,7 @@
  * Pure zoom-target policy for Localization applyMapFiltersOptimized.
  * Extent queries / view.goTo stay in the panel.
  */
-import { isEmptyMapExtent, type MapZoomReason } from "./map-zoom-policy";
+import { isEmptyMapExtent, type ExtentLike, type MapZoomReason } from "./map-zoom-policy";
 
 export function isDistrictZoomPath(
   reason: MapZoomReason,
@@ -48,18 +48,18 @@ export function shouldSkipHomeGoTo(opts: {
 }
 
 export function pickHomeExtentCandidate(opts: {
-  storedHome: any;
-  mapFullExtent: any;
-  layerFullExtent: any;
-}): any {
+  storedHome: __esri.Extent | null | undefined;
+  mapFullExtent: __esri.Extent | null | undefined;
+  layerFullExtent: __esri.Extent | null | undefined;
+}): __esri.Extent | null {
   return opts.storedHome || opts.mapFullExtent || opts.layerFullExtent || null;
 }
 
 export type RegionExtentPick = "field" | "admin-region" | "none";
 
 export function pickRegionExtentSource(opts: {
-  fieldExtent: any;
-  adminExtent: any;
+  fieldExtent: ExtentLike | null | undefined;
+  adminExtent: ExtentLike | null | undefined;
   adminLevel: "district" | "region" | "none";
 }): RegionExtentPick {
   // Prefer admin outline when ready — field queryExtent on detached MapImage
@@ -78,13 +78,13 @@ export function pickRegionExtentSource(opts: {
  * Race field vs admin region extents; resolve as soon as either is usable.
  * Falls back to pickRegionExtentSource after both settle.
  */
-export async function raceRegionExtentPick(opts: {
-  fieldPromise: Promise<any>;
+export async function raceRegionExtentPick<TExtent extends ExtentLike>(opts: {
+  fieldPromise: Promise<TExtent | null | undefined>;
   adminPromise: Promise<void>;
-  getAdminExtent: () => any;
+  getAdminExtent: () => TExtent | null | undefined;
   getAdminLevel: () => "district" | "region" | "none";
-  isEmptyExtent: (extent: any) => boolean;
-}): Promise<{ source: RegionExtentPick; extent: any }> {
+  isEmptyExtent: (extent: TExtent | null | undefined) => boolean;
+}): Promise<{ source: RegionExtentPick; extent: TExtent | null }> {
   const {
     fieldPromise,
     adminPromise,
@@ -95,7 +95,7 @@ export async function raceRegionExtentPick(opts: {
 
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (source: RegionExtentPick, extent: any) => {
+    const finish = (source: RegionExtentPick, extent: TExtent | null | undefined) => {
       if (settled) return;
       if (source === "none" || isEmptyExtent(extent)) return;
       settled = true;

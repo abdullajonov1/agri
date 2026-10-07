@@ -3,7 +3,9 @@
  * Algorithms match the previous per-panel implementations exactly.
  */
 
-const NUMERIC_FIELD_TYPES = new Set([
+import type { AgriLayerWithFields } from "../types/agri-layer";
+
+const NUMERIC_FIELD_TYPES = new Set<string>([
   "double",
   "single",
   "integer",
@@ -44,8 +46,8 @@ export const AREA_FIELD_CANDIDATES_REGION = [
   "shape_area",
 ] as const;
 
-function layerFieldNames(layer: __esri.FeatureLayer): string[] {
-  const fields: any[] = (layer as any)?.fields || [];
+function layerFieldNames(layer: AgriLayerWithFields | null | undefined): string[] {
+  const fields = layer?.fields || [];
   return fields.map((f) => String(f?.name || ""));
 }
 
@@ -91,19 +93,19 @@ export function findAreaFieldNumeric(
     const hit = fields.find(
       (f) =>
         f.name.toLowerCase() === cfg &&
-        NUMERIC_FIELD_TYPES.has(f.type as any),
+        NUMERIC_FIELD_TYPES.has(f.type),
     );
     if (hit) return hit.name;
   }
 
   for (const guess of AREA_FIELD_CANDIDATES_REGION) {
     const f = fields.find((ff) => ff.name.toLowerCase() === guess);
-    if (f && NUMERIC_FIELD_TYPES.has(f.type as any)) return f.name;
+    if (f && NUMERIC_FIELD_TYPES.has(f.type)) return f.name;
   }
 
   const fallback = fields.find(
     (f) =>
-      NUMERIC_FIELD_TYPES.has(f.type as any) &&
+      NUMERIC_FIELD_TYPES.has(f.type) &&
       /maydon|area|ha|ga|shape/.test(f.name.toLowerCase()),
   );
   return fallback ? fallback.name : null;

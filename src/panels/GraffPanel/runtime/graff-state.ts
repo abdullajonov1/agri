@@ -1,9 +1,20 @@
 import type { JimuMapView } from "jimu-arcgis";
-import type { QueriableDataSource } from "jimu-core";
+import type { AllWidgetProps, QueriableDataSource } from "jimu-core";
 import type { RegionalTimeseriesRow } from "./graff-timeseries-helpers";
 import type { AgriLanguage } from "../../../shared/agri-language";
 import type { VegetationIndiceType } from "../../../gis/agri-polygon-api-source";
 
+/** Builder settings the Graff panel reads (all optional — panel has defaults). */
+export interface GraffConfig {
+    /** dataSourceId → configured filter field names. */
+    filterFields?: Record<string, string[]>;
+    displayFields?: string[];
+    searchField?: string;
+    polygonStatusPrefix?: string;
+}
+export type GraffWidgetProps = AllWidgetProps<GraffConfig>;
+/** setTimeout handle that works for both DOM and Node typings. */
+export type TimerHandle = ReturnType<typeof setTimeout>;
 export interface ConfiguredFilters {
     [fieldName: string]: string;
 }
@@ -17,7 +28,7 @@ export interface RecordData {
     vh?: string;
     status?: string;
     objectid?: number;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 export interface VegetationIndex {
     uniqueid: string;

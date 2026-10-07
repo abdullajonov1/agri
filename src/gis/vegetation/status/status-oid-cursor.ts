@@ -1,7 +1,9 @@
-import { queryVegFeatures, readVegAttr, agriNotifyLog } from "../veg-base";
+import { queryVegFeatures, readVegAttr, agriNotifyLog, type VegQuery } from "../veg-base";
+import type { AgriQueryableLayer } from "../../../types/agri-layer";
+import type { AgriAttributes } from "../../agri-layer-types";
 
 export async function countDistinctViaOidCursor(
-  layer: any,
+  layer: AgriQueryableLayer,
   where: string,
   regionField: string,
   uniqueIdField: string,
@@ -21,7 +23,7 @@ export async function countDistinctViaOidCursor(
     if (lastOid != null && Number.isFinite(lastOid)) {
       clauses.push(`${oidField} > ${lastOid}`);
     }
-    const query = layer.createQuery();
+    const query: VegQuery = layer.createQuery();
     query.where = clauses.join(" AND ");
     query.outFields = [oidField, uniqueIdField, regionField];
     query.orderByFields = [`${oidField} ASC`];
@@ -35,7 +37,7 @@ export async function countDistinctViaOidCursor(
 
     let pageMaxOid = lastOid;
     for (const feature of features) {
-      const attrs = (feature as any)?.attributes || {};
+      const attrs: AgriAttributes = feature?.attributes || {};
       const oid = Number(readVegAttr(attrs, oidField, "objectid", "OBJECTID"));
       const uniqueId = String(
         readVegAttr(attrs, uniqueIdField, "uniqueid") ?? "",

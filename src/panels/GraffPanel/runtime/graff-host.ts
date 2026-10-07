@@ -6,15 +6,18 @@ import type { AllWidgetProps, React } from "jimu-core";
 import type { DebouncedFunc } from "lodash";
 import type { PolygonExportImageResult, VegetationIndiceType } from "../../../gis/agri-polygon-api-source";
 import type { AgriGraffWidgetState, ConfiguredFilters, RecordData } from "./widget";
+import type { GraffWidgetProps, TimerHandle } from "./graff-state";
+import type { TaggedLayer } from "./components/spatial-candidates";
+import type { ImmutableObject, UseDataSource } from "jimu-core";
 
 /**
  * Widget members the extracted Graff modules read or call.
  * The widget instance is passed as the host.
  */
 export interface GraffWidgetHost {
-  props: AllWidgetProps<any>;
+  props: GraffWidgetProps;
   state: AgriGraffWidgetState;
-  setState: React.Component<any, AgriGraffWidgetState>["setState"];
+  setState: React.Component<GraffWidgetProps, AgriGraffWidgetState>["setState"];
   _turiToCropId: { [x: string]: string };
   resolveCropIdForTuri: (turi: string) => string | undefined;
   resolveCropIdForUniqueid: (uniqueid: string | null | undefined) => number | null;
@@ -52,7 +55,7 @@ export interface GraffWidgetHost {
   _mapHoverPrefetchHandle: __esri.Handle;
   _hoverPrefetchTimer: number;
   detachMapHoverPrefetch: () => void;
-  prefetchVegetationForMapPoint: (view: __esri.MapView | __esri.SceneView, event: any, regionId: number, year: number) => Promise<void>;
+  prefetchVegetationForMapPoint: (view: __esri.MapView | __esri.SceneView, event: __esri.ViewPointerMoveEvent, regionId: number, year: number) => Promise<void>;
   _hoverPrefetchUniqueid: string;
   rememberRasterDateForUniqueid: (uniqueid: string, dates: string[]) => void;
   _polygonSelectionOrigin: "map" | "table";
@@ -74,7 +77,7 @@ export interface GraffWidgetHost {
   scheduleRefresh: DebouncedFunc<() => Promise<void>>;
   fetchVegetationData: () => Promise<void>;
   resolveFieldCaseInsensitive: (name: string) => string | null;
-  getTableSpatialQueryCandidates: () => __esri.FeatureLayer[];
+  getTableSpatialQueryCandidates: () => TaggedLayer[];
   _detachedSpatialQueryLayers: Map<string, FeatureLayer>;
   buildSearchWhere: (raw: string) => string;
   buildTumanNameClause: (tuman: string, viloyat?: string) => string;
@@ -89,8 +92,8 @@ export interface GraffWidgetHost {
   getMaydonSortFieldName: () => string | null;
   getStatusFieldNameForCurrentDate: () => string | null;
   applyMapFilters: () => Promise<void>;
-  throttledFetchData: any;
-  _updateDebounceTimer: any;
+  throttledFetchData: DebouncedFunc<() => Promise<void>>;
+  _updateDebounceTimer: TimerHandle | null;
   applyExternalFilterUpdate: (sourceWidget: string, updates: ConfiguredFilters) => Promise<void>;
   tableContainerRef: React.RefObject<HTMLDivElement>;
   normalizeUniqueidKey: (value: string | null | undefined) => string;
@@ -101,14 +104,14 @@ export interface GraffWidgetHost {
   scheduleScrollSelectedRowIntoCenter: () => void;
   resolveTablePageForUniqueid: (uniqueid: string) => Promise<number | null>;
   initializeMapConnection: (jimuMapView: JimuMapView) => Promise<void>;
-  formatFieldValue: (fieldName: string, value: any) => string;
+  formatFieldValue: (fieldName: string, value: unknown) => string;
   getConfiguredFilterFields: () => string[];
   attachMapHoverPrefetch: (view: __esri.MapView | __esri.SceneView) => void;
   resolveFeatureLayersFromUseDataSources: (jimuMapView: JimuMapView) => Promise<__esri.FeatureLayer[]>;
   fetchAndStoreRegionDistrictMappings: () => Promise<void>;
   buildViloyatKeyToLayerIndex: () => Promise<void>;
   fetchFilterOptions: () => Promise<void>;
-  resolveFeatureLayerFromDataSource: (jimuMapView: JimuMapView, useDsOverride?: any) => Promise<__esri.FeatureLayer | null>;
+  resolveFeatureLayerFromDataSource: (jimuMapView: JimuMapView, useDsOverride?: UseDataSource | ImmutableObject<UseDataSource>) => Promise<__esri.FeatureLayer | null>;
   _viloyatKeyToLayerIndex: { [x: string]: number; };
   MAX_CONNECTION_ATTEMPTS: number;
   retryMapConnection: () => void;
@@ -127,14 +130,14 @@ export interface GraffWidgetHost {
   handleDateIndexNavigate: (event: Event) => void;
   _onReset: () => void;
   _allowClearOnce: boolean;
-  initializationTimer: any;
+  initializationTimer: TimerHandle | null;
   ensureInitialization: () => void;
   observeGraphViewport: () => void;
-  _retryTimeout: any;
+  _retryTimeout: TimerHandle | null;
   broadcastDateIndexSelection: () => void;
   _activeController: AbortController;
-  _debounceTimer: any;
-  _searchDebounceTimer: any;
+  _debounceTimer: TimerHandle | null;
+  _searchDebounceTimer: TimerHandle | null;
   _filterOptionsPromise: Promise<void>;
   fetchFilterOptionsOnce: () => Promise<void>;
   getUniqueValues: (fieldName: string) => Promise<string[]>;
@@ -158,7 +161,7 @@ export interface GraffWidgetHost {
   renderGraphHeader: () => React.JSX.Element;
   resolveMonthPickerPlacement: () => "up" | "down";
   getNavigableDateIndexDates: () => string[];
-  resolveAgainstAvailableDates: (rawDate: any, availableDates: string[]) => string | null;
+  resolveAgainstAvailableDates: (rawDate: unknown, availableDates: string[]) => string | null;
   _vegetationImageRequestId: number;
   removeVegetationImageOverlay: () => void;
   detachVegetationRasterHover: () => void;

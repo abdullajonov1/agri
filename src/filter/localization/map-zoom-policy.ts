@@ -56,7 +56,14 @@ export function isHeavyCoverZoomReason(reason: MapZoomReason): boolean {
 }
 
 /** Empty / missing ArcGIS Extent check used by zoom paths. */
-export function isEmptyMapExtent(extent: any): boolean {
+/** Extent-like value: an esri Extent or a plain JSON extent. */
+export interface ExtentLike {
+  isEmpty?: () => boolean;
+  width?: number;
+  height?: number;
+}
+
+export function isEmptyMapExtent(extent: ExtentLike | null | undefined): boolean {
   return (
     !extent ||
     (typeof extent.isEmpty === "function"

@@ -23,6 +23,7 @@ import {
   type VhServiceStatusRow,
 } from "./vh-bar-aggregate";
 import type { VHBarData } from "./vh-constants";
+import { errorMessage } from "../../shared/agri-plain-object";
 
 /** Same cap as LocalizationPanel uniqueid date walk — avoid year-long empty probes. */
 const MAX_VH_BAR_DATE_WALK = 8;
@@ -34,6 +35,12 @@ export type VhBarComputeStateSlice = {
   yil: string;
   ndviDate?: string;
   ndviDateLocked?: boolean;
+};
+
+/** State patch the VH bar compute may publish (NDVI date discovery). */
+export type VhBarStatePatch = {
+  ndviDateOptions?: string[];
+  ndviDate?: string;
 };
 
 export type VhBarComputeDeps = {
@@ -48,9 +55,9 @@ export type VhBarComputeDeps = {
   resolveCropIdForTuri: (turi: string) => string | null | undefined;
   getVhBarUsedDate: () => string | null;
   setVhBarUsedDate: (date: string | null) => void;
-  setState: (patch: any) => void;
+  setState: (patch: VhBarStatePatch) => void;
   prefetchVhStatusUniqueIds: (date: string) => void;
-  log: (phase: string, detail?: any) => void;
+  log: (phase: string, detail?: Record<string, unknown>) => void;
   /** Header STIR selection — uniqueids of that farmer's parcels. */
   farmerUniqueIds?: string[] | null;
 };
@@ -241,9 +248,9 @@ export async function executeVhBarCompute(
         })),
       });
       return result;
-    } catch (error: any) {
+    } catch (error) {
       deps.log("computeVhBarData:republic-failed", {
-        error: String(error?.message || error),
+        error: errorMessage(error),
       });
       return null;
     }
@@ -372,9 +379,9 @@ export async function executeVhBarCompute(
     });
 
     return bestResult;
-  } catch (error: any) {
+  } catch (error) {
     deps.log("computeVhBarData:region-failed", {
-      error: String(error?.message || error),
+      error: errorMessage(error),
     });
     return null;
   }

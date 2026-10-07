@@ -1,5 +1,6 @@
 import type { PieWidgetHost } from "../../pie-host";
-import * as echarts from "echarts";
+import { toPieSliceData, type PieEChartsOption } from "../../echarts-setup";
+import { toPlainRecord } from "../../../../../shared/agri-plain-object";
 import { FALLBACK_COLORS as pieFallbackColors } from "../../pie-colors";
 import { queryAgriRegionDistrictMappings } from "../../../../../gis/agri-table-data-source";
 
@@ -36,7 +37,7 @@ export const updatePieChart = (host: PieWidgetHost, reason: "data" | "selection"
         : 10;
 
   const isIpad = host.isIpadLayout();
-  const option: echarts.EChartsOption = {
+  const option: PieEChartsOption = {
     animation: !isSelectionUpdate,
     ...(isSelectionUpdate
       ? {
@@ -59,9 +60,10 @@ export const updatePieChart = (host: PieWidgetHost, reason: "data" | "selection"
       triggerOn: "click",
       confine: true,
       appendToBody: true,
-      formatter: (params: any) => {
+      formatter: (params: unknown) => {
+        const record = toPlainRecord(params);
         const name = String(
-          params?.name || params?.data?.name || "",
+          record?.name || toPieSliceData(record?.data).name || "",
         ).trim();
         return name || "";
       },

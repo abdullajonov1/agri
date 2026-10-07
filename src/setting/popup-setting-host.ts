@@ -2,11 +2,15 @@ import type { DataSourceManager, IMUseDataSource, React } from "jimu-core";
 import type { AllWidgetSettingProps } from "jimu-for-builder";
 import type { AgriPopupConfig, IMConfig } from "../config";
 import type { FieldInfo, State } from "./agri-popup-setting";
+import type { FieldBearingLayer } from "./components/popup-data-sources";
+import type { PopupMenuFrame, SchemaFieldLike } from "./components/popup-field-utils";
+
+type CheckedChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => void;
 
 export interface PopupSettingHost {
   props: AllWidgetSettingProps<IMConfig>;
   state: State;
-  setState: React.Component<any, State>["setState"];
+  setState: React.Component<AllWidgetSettingProps<IMConfig>, State>["setState"];
   initializeDataSources: () => Promise<void>;
   onPopupFieldMenuOutside: (event: MouseEvent) => void;
   getUseDataSourceKey: (value: unknown) => string;
@@ -15,7 +19,7 @@ export interface PopupSettingHost {
   detachPopupFieldMenuListeners: () => void;
   cleanupDataSources: () => void;
   popupFieldButtonRef: React.RefObject<HTMLButtonElement>;
-  popupMenuFrame: { top: number; left: number; width: number; maxHeight: number; };
+  popupMenuFrame: PopupMenuFrame;
   popupFieldMenuRef: React.RefObject<HTMLDivElement>;
   popupFieldListRef: React.RefObject<HTMLUListElement>;
   toPlainAgri: (value: unknown) => AgriPopupConfig;
@@ -34,19 +38,19 @@ export interface PopupSettingHost {
   ownedDataSourceIds: string[];
   dsMgr: DataSourceManager;
   extractFieldsFromDs: () => Promise<void>;
-  resolveLayerFromDataSource: (ds: any) => Promise<any | null>;
+  resolveLayerFromDataSource: (ds: unknown) => Promise<FieldBearingLayer | null>;
   fieldsExtractToken: number;
-  fieldsFromSchemaObject: (fieldsObj: Record<string, any>) => FieldInfo[];
-  fieldsFromLayer: (layer: any) => FieldInfo[];
+  fieldsFromSchemaObject: (fieldsObj: Record<string, SchemaFieldLike | undefined>) => FieldInfo[];
+  fieldsFromLayer: (layer: unknown) => FieldInfo[];
   renderPopupFieldSelect: (fieldsToShow: string[]) => React.JSX.Element;
-  onChartEnabledToggle: (e: any) => void;
-  onChartTypeChange: (e: any) => void;
+  onChartEnabledToggle: CheckedChangeHandler;
+  onChartTypeChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onChartTitleChange: (val: string) => void;
   renderFieldsMultiSelect: (selectedItems: string[], onItemClick: (evt: React.MouseEvent, value: string | number, selectedValues: Array<string | number>) => void, placeholder: string, options?: { menuZIndex?: number; selectKey?: string; }) => React.JSX.Element;
   onChartFieldsMultiSelect: (_evt: React.MouseEvent, _value: string | number, selectedValues: Array<string | number>) => void;
   onChartColorChange: (color: string) => void;
-  onZoomToggle: (e: any) => void;
-  onPopupToggle: (e: any) => void;
-  onAttachmentsToggle: (e: any) => void;
+  onZoomToggle: CheckedChangeHandler;
+  onPopupToggle: CheckedChangeHandler;
+  onAttachmentsToggle: CheckedChangeHandler;
   forceUpdate: (callback?: () => void) => void;
 }

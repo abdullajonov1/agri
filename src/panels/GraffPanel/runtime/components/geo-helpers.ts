@@ -1,4 +1,5 @@
 import type { GraffWidgetHost } from "../graff-host";
+import { describeThrown } from "../graff-guards";
 import { normalizeApos as normalizeAposSql, eqAposSmart as eqAposSmartShared, buildTumanEqualsSql } from "../../../../data/agri-sql";
 import { makeRegionDistrictKey as makeRegionDistrictKeyShared } from "../../../../filter/localization/geo-keys";
 import { getTuriCropLookupKey } from "../../../../shared/agri-crop-labels";
@@ -39,8 +40,11 @@ export const resolveCropIdForUniqueid = (host: GraffWidgetHost, uniqueid: string
     record?.crop_id ??
     record?.cropId ??
     null;
-  const n = Number(raw);
-  if (Number.isFinite(n)) return n;
+  // Number(null) and Number("") are 0, so only convert a real value.
+  if (raw != null && raw !== "") {
+    const n = Number(raw);
+    if (Number.isFinite(n)) return n;
+  }
   // Wheat is crop_id=6 in api-agri; map by name when the table has no id yet.
   const turiKey = getTuriCropLookupKey(turi);
   if (turiKey === "bugdoy") return 6;
@@ -164,7 +168,7 @@ export const ensureRegionDistrictForSelection = async (host: GraffWidgetHost): P
 
     const result = await layer.queryFeatures(query);
     for (const feature of result?.features ?? []) {
-      const attrs = (feature as any)?.attributes || {};
+      const attrs: { viloyat?: string | null; region?: unknown; tuman?: string | null; district?: unknown } = feature?.attributes || {};
       host.storeRegionDistrictMappingRow(
         attrs.viloyat,
         attrs.region,
@@ -185,11 +189,11 @@ export const ensureRegionDistrictForSelection = async (host: GraffWidgetHost): P
           )
         : null,
     });
-  } catch (err: any) {
+  } catch (err) {
     graffLog("regionDistrictMap:on-demand-FAILED", {
       viloyat,
       tuman,
-      error: String(err?.message || err),
+      error: describeThrown(err),
     });
   }
 };
@@ -229,5 +233,5 @@ export const formatLocalDateYmd = (host: GraffWidgetHost, dt: Date): string => {
  * 2 days — covers timezone skew between agri_vegetation_indices and
  * api-agri without inventing distant dates.
  */
-export const resolveAgainstAvailableDates = (host: GraffWidgetHost, rawDate: any, availableDates: string[]): string | null =>
+export const resolveAgainstAvailableDates = (host: GraffWidgetHost, rawDate: unknown, availableDates: string[]): string | null =>
   resolveAgainstAvailableDatesShared(rawDate, availableDates);

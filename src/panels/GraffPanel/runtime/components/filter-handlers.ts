@@ -1,4 +1,6 @@
 import type { GraffWidgetHost } from "../graff-host";
+import { describeThrown } from "../graff-guards";
+import { toPlainValue } from "../../../../shared/agri-plain-object";
 import { escapeArcGIS, withAgriAccessWhere } from "../../../../gis/feature-layer-data";
 import { buildYearLikeClause } from "../../../../controller/agri-where-builder";
 import { getAgriDashboardBootstrap } from "../../../../data/agri-bootstrap";
@@ -187,9 +189,9 @@ export const fetchAndStoreRegionDistrictMappings = async (host: GraffWidgetHost)
       tumanToDistrictKeys: Object.keys(host._tumanToDistrict).length,
       turiToCropIdKeys: Object.keys(host._turiToCropId).length,
     });
-  } catch (err: any) {
+  } catch (err) {
     graffLog("regionDistrictMap:FAILED", {
-      error: String(err?.message || err),
+      error: describeThrown(err),
     });
   }
 };
@@ -241,10 +243,7 @@ export const handleConstructionYearChange = (host: GraffWidgetHost, event: Custo
 
 /** Get configured display fields from settings */
 export function getDisplayFields(host: GraffWidgetHost): string[] {
-  const cfg: any = host.props?.config;
-  const displayFields = cfg?.get
-    ? cfg.get("displayFields")
-    : cfg?.displayFields;
+  const displayFields = toPlainValue(host.props?.config?.displayFields) as string[] | undefined;
 
   if (!displayFields || displayFields.length === 0) {
     return ["uniqueid", "tuman", "f_name", "f_inn", "maydon", "turi", "vh"];
@@ -329,9 +328,8 @@ export function getStatusFieldNameForCurrentDate(host: GraffWidgetHost): string 
   }
   if (!ndviDate) return null;
 
-  const cfg = (host.props.config || {}) as any;
   const prefix =
-    (cfg.polygonStatusPrefix || "status_").toString().trim() || "status_";
+    String(host.props.config?.polygonStatusPrefix || "status_").trim() || "status_";
   const suffix = ndviDate.replace(/-/g, "_");
   const desired = `${prefix}${suffix}`.toLowerCase();
 
@@ -428,7 +426,10 @@ export const handleLandCategoryChange = (host: GraffWidgetHost, event: CustomEve
     () => {
       try {
         host.state.activeMapView?.view?.graphics?.removeAll?.();
-      } catch {}
+      } catch (err) {
+        // View may already be destroyed — clearing highlights is best-effort.
+        graffLog("cropChange:clear-graphics-failed", { error: describeThrown(err) });
+      }
 
       host.applyMapFilters();
       host.throttledFetchData();
@@ -450,7 +451,9 @@ export const handleLandCategoryChange = (host: GraffWidgetHost, event: CustomEve
             bubbles: true,
           }),
         );
-      } catch {}
+      } catch (err) {
+        graffLog("cropChange:broadcast-failed", { error: describeThrown(err) });
+      }
     },
   );
 };
@@ -620,8 +623,6 @@ export const processExternalFilterUpdate = (host: GraffWidgetHost, sourceWidget:
 export const applyExternalFilterUpdate = async (host: GraffWidgetHost, sourceWidget: string, updates: ConfiguredFilters) => {
   if (!host._isMounted) return;
 
-  
-
   if (host.state.connectionStatus !== "connected") {
     host.setState({
       externalFilters: { ...host.state.externalFilters, ...updates },
@@ -640,7 +641,6 @@ export const applyExternalFilterUpdate = async (host: GraffWidgetHost, sourceWid
       loading: true,
     },
     () => {
-
       host.scheduleRefresh();
     },
   );

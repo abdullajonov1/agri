@@ -11,3 +11,15 @@ export function graffLog(
       : ("all" as const);
   agroV5Log(phase, detail, topic);
 }
+
+/**
+ * Debug trace for a deliberately swallowed, non-fatal error (best-effort
+ * UI/map side effects). Never throws.
+ */
+export function graffDebugCatch(phase: string, err: unknown): void {
+  const message =
+    err != null && typeof err === "object" && "message" in err
+      ? String((err as { message?: unknown }).message)
+      : String(err);
+  graffLog(`${phase}:ignored-error`, { error: message });
+}

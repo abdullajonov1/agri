@@ -1,5 +1,23 @@
 import type { IndicatorWidgetHost } from "../../indicator-host";
+import type { React } from "jimu-core";
 import type { IndicatorConfig } from "../../widget";
+import { readPanelEventDetail } from "../../../../panel-filter-detail";
+
+export interface IndicatorCustomStyles {
+  container: React.CSSProperties;
+  statLabel: React.CSSProperties;
+  statValue: React.CSSProperties;
+  iconContainer: React.CSSProperties;
+  icon: React.CSSProperties;
+  hasBgOverride: boolean;
+}
+
+/** Number from a config value that may be typed as number or numeric string. */
+const readConfigNumber = (value: number | string | undefined): number | null => {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim() !== "") return Number(value);
+  return null;
+};
 
 export function setupAutoRefresh(host: IndicatorWidgetHost) {
   if (host.refreshTimer) {
@@ -34,15 +52,15 @@ export const initializeTheme = (host: IndicatorWidgetHost): void => {
   }
   host.setState({ isDarkTheme });
 };
-export const handleThemeChange = (host: IndicatorWidgetHost, event: any): void => {
-  const detail = (event as CustomEvent)?.detail;
-  if (detail?.theme) {
+export const handleThemeChange = (host: IndicatorWidgetHost, event: Event): void => {
+  const detail = readPanelEventDetail(event);
+  if (detail.theme) {
     host.setState({ isDarkTheme: detail.theme === "dark" });
   } else {
     host.initializeTheme();
   }
 };
-export const getCustomStyles = (host: IndicatorWidgetHost) => {
+export const getCustomStyles = (host: IndicatorWidgetHost): IndicatorCustomStyles => {
   const cfg = (host.props.config || {}) as IndicatorConfig;
 
   const backgroundColorRaw = (cfg.backgroundColor ?? "").toString().trim();
@@ -51,28 +69,11 @@ export const getCustomStyles = (host: IndicatorWidgetHost) => {
   const textColorRaw = (cfg.textColor ?? "").toString().trim();
   const labelColorRaw = (cfg.labelColor ?? "").toString().trim();
 
-  const borderRadiusCfg =
-    typeof cfg.borderRadius === "number"
-      ? cfg.borderRadius
-      : typeof cfg.borderRadius === "string" && cfg.borderRadius.trim() !== ""
-        ? Number(cfg.borderRadius)
-        : null;
+  const borderRadiusCfg = readConfigNumber(cfg.borderRadius);
+  const iconSizeCfg = readConfigNumber(cfg.iconSize);
+  const iconOpacityCfg = readConfigNumber(cfg.iconOpacity);
 
-  const iconSizeCfg =
-    typeof cfg.iconSize === "number"
-      ? cfg.iconSize
-      : typeof cfg.iconSize === "string" && cfg.iconSize.trim() !== ""
-        ? Number(cfg.iconSize)
-        : null;
-
-  const iconOpacityCfg =
-    typeof cfg.iconOpacity === "number"
-      ? cfg.iconOpacity
-      : typeof cfg.iconOpacity === "string" && cfg.iconOpacity.trim() !== ""
-        ? Number(cfg.iconOpacity)
-        : null;
-
-  const containerStyles: any = {};
+  const containerStyles: React.CSSProperties = {};
 
   if (borderRadiusCfg != null && Number.isFinite(borderRadiusCfg))
     containerStyles.borderRadius = `${borderRadiusCfg}px`;
@@ -84,19 +85,19 @@ export const getCustomStyles = (host: IndicatorWidgetHost) => {
     else containerStyles.backgroundColor = backgroundColorRaw;
   }
 
-  const statLabel: any = {};
+  const statLabel: React.CSSProperties = {};
   if (labelColorRaw) statLabel.color = labelColorRaw;
 
-  const statValue: any = {};
+  const statValue: React.CSSProperties = {};
   if (textColorRaw) statValue.color = textColorRaw;
 
-  const iconContainer: any = {};
+  const iconContainer: React.CSSProperties = {};
   if (iconSizeCfg != null && Number.isFinite(iconSizeCfg)) {
     iconContainer.width = `${iconSizeCfg}px`;
     iconContainer.height = `${iconSizeCfg}px`;
   }
 
-  const icon: any = {};
+  const icon: React.CSSProperties = {};
   if (iconOpacityCfg != null && Number.isFinite(iconOpacityCfg)) {
     icon.opacity = Math.max(0, Math.min(1, iconOpacityCfg / 100));
   }

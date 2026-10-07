@@ -14,21 +14,20 @@ import { agriNoDataLabel } from "../../shared/agriNoDataLabel";
 import { default as PiePanel } from "../../panels/PiePanel";
 import { default as GraffPanel } from "../../panels/GraffPanel";
 import { default as BarPanel } from "../../panels/BarPanel";
+import { toMutableUseDataSources } from "./dashboard-config";
 
 export function render(host: DashboardWidgetHost) {
   const baseConfig = host.toPlainConfig();
   const indicatorConfig = host.getIndicatorConfig(baseConfig);
   const popupConfig = host.getPopupConfig(baseConfig);
   const activeMapId = host.getActiveMapWidgetId();
-  const webMapDataSourceId = String((baseConfig as any).webMapDataSourceId || "");
-  const allDataSources = (host.props.useDataSources as any)?.asMutable
-    ? (host.props.useDataSources as any).asMutable({ deep: true })
-    : Array.from((host.props.useDataSources as any) || []);
+  const webMapDataSourceId = String(baseConfig.webMapDataSourceId || "");
+  const allDataSources = toMutableUseDataSources(host.props.useDataSources);
   const webMapUseDataSource = allDataSources.find(
-    (source: any) => String(source?.dataSourceId || "") === webMapDataSourceId,
+    (source) => String(source?.dataSourceId || "") === webMapDataSourceId,
   );
   const featureUseDataSources = allDataSources.filter(
-    (source: any) =>
+    (source) =>
       !!String(source?.dataSourceId || "") &&
       String(source.dataSourceId) !== webMapDataSourceId,
   );

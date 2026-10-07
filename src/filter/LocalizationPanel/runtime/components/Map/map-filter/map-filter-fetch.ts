@@ -55,7 +55,7 @@ export const fetchDataWithCurrentState = async (host: LocalizationHost) => {
     const activeLayers = layers
       .filter((fl) => (fl.definitionExpression || "1=0") !== "1=0")
       .map((fl) =>
-        ((fl as any)?.title || (fl as any)?.id || "layer").toString(),
+        (fl?.title || fl?.id || "layer").toString(),
       );
 
     agriLog("fetchDataWithCurrentState:count-complete", {
@@ -88,10 +88,10 @@ export const fetchDataWithCurrentState = async (host: LocalizationHost) => {
       loading: false,
       error: null,
     });
-  } catch (e: any) {
+  } catch (e) {
     if (!isCurrent()) return;
     host.setState({
-      error: e?.message || "Unexpected error",
+      error: (e instanceof Error && e.message) || "Unexpected error",
       loading: false,
     });
   }

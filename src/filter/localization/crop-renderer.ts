@@ -93,7 +93,34 @@ export function hexToRgba(
     : [170, 170, 170, alpha];
 }
 
-export function createCropFillSymbol(color: string): any {
+/** Autocast simple-fill symbol JSON used by the crop renderer. */
+export interface CropFillSymbolJson {
+  type: "simple-fill";
+  color: number[];
+  outline: { color: number[]; width: number };
+}
+
+/** Unique-value renderer entry built for crop colouring. */
+export interface CropUniqueValueInfo {
+  value: string;
+  label: string;
+  symbol: CropFillSymbolJson;
+}
+
+/**
+ * Plain renderer JSON the crop palette assigns to `layer.renderer`; the
+ * ArcGIS JS API autocasts it to a SimpleRenderer / UniqueValueRenderer.
+ */
+export type CropRendererJson =
+  | { type: "simple"; symbol: CropFillSymbolJson }
+  | {
+      type: "unique-value";
+      field: string;
+      defaultSymbol: CropFillSymbolJson;
+      uniqueValueInfos: CropUniqueValueInfo[];
+    };
+
+export function createCropFillSymbol(color: string): CropFillSymbolJson {
   return {
     type: "simple-fill",
     // 70% transparent = 30% visible fill; outline remains fully opaque.
@@ -113,7 +140,7 @@ export function buildCropUniqueValueInfosFromValues(
   field: string,
   distinctValues: string[],
   turiToCropId: Record<string, string | number> = {},
-): any[] {
+): CropUniqueValueInfo[] {
   const fieldLower = String(field || "").toLowerCase();
   if (!distinctValues.length) return [];
 

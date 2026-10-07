@@ -75,7 +75,7 @@ export function render(host: IndicatorWidgetHost) {
     return String(v);
   };
 
-  const dVal = config?.displayGroupValue as any;
+  const dVal = config?.displayGroupValue;
   const bucketCaption = isGrouped
     ? dVal === undefined
       ? language === "en"
@@ -101,7 +101,7 @@ export function render(host: IndicatorWidgetHost) {
   // Show republic-wide data when no viloyat is selected (removed hideUntilViloyat gate).
   // The indicator now renders its aggregate value for the whole country when only yil is set.
 
-  const mapOverlayMode = !!(config as any)?.mapOverlayMode;
+  const mapOverlayMode = !!config?.mapOverlayMode;
   // One continuous spinner until the first aggregate arrives. Do not drop
   // the loader while waiting for year/connect (that caused spinner → "-" →
   // spinner → value). Soft refreshes keep the previous number visible.

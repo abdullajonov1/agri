@@ -1,19 +1,44 @@
 import type { JimuMapView } from "jimu-arcgis";
-import type { AllWidgetProps, DataSource, React } from "jimu-core";
+import type { AllWidgetProps, DataSource, IMDataSourceInfo, React, IMUseDataSource } from "jimu-core";
+import type { AgriMapLayer } from "../../../localization/agri-map-layer";
+import type { CropUniqueValueInfo } from "../../../localization/crop-renderer";
 import type { ChartDim, ChartFilterFlags } from "../../../../gis/agri-chart-filter-order";
 import type { ShownRegionYearLayer } from "../../../../gis/feature-layer-data";
 import type { MapZoomRequest } from "../../../localization/map-zoom-policy";
 import type { VHBarData } from "../../../localization/vh-constants";
-import type { FilterState, GeoWidgetState, GraffSearchRecord } from "../widget";
+import type { FilterState, GeoWidgetState, GraffSearchRecord } from "../widget-state";
+
+/** Config keys the Localization panel reads (plain object from the dashboard shell). */
+export interface LocalizationConfig {
+  numberOfDataSources?: number;
+  polygonStatusPrefix?: string;
+  polygonJoinField?: string;
+  indicator?: { attributeField?: string };
+  settings?: { zoomToSelection?: boolean };
+}
+
+export type LocalizationWidgetProps = AllWidgetProps<LocalizationConfig>;
+
+/** Last broadcast payload kept for late subscribers. */
+export type LocalizationBroadcastDetail = Record<string, unknown>;
+
+export type { CropUniqueValueInfo };
+
+export type TimerHandle = ReturnType<typeof setTimeout>;
+
+/** Minimal shape of a select/input change event (React or DOM). */
+export interface ValueChangeEvent {
+  target?: { value?: unknown } | null;
+}
 
 /**
  * Widget members the extracted Localization modules read or call.
  * The widget instance is passed as the host.
  */
 export interface LocalizationHost {
-  props: AllWidgetProps<any>;
+  props: LocalizationWidgetProps;
   state: GeoWidgetState;
-  setState: React.Component<any, GeoWidgetState>["setState"];
+  setState: React.Component<LocalizationWidgetProps, GeoWidgetState>["setState"];
   _isMounted: boolean;
   _notificationBodyRef: React.RefObject<HTMLDivElement>;
   _notificationLoadToken: number;
@@ -21,14 +46,14 @@ export interface LocalizationHost {
   _notificationWidgetsReady: boolean;
   _notificationLoadStarted: boolean;
   _regionToViloyat: Record<string, string>;
-  _graffSearchDebounceTimer: any;
+  _graffSearchDebounceTimer: TimerHandle | null;
   _graffAutoCompleteRequestId: number;
   _farmerMapUniqueIds: string[] | null;
   _farmerSearchApplying: boolean;
   _preFarmerSearchGeo: { viloyat: string; tuman: string } | null;
   _zoomRequestId: number;
-  _originalLayerRenderers: Map<any, __esri.Renderer | null>;
-  _cropRenderedLayers: Set<any>;
+  _originalLayerRenderers: Map<AgriMapLayer, AgriMapLayer["renderer"]>;
+  _cropRenderedLayers: Set<AgriMapLayer>;
   _cropRendererRequestId: number;
   _cropDistinctValueCache: Map<string, string[]>;
   _suppressLegacyVhOnMap: boolean;
@@ -43,11 +68,11 @@ export interface LocalizationHost {
     districtNames?: string[];
     districtCodes?: number[];
   };
-  getCropRendererTargetLayers: () => any[];
-  cropDistinctCacheKey: (layer: any, field: string, where: string) => string;
-  queryDistinctCropValues: (layer: any, field: string, where: string) => Promise<string[]>;
-  buildCropUniqueValueInfosFromValues: (field: string, distinctValues: string[]) => any[];
-  refreshCropLayer: (layer: any) => void;
+  getCropRendererTargetLayers: () => AgriMapLayer[];
+  cropDistinctCacheKey: (layer: AgriMapLayer, field: string, where: string) => string;
+  queryDistinctCropValues: (layer: AgriMapLayer, field: string, where: string) => Promise<string[]>;
+  buildCropUniqueValueInfosFromValues: (field: string, distinctValues: string[]) => CropUniqueValueInfo[];
+  refreshCropLayer: (layer: AgriMapLayer) => void;
   applyCropRenderer: (requestId: number) => Promise<void>;
   getLayerMatchStateForViloyat: (
     layer: __esri.FeatureLayer,
@@ -55,7 +80,7 @@ export interface LocalizationHost {
   ) => "match" | "mismatch" | "unknown";
   clearRegionYearSettleRepaintTimers: () => void;
   repaintShownRegionYearLayers: (phase: string) => void;
-  syncShownRegionYearLayers: (map: any) => ShownRegionYearLayer[];
+  syncShownRegionYearLayers: (map: __esri.Map | null | undefined) => ShownRegionYearLayer[];
   getEffectiveViloyat: () => string;
   broadcastFilterState: (opts?: { pendingOnly?: boolean }) => void;
   applyMapFiltersOptimized: (
@@ -83,7 +108,7 @@ export interface LocalizationHost {
   _viloyatToRegion: Record<string, number>;
   _tumanToDistrict: Record<string, number>;
   getSelectedTurlar: () => string[];
-  findLayerFieldName: (layer: __esri.FeatureLayer, name: string) => string | null;
+  findLayerFieldName: (layer: AgriMapLayer | __esri.FeatureLayer, name: string) => string | null;
   getAposHelpers: () => {
     normalizeApos: (s: string) => string;
     makeRegionDistrictKey: (raw: string | null | undefined) => string;
@@ -109,7 +134,7 @@ export interface LocalizationHost {
     layer?: __esri.FeatureLayer,
   ) => string;
   _chartDimOrder: ChartDim[];
-  _lastBroadcastDetail: any;
+  _lastBroadcastDetail: LocalizationBroadcastDetail | null;
   _lastBroadcastDigest: string;
   _lastVhBarComputeKey: string;
   _ndviBucketToIds: Record<string, string[]>;
@@ -145,7 +170,7 @@ export interface LocalizationHost {
   _vhUniqueIdsReadyForApply: boolean;
   setMapNoData: (noData: boolean, reason: string) => void;
   setMapSurfaceLoading: (loading: boolean, reason: string) => void;
-  getLayerKey: (layer: __esri.FeatureLayer) => string;
+  getLayerKey: (layer: AgriMapLayer | null | undefined) => string;
   buildWhereForLayer: (
     layer: __esri.FeatureLayer,
     includeVh?: boolean,
@@ -180,7 +205,7 @@ export interface LocalizationHost {
     },
     isCurrent?: () => boolean,
   ) => Promise<void>;
-  _dataSourceInfoDebounceTimer: any;
+  _dataSourceInfoDebounceTimer: TimerHandle | null;
   _dsOnlyRetryCount: number;
   _dsOnlyRetryTimer: ReturnType<typeof setTimeout> | null;
   _initialDataLoadPromise: Promise<void> | null;
@@ -192,9 +217,9 @@ export interface LocalizationHost {
   _readyFired: boolean;
   _turiToCropId: Record<string, string>;
   _viloyatKeyToLayerKeys: Record<string, string[]>;
-  initializationTimer: any;
+  initializationTimer: TimerHandle | null;
   getMapWidgetId: () => string | null;
-  getEffectiveUseDataSources: () => any[];
+  getEffectiveUseDataSources: () => IMUseDataSource[];
   getPortalSelf: (jimuMapView: JimuMapView) => Promise<{
     username: string | null;
     groups: Array<{ id: string; title: string }>;
@@ -210,7 +235,7 @@ export interface LocalizationHost {
     jimuMapView: JimuMapView | null,
   ) => Promise<void>;
   resolveFeatureLayerFromOneUseDataSource: (
-    useDs: any,
+    useDs: IMUseDataSource,
     jimuMapView: JimuMapView | null,
   ) => Promise<__esri.FeatureLayer | null>;
   resolveSpatialMapLayers: (jimuMapView: JimuMapView | null) => Promise<__esri.FeatureLayer[]>;
@@ -258,10 +283,10 @@ export interface LocalizationHost {
   handlePolygonMapClickPhase: (event: Event) => void;
   handleRequestMasterFilterState: () => void;
   ensureInitialization: () => void;
-  _retryTimeout: any;
+  _retryTimeout: TimerHandle | null;
   MAX_CONNECTION_ATTEMPTS: number;
   onDataSourceCreated: (ds: DataSource) => void;
-  onDataSourceInfoChange: (info: any) => void;
+  onDataSourceInfoChange: (info: IMDataSourceInfo) => void;
   onActiveViewChange: (jimuMapView: JimuMapView) => void;
   _graffSearchWrapRef: React.RefObject<HTMLDivElement>;
   _notificationsToolbarItemRef: React.RefObject<HTMLDivElement>;
@@ -285,4 +310,11 @@ export interface LocalizationHost {
   formatNotificationDate: (ymd: string) => string;
   formatFieldCount: (value: number) => string;
   resolveRegionNotificationName: (regionCode: string) => string;
+}
+
+declare global {
+  interface Window {
+    /** Debug-only year flag ("2024" or "") used to filter console diagnostics. */
+    __AGRI3_DEBUG_YEAR__?: string;
+  }
 }

@@ -4,12 +4,25 @@ import type GraphicsLayer from "esri/layers/GraphicsLayer";
 import type { JimuMapView } from "jimu-arcgis";
 import type { AllWidgetProps, QueriableDataSource, React } from "jimu-core";
 import type { AgriDataSourceEngine } from "../../../gis/agri-data-source-engine";
-import type { Config, IHandleLike, State } from "./widget";
+import type {
+  AgriLayerLike,
+  Config,
+  IHandleLike,
+  PopupAttributes,
+  PopupFieldMeta,
+  PopupLanguageDetail,
+  PopupThemeDetail,
+  PopupUseDataSource,
+  State,
+} from "./popup-types";
+import type { AgriFieldLike } from "../../../gis/agri-layer-types";
+
+type MaybeLayer = AgriLayerLike | null | undefined;
 
 export interface PopupWidgetHost {
   props: AllWidgetProps<Config>;
   state: State;
-  setState: React.Component<any, State>["setState"];
+  setState: React.Component<AllWidgetProps<Config>, State>["setState"];
   POPUP_MARGIN: number;
   POPUP_WIDTH: number;
   isDashboardEmbedded: () => boolean;
@@ -45,7 +58,7 @@ export interface PopupWidgetHost {
   _queryOnlyLayers: Map<string, FeatureLayer>;
   pruneFeatureQueryCache: (now?: number) => void;
   getFeatureQueryCacheKey: (layer: __esri.FeatureLayer, oidField: string, oid: unknown, outFields: string[]) => string;
-  getDetachedQueryLayer: (layer: any) => Promise<__esri.FeatureLayer | null>;
+  getDetachedQueryLayer: (layer: MaybeLayer) => Promise<__esri.FeatureLayer | null>;
   _featureQueryCacheTtlMs: number;
   themeObserver: MutationObserver;
   getResolvedTheme: () => boolean;
@@ -64,8 +77,8 @@ export interface PopupWidgetHost {
   maxMapInitRetries: number;
   mapInitRetryTimer: NodeJS.Timeout;
   initializeMapConnection: (jmv: JimuMapView) => Promise<void>;
-  toLiveMapLayer: (layer: any, map: __esri.Map | null | undefined) => __esri.FeatureLayer | null;
-  addResolvedLayer: (target: __esri.FeatureLayer[], layerKeyToDsId: Record<string, string>, seen: Set<string>, layer: any, dsId?: string) => void;
+  toLiveMapLayer: (layer: MaybeLayer, map: __esri.Map | null | undefined) => __esri.FeatureLayer | null;
+  addResolvedLayer: (target: __esri.FeatureLayer[], layerKeyToDsId: Record<string, string>, seen: Set<string>, layer: MaybeLayer, dsId?: string) => void;
   detachMapClick: () => void;
   cleanupHighlight: () => void;
   connectedMapViewId: string;
@@ -74,12 +87,12 @@ export interface PopupWidgetHost {
   _clickHandle: IHandleLike;
   attachMapClick: (jmv: JimuMapView) => void;
   setupHighlightLayer: (view: __esri.MapView | __esri.SceneView) => void;
-  expandUseDataSourceEntries: (useList: any[]) => any[];
+  expandUseDataSourceEntries: (useList: PopupUseDataSource[]) => PopupUseDataSource[];
   dataSourceEngine: AgriDataSourceEngine;
-  snapshotDefinitionExpressions: (layers: Array<__esri.FeatureLayer | any>) => Map<any, string>;
-  restoreDriftedDefinitionExpressions: (snapshot: Map<any, string>) => void;
-  collectLayersFromDataSources: (jmv: JimuMapView, useList: any[]) => { layers: __esri.FeatureLayer[]; layerKeyToDsId: Record<string, string>; };
-  resolveFeatureLayerForUseDataSource: (jmv: JimuMapView, useDs: any) => Promise<__esri.FeatureLayer | null>;
+  snapshotDefinitionExpressions: (layers: MaybeLayer[]) => Map<AgriLayerLike, string>;
+  restoreDriftedDefinitionExpressions: (snapshot: Map<AgriLayerLike, string>) => void;
+  collectLayersFromDataSources: (jmv: JimuMapView, useList: PopupUseDataSource[]) => { layers: __esri.FeatureLayer[]; layerKeyToDsId: Record<string, string>; };
+  resolveFeatureLayerForUseDataSource: (jmv: JimuMapView, useDs: PopupUseDataSource | null | undefined) => Promise<__esri.FeatureLayer | null>;
   onViewClick: (ev: __esri.ViewClickEvent) => Promise<void>;
   closePopup: (opts?: { restoreExtent?: boolean; notifyDeselect?: boolean; }) => void;
   _lastMasterGeoKey: string;
@@ -88,23 +101,23 @@ export interface PopupWidgetHost {
   expandPopup: () => void;
   _clickGeneration: number;
   resolveClickLayers: (view: __esri.MapView | __esri.SceneView, jmv: JimuMapView) => Promise<__esri.FeatureLayer[]>;
-  isAgriculturalFieldLayer: (layer: any) => boolean;
-  isLayerEffectivelyVisible: (layer: any, view: __esri.MapView | __esri.SceneView) => boolean;
+  isAgriculturalFieldLayer: (layer: MaybeLayer) => boolean;
+  isLayerEffectivelyVisible: (layer: MaybeLayer, view: __esri.MapView | __esri.SceneView) => boolean;
   getOutFields: (layer: FeatureLayer, oidField: string) => string[];
   queryFeatureByObjectIdCached: (layer: __esri.FeatureLayer, oidField: string, oid: unknown, outFields: string[]) => Promise<__esri.Graphic | null>;
   highlightPolygon: (geometry: __esri.Geometry) => void;
-  resolveDisplayAttrs: (polygonAttributes: Record<string, any> | null | undefined) => Promise<Record<string, any>>;
+  resolveDisplayAttrs: (polygonAttributes: PopupAttributes | null | undefined) => Promise<PopupAttributes>;
   notifyGraffPolygonSelection: (uniqueid: string, polygonMode: boolean, clickedAt?: number, regionId?: number | null) => void;
   fetchLatestVegetationIndices: (uniqueId: string) => Promise<void>;
   loadAttachmentsForOid: (layer: FeatureLayer, oid: number) => Promise<void>;
-  layerKeysMatch: (a: any, b: any) => boolean;
-  isHighlightLayer: (layer: any) => boolean;
-  isAgriculturalFieldGraphic: (graphic: __esri.Graphic, layer: any) => boolean;
+  layerKeysMatch: (a: MaybeLayer, b: MaybeLayer) => boolean;
+  isHighlightLayer: (layer: MaybeLayer) => boolean;
+  isAgriculturalFieldGraphic: (graphic: __esri.Graphic, layer: MaybeLayer) => boolean;
   getClickTargetLayers: (view: __esri.MapView | __esri.SceneView) => __esri.FeatureLayer[];
   toClickQueryGeometry: (view: __esri.MapView | __esri.SceneView, screenPoint: { x: number; y: number; }, mapPoint?: { x?: number; y?: number; spatialReference?: { wkid?: number; }; }) => __esri.Point | null;
   pickClickGraphic: (hit: __esri.HitTestResult | null | undefined, preferredLayers: __esri.FeatureLayer[]) => __esri.Graphic | null;
   _latestIndicesRequestId: number;
-  findAttributeValueCaseInsensitive: (attributes: Record<string, any> | null | undefined, fieldName: string) => any;
+  findAttributeValueCaseInsensitive: (attributes: PopupAttributes | null | undefined, fieldName: string) => unknown;
   resolveClickFeatureAt: (ev: __esri.ViewClickEvent, view: __esri.MapView | __esri.SceneView, layers: __esri.FeatureLayer[]) => Promise<{ graphic: __esri.Graphic; queryHitLayer: __esri.FeatureLayer | null; } | null>;
   restoreExtentBeforeSelection: () => void;
   layerSupportsAttachments: (layer: __esri.FeatureLayer | FeatureLayer | null | undefined) => boolean;
@@ -112,16 +125,16 @@ export interface PopupWidgetHost {
   isImageContentType: (ct?: string) => boolean;
   fetchAttachmentPreview: (url: string) => Promise<Blob>;
   getClickedLayer: () => __esri.FeatureLayer | null;
-  findFieldMetaOnLayer: (layer: any, fieldName: string) => __esri.Field | null;
-  normalizeFieldAlias: (field: any, fallbackName: string) => string;
+  findFieldMetaOnLayer: (layer: MaybeLayer, fieldName: string) => AgriFieldLike | null;
+  normalizeFieldAlias: (field: PopupFieldMeta | null | undefined, fallbackName: string) => string;
   resolveFieldName: (key: string) => string | null;
   resolveAliasFromLiveLayers: (fieldName: string) => string | null;
-  resolveAliasFromDataSourceSchema: (fieldName: string, ds: any) => string | null;
+  resolveAliasFromDataSourceSchema: (fieldName: string, ds: unknown) => string | null;
   isDateField: (name: string) => boolean;
-  formatDateSmart: (raw: any) => string;
+  formatDateSmart: (raw: unknown) => string;
   setupThemeObserver: () => void;
-  handleThemeChange: (e: any) => void;
-  handleLanguageChange: (e: any) => void;
+  handleThemeChange: (e: CustomEvent<PopupThemeDetail> | null | undefined) => void;
+  handleLanguageChange: (e: CustomEvent<PopupLanguageDetail> | null | undefined) => void;
   handleOutsideClick: (event: MouseEvent) => void;
   _unbindMasterFilter: () => void;
   handleMasterFilterChanged: (event: Event) => void;
@@ -143,7 +156,7 @@ export interface PopupWidgetHost {
   renderChartIcon: (type?: "bar" | "line") => JSX.Element;
   onPopupHeaderMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
   togglePinToCorner: () => void;
-  formatValue: (name: string, raw: any) => string;
+  formatValue: (name: string, raw: unknown) => string;
   renderLatestIndices: () => React.JSX.Element;
   renderChart: () => React.JSX.Element;
   bytesToSize: (n?: number) => string;

@@ -1,6 +1,7 @@
 import { agriLog } from "../localization-log";
-import type { LocalizationHost } from "../host";
-import type { FilterState } from "../../widget";
+import type { LocalizationHost, ValueChangeEvent } from "../host";
+import { errorMessage } from "../../../../../shared/agri-plain-object";
+import type { FilterState } from "../../widget-state";
 import { clearPieVhFilterUniqueIds, upsertChartDimOrder } from "../../../../../gis/agri-chart-filter-order";
 import { getLayerMatchStateForViloyat as getLayerMatchStateForViloyatShared } from "../../../../localization/layer-utils";
 import { resolveRegionNumberFromMaps, resolveDistrictNumberFromMaps, listDistrictsForViloyat } from "../../../../localization/resolve-geo-codes";
@@ -152,10 +153,10 @@ export const toggleToolbarMenu = (host: LocalizationHost, menu: "yil" | "languag
   );
 };
 
-export const handleYilChange = (host: LocalizationHost, event: any) => {
+export const handleYilChange = (host: LocalizationHost, event: ValueChangeEvent) => {
   if (!host._isMounted) return;
 
-  const selectedYil = host.normalizeApos(event?.target?.value ?? "");
+  const selectedYil = host.normalizeApos(String(event?.target?.value ?? ""));
 
   // Auto‑select latest NDVI date so bar/Graff use fresh data without manual date pick
   const { ndviDateOptions } = host.state;
@@ -180,7 +181,10 @@ export const handleYilChange = (host: LocalizationHost, event: any) => {
     },
     async () => {
       try {
-        const w: any = typeof window !== "undefined" ? (window as any) : null;
+        const w =
+          typeof window !== "undefined"
+            ? window
+            : null;
         if (w)
           w.__AGRI3_DEBUG_YEAR__ = /\b2024\b/.test(selectedYil)
             ? "2024"
@@ -193,9 +197,9 @@ export const handleYilChange = (host: LocalizationHost, event: any) => {
         host.warmYearRegionMapImages();
         await host.fetchDataWithCurrentState();
         host.broadcastFilterState();
-      } catch (e: any) {
+      } catch (e) {
         if (host._isMounted)
-          host.setState({ error: e.message, loading: false });
+          host.setState({ error: errorMessage(e), loading: false });
       }
     },
   );
@@ -263,22 +267,22 @@ export const applyYil = (host: LocalizationHost, selectedYil: string) => {
         host.warmYearRegionMapImages();
         await host.fetchDataWithCurrentState();
         host.broadcastFilterState();
-      } catch (e: any) {
+      } catch (e) {
         if (host._isMounted)
-          host.setState({ error: e.message, loading: false });
+          host.setState({ error: errorMessage(e), loading: false });
       }
     },
   );
 };
 
-export const handleNdviDateChange = (host: LocalizationHost, event: any) => {
+export const handleNdviDateChange = (host: LocalizationHost, event: ValueChangeEvent) => {
   if (!host._isMounted) return;
 
   const raw = event?.target?.value ?? "";
   const ndviDate = String(raw).trim();
 
   // When a polygon graph is active in Graff, ignore manual NDVI date changes.
-  if ((host.state as any).polygonMode) {
+  if (host.state.polygonMode) {
     return;
   }
 
@@ -294,9 +298,9 @@ export const handleNdviDateChange = (host: LocalizationHost, event: any) => {
         await host.applyMapFiltersOptimized({ mode: "selection", reason: "ndvi" });
         await host.fetchDataWithCurrentState();
         host.broadcastFilterState();
-      } catch (e: any) {
+      } catch (e) {
         if (host._isMounted)
-          host.setState({ error: e.message, loading: false });
+          host.setState({ error: errorMessage(e), loading: false });
       }
     },
   );

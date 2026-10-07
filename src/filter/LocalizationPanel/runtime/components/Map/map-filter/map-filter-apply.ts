@@ -1,11 +1,21 @@
 import type { LocalizationHost } from "../../host";
 import { type MapZoomRequest, decideMapSurfaceCover, shouldDeferCropForFastReveal, shouldDeferVhUniqueIdResolve, buildDefinitionExpressionDigest, isGeographyZoomReason, shouldNavigateMapZoom, isEmptyMapExtent } from "../../../../../localization/map-zoom-policy";
 import { isShownRegionYearLayerOpaque } from "../../../../../localization/map-filter-apply";
-import { agriLog } from "../../localization-log";
+import { agriLog, debugCatch } from "../../localization-log";
+import type { AgriMapLayer } from "../../../../../localization/agri-map-layer";
 import { clearAgriAdminBoundaries, syncAgriAdminBoundaries, queryAgriAdminBoundaryExtentOnly } from "../../../../../../gis/agri-admin-boundary-layer";
 import { zoomGoToDurationMsForReason, isDistrictZoomPath, districtAdminExpandFactor, districtFallbackRegionExpandFactor, shouldSkipHomeGoTo, pickHomeExtentCandidate, homeGoToDurationMs, preferShownRegionYearExtent, raceRegionExtentPick, planCropNdviExtentSource, zoomExpandFactorForReason } from "../../../../../localization/map-zoom-target";
 import { collectShownRegionYearQueryTargets, readQueryableDefinitionExpression, unionMapExtents, unionShownRegionYearFullExtents, canQuerySpatialFeatureExtent, readSpatialFeatureExtentWhere, appendSpatialFeatureExtent } from "../../../../../localization/map-shown-extent";
 import { getDetachedQueryLayerFor, isMapImageOwnedLayer, safeLoadMapLayer } from "../../../../../../gis/feature-layer-data";
+import { errorMessage } from "../../../../../../shared/agri-plain-object";
+
+/** View animation members read before goTo (MapView exposes them). */
+interface ViewAnimationLike {
+  animation?: { state?: string; stop?: () => void } | null;
+}
+
+/** Runtime `fullExtent` some web maps carry (not in the Map typings). */
+type MapWithFullExtent = __esri.Map & { fullExtent?: __esri.Extent | null };
 
 export const applyMapFiltersOptimized = async (
   host: LocalizationHost,
@@ -119,10 +129,10 @@ export const applyMapFiltersOptimized = async (
             host.broadcastFilterState();
             await host.fetchDataWithCurrentState();
           }
-        } catch (error: any) {
+        } catch (error) {
           agriLog(
             "applyMapFiltersOptimized:deferred-vh-FAILED",
-            { error: String(error?.message || error) },
+            { error: errorMessage(error) },
           );
           // Keep turi-only paint (suppressLegacy) rather than writing legacy vh.
           if (stillCurrent()) {
@@ -138,7 +148,7 @@ export const applyMapFiltersOptimized = async (
     // crop-renderer so the first paint isn't default symbology.
     revealAfterCrop = (host._lastShownRegionYearLayers || []).some(
       (entry) =>
-        !!entry?.layer && Number((entry.layer as any)?.opacity ?? 1) <= 0.05,
+        !!entry?.layer && Number(entry.layer?.opacity ?? 1) <= 0.05,
     );
     const awaitRedrawAfterCrop =
       revealAfterCrop ||
@@ -165,10 +175,10 @@ export const applyMapFiltersOptimized = async (
           await host.waitForShownRegionYearRedraw(false);
           if (!stillCurrent()) return;
           await host.syncCropRenderer();
-        } catch (error: any) {
+        } catch (error) {
           agriLog(
             "applyMapFiltersOptimized:deferred-crop-FAILED",
-            { error: String(error?.message || error) },
+            { error: errorMessage(error) },
           );
         }
       })();
@@ -215,7 +225,7 @@ export const applyMapFiltersOptimized = async (
   // Admin boundary outlines — await so district names paint on view.graphics
   // above MapImage (fire-and-forget used to lose the race / look unchanged).
   const adminBoundary: {
-    extent: any;
+    extent: __esri.Extent | null;
     level: "district" | "region" | "none";
   } = { extent: null, level: "none" };
   if (stillCurrent() && activeMapView?.view) {
@@ -239,9 +249,9 @@ export const applyMapFiltersOptimized = async (
         adminBoundary.extent = synced.extent;
         adminBoundary.level = synced.level;
       }
-    } catch (error: any) {
+    } catch (error) {
       agriLog("zoom:admin-boundary:failed", {
-        message: String(error?.message || error),
+        message: errorMessage(error),
       });
     }
   }
@@ -309,14 +319,19 @@ export const applyMapFiltersOptimized = async (
     !host._isMounted || requestId !== host._zoomRequestId;
   const isEmptyExtent = isEmptyMapExtent;
 
-  const navigate = async (target: any, duration: number): Promise<void> => {
+  const navigate = async (
+    target: __esri.Extent | null | undefined,
+    duration: number,
+  ): Promise<void> => {
     if (!target || isStale()) return;
     try {
-      const animation = (view as any)?.animation;
+      const animation = (view as ViewAnimationLike)?.animation;
       if (animation?.state === "running" && typeof animation.stop === "function") {
         animation.stop();
       }
-    } catch {}
+    } catch (err) {
+      debugCatch("zoom:navigate:animation-stop-failed", err);
+    }
     if (isStale()) return;
     // view.goTo() can occasionally never settle (interrupted animation, view
     // mid-update) — and this navigate() is awaited inside the
@@ -328,14 +343,14 @@ export const applyMapFiltersOptimized = async (
       await Promise.race([
         view.goTo(target, {
           duration,
-          easing: "ease-in-out" as any,
+          easing: "ease-in-out",
         }),
         new Promise<void>((resolve) => setTimeout(resolve, duration + 1200)),
       ]);
-    } catch (error: any) {
+    } catch (error) {
       if (error?.name !== "AbortError") {
         agriLog("zoom:navigate:failed", {
-          message: String(error?.message || error),
+          message: errorMessage(error),
         });
       }
     }
@@ -347,19 +362,21 @@ export const applyMapFiltersOptimized = async (
    * Never unions every spatialMapLayers entry — those are MapImage leaves
    * for ALL regions and would zoom to the entire republic.
    */
-  const queryShownRegionYearExtent = async (): Promise<any | null> => {
-    const extentTasks: Promise<any | null>[] = [];
+  const queryShownRegionYearExtent = async (): Promise<__esri.Extent | null> => {
+    const extentTasks: Promise<__esri.Extent | null>[] = [];
     for (const entry of host._lastShownRegionYearLayers) {
       if (isStale()) return null;
       const queryTargets = collectShownRegionYearQueryTargets(entry);
       for (const sublayer of queryTargets) {
         extentTasks.push(
-          (async (): Promise<any | null> => {
+          (async (): Promise<__esri.Extent | null> => {
             if (isStale()) return null;
             try {
               const where = readQueryableDefinitionExpression(sublayer);
               if (!where) return null;
-              const detached = await getDetachedQueryLayerFor(sublayer);
+              const detached = (await getDetachedQueryLayerFor(
+                sublayer,
+              )) as __esri.FeatureLayer | null;
               if (!detached || isStale()) return null;
               const query = detached.createQuery();
               query.where = where;
@@ -417,9 +434,9 @@ export const applyMapFiltersOptimized = async (
         regionCode: selection.regionCode ?? null,
         districtCode: selection.districtCode ?? null,
       });
-    } catch (error: any) {
+    } catch (error) {
       agriLog("zoom:admin-boundary:extent-failed", {
-        message: String(error?.message || error),
+        message: errorMessage(error),
       });
     }
   };
@@ -492,17 +509,19 @@ export const applyMapFiltersOptimized = async (
         /* ignore */
       }
 
-      let home: any = pickHomeExtentCandidate({
+      let home: __esri.Extent | null = pickHomeExtentCandidate({
         storedHome: host._homeExtent,
-        mapFullExtent: (view.map as any)?.fullExtent,
+        mapFullExtent: (view.map as MapWithFullExtent)?.fullExtent,
         layerFullExtent: primaryLayer.fullExtent,
       });
-      if (!home && (primaryLayer as any)?.geometryType) {
+      if (!home && primaryLayer?.geometryType) {
         try {
           home = (
             await primaryLayer.queryExtent(primaryLayer.createQuery())
           )?.extent;
-        } catch {}
+        } catch (err) {
+          debugCatch("zoom:home:query-extent-failed", err);
+        }
       }
 
       if (!isEmptyExtent(home) && !isStale()) {
@@ -552,17 +571,18 @@ export const applyMapFiltersOptimized = async (
         if (isStale()) return;
         if (isMapImageOwnedLayer(spatialLayer)) continue;
         try {
-          if (typeof (spatialLayer as any)?.load === "function") {
+          const spatial: AgriMapLayer = spatialLayer;
+          if (typeof spatial?.load === "function") {
             await safeLoadMapLayer(spatialLayer);
           }
           if (!canQuerySpatialFeatureExtent(spatialLayer)) continue;
           const where = readSpatialFeatureExtentWhere(spatialLayer);
           if (!where) continue;
-          const query = (spatialLayer as any)?.createQuery
-            ? (spatialLayer as any).createQuery()
+          const query: __esri.QueryProperties = spatial?.createQuery
+            ? spatial.createQuery()
             : {};
           query.where = where;
-          const result = await (spatialLayer as any).queryExtent(query);
+          const result = await spatial.queryExtent(query);
           if (isStale()) return;
           mergedExtent = appendSpatialFeatureExtent(
             mergedExtent,
@@ -601,7 +621,7 @@ export const applyMapFiltersOptimized = async (
       await navigate(mergedExtent!.expand(expandFactor), goToMs);
     } else if (!host.getEffectiveViloyat() && !isStale()) {
       const home =
-        host._homeExtent || (view.map as any)?.fullExtent;
+        host._homeExtent || (view.map as MapWithFullExtent)?.fullExtent;
       if (!isEmptyExtent(home)) {
         agriLog("zoom:goTo-home-fallback", {});
         await navigate(home, homeGoToDurationMs());
@@ -612,11 +632,11 @@ export const applyMapFiltersOptimized = async (
         shownLayerCount: (host._lastShownRegionYearLayers || []).length,
       });
     }
-  } catch (error: any) {
+  } catch (error) {
     if (error?.name !== "AbortError") {
       agriLog("zoom:navigation-failed", {
         reason: zoomRequest.reason,
-        message: String(error?.message || error),
+        message: errorMessage(error),
       });
     }
   } finally {

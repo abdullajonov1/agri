@@ -7,7 +7,10 @@
  * and must be loaded independently.
  */
 import { getAgriServiceUrls } from "../shared/agri-service-urls";
-import { createSingletonLayerLoader } from "../shared/agri-singleton-layer-loader";
+import {
+  createSingletonLayerLoader,
+  type AgriSingletonLayerHandle,
+} from "../shared/agri-singleton-layer-loader";
 
 /** Logger disabled — keep call sites without console noise. */
 export function agriReserveLandLog(
@@ -21,10 +24,8 @@ export function getAgriReserveLandUrl(): string {
   return getAgriServiceUrls().reserveLandUrl;
 }
 
-export interface AgriReserveLandLayerHandle {
-  layer: any;
-  fields: string[];
-}
+/** Loaded FeatureLayer + its field names. */
+export type AgriReserveLandLayerHandle = AgriSingletonLayerHandle;
 
 const getAgriReserveLandLayerCached = createSingletonLayerLoader(
   getAgriReserveLandUrl,

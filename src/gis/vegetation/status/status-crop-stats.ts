@@ -1,4 +1,4 @@
-import { type VegetationCropBreakdownParams, type VegetationCropBreakdownRow, getAgriVegetationIndicesLayer, buildVegetationCropScopeWhere, vegetationCropStatsCache, VEG_CROP_STATS_MAX_ROWS, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog } from "../veg-base";
+import { type VegetationCropBreakdownParams, type VegetationCropBreakdownRow, getAgriVegetationIndicesLayer, buildVegetationCropScopeWhere, vegetationCropStatsCache, VEG_CROP_STATS_MAX_ROWS, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, type VegQuery } from "../veg-base";
 
 /**
  * Crop mix for one VH status + date + region/district in a single grouped
@@ -31,7 +31,7 @@ export async function queryVegetationCropStatsForStatus(
   if (cached) return cached;
 
   const request = (async (): Promise<VegetationCropBreakdownRow[]> => {
-    const query: any = layer.createQuery();
+    const query: VegQuery = layer.createQuery();
     query.where = where;
     query.groupByFieldsForStatistics = [cropIdField];
     query.orderByFields = [`${cropIdField} ASC`];

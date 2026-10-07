@@ -1,4 +1,5 @@
-import type { RegionWidgetHost } from "../../region-host";
+import type { RegionFilterUpdates, RegionWidgetHost } from "../../region-host";
+import { messageOf, panelEventDetail } from "../../../../panel-filter-detail";
 import { regionLog as regionLogFn } from "../../region-log";
 import { bindMasterFilter } from "../../../../../data/agri-filter-bus";
 import { detectIsDarkTheme, normalizeLanguage } from "../../../../../shared/agri-language";
@@ -8,7 +9,7 @@ import { getAgriTableDataLayer } from "../../../../../gis/agri-table-data-source
 
 export function componentDidMount(host: RegionWidgetHost) {
   regionLogFn("componentDidMount — this build IS running", {
-    widgetId: (host.props as any)?.id,
+    widgetId: host.props?.id,
     buildMarker: "agri-region10-2026-07-08-diagnostic",
   });
   host._isMounted = true;
@@ -119,7 +120,7 @@ export const syncThemeState = (host: RegionWidgetHost) => {
 };
 export const handleAgriV10ThemeChanged = (host: RegionWidgetHost, event: Event): void => {
   if (!host._isMounted) return;
-  const detail: any = (event as CustomEvent).detail || {};
+  const detail = panelEventDetail(event);
   const nextIsDark =
     typeof detail.isDarkTheme === "boolean"
       ? detail.isDarkTheme
@@ -190,14 +191,14 @@ export function componentDidUpdate(host: RegionWidgetHost): void {
 export const handleMasterFilterChange = (host: RegionWidgetHost, event: Event) => {
   if (!host._isMounted) return;
 
-  const d: any = (event as CustomEvent).detail || {};
+  const d = panelEventDetail(event);
   if (!d.filters) return;
 
   const f = d.filters;
 
   const nextTurlar: string[] = Array.from(
     new Set<string>(
-      (Array.isArray(f.turlar) ? f.turlar : f.turi ? [f.turi] : [])
+      (Array.isArray(f.turlar) ? f.turlar : f.turi ? [f.turi] : ([] as unknown[]))
         .map((value: unknown) => host.normalizeApos(String(value || "")))
         .filter(Boolean),
     ),
@@ -242,7 +243,7 @@ export const handleMasterFilterChange = (host: RegionWidgetHost, event: Event) =
     : null;
   const isLocked = Boolean(d?.scope?.locked);
   const language = normalizeLanguage(
-    (f.language as any) || host.state.language,
+    f.language || host.state.language,
   );
 
   const prev = host.state.currentFilters;
@@ -380,7 +381,7 @@ export const handleMasterFilterChange = (host: RegionWidgetHost, event: Event) =
     },
   );
 };
-export const notifyAgriFilter = (host: RegionWidgetHost, updates: Partial<AgriRegionState["currentFilters"]>, generation?: number) => {
+export const notifyAgriFilter = (host: RegionWidgetHost, updates: RegionFilterUpdates, generation?: number) => {
   if (
     generation !== undefined &&
     generation !== host._selectionNotifyGeneration
@@ -433,9 +434,9 @@ export const onActiveViewChange = async (host: RegionWidgetHost, jimuMapView: Ji
       areaField: area,
       statMode,
     });
-  } catch (err: any) {
+  } catch (err) {
     host.setState({
-      regionalError: `Connection error: ${err?.message || err}`,
+      regionalError: `Connection error: ${messageOf(err) || err}`,
       connectionStatus: "failed",
     });
   }

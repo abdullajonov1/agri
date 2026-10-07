@@ -68,7 +68,8 @@ export type DashboardGraffPack = {
   cropIds: string[];
   startDate: string;
   endDate: string;
-  rows: Array<Record<string, any>>;
+  /** Panel-owned row shape (e.g. GraffPanel VegetationIndex); opaque here. */
+  rows: object[];
 };
 
 /**
@@ -82,7 +83,8 @@ export type DashboardGraffPolygonPack = {
   uniqueid: string;
   regionId: number | null;
   year: number | null;
-  rows: Array<Record<string, any>>;
+  /** Panel-owned row shape (e.g. GraffPanel VegetationIndex); opaque here. */
+  rows: object[];
   availableDates?: string[];
 };
 

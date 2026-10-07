@@ -2,6 +2,12 @@
  * In-flight deduplication for ArcGIS layer queries.
  * Same URL + WHERE + outFields → one network round-trip shared by all callers.
  */
+import {
+  readLayerUrl,
+  type AgriCountFeatureSet,
+  type AgriLayerUrlLike,
+  type AgriQueryableLayer,
+} from "../types/agri-layer";
 
 export interface DedupedLayerQuerySpec {
   where?: string;
@@ -19,8 +25,24 @@ export interface DedupedLayerQuerySpec {
 
 const inFlight = new Map<string, Promise<unknown>>();
 
-function layerUrl(layer: any): string {
-  return String(layer?.url || layer?.layer?.url || "").trim();
+function layerUrl(layer: AgriLayerUrlLike | null | undefined): string {
+  return readLayerUrl(layer);
+}
+
+/**
+ * Query props the JS API typings omit but the REST layer accepts
+ * (sent as-is when the Query is serialized).
+ */
+type AgriQueryWithPaging = __esri.Query & {
+  returnCountOnly?: boolean;
+  resultRecordCount?: number;
+  resultOffset?: number;
+};
+
+interface StatisticDefinitionLike {
+  statisticType?: unknown;
+  onStatisticField?: unknown;
+  outStatisticFieldName?: unknown;
 }
 
 /**
@@ -31,7 +53,7 @@ function layerUrl(layer: any): string {
 function normalizeStats(stats: unknown[] | null | undefined): unknown {
   if (!stats || !stats.length) return null;
   return [...stats]
-    .map((s: any) => ({
+    .map((s: StatisticDefinitionLike | null | undefined) => ({
       t: String(s?.statisticType ?? "").toLowerCase(),
       f: String(s?.onStatisticField ?? "").toLowerCase(),
       o: String(s?.outStatisticFieldName ?? "").toLowerCase(),
@@ -58,13 +80,15 @@ function stableKey(url: string, spec: DedupedLayerQuerySpec): string {
   return `${url}|${JSON.stringify(normalized)}`;
 }
 
-function applySpecToQuery(query: any, spec: DedupedLayerQuerySpec): void {
+function applySpecToQuery(query: AgriQueryWithPaging, spec: DedupedLayerQuerySpec): void {
   query.where = spec.where ?? "1=1";
   if (spec.outFields) query.outFields = spec.outFields;
   if (spec.groupByFieldsForStatistics) {
     query.groupByFieldsForStatistics = spec.groupByFieldsForStatistics;
   }
-  if (spec.outStatistics) query.outStatistics = spec.outStatistics;
+  if (spec.outStatistics) {
+    query.outStatistics = spec.outStatistics as __esri.StatisticDefinition[];
+  }
   if (spec.returnDistinctValues != null) {
     query.returnDistinctValues = spec.returnDistinctValues;
   }
@@ -81,7 +105,7 @@ function applySpecToQuery(query: any, spec: DedupedLayerQuerySpec): void {
 }
 
 export async function dedupedQueryFeatures(
-  layer: any,
+  layer: AgriQueryableLayer,
   spec: DedupedLayerQuerySpec,
 ): Promise<__esri.FeatureSet> {
   const url = layerUrl(layer);
@@ -102,7 +126,7 @@ export async function dedupedQueryFeatures(
 }
 
 export async function dedupedQueryFeatureCount(
-  layer: any,
+  layer: AgriQueryableLayer,
   where: string,
 ): Promise<number> {
   const url = layerUrl(layer);
@@ -114,12 +138,12 @@ export async function dedupedQueryFeatureCount(
     if (typeof layer?.queryFeatureCount === "function") {
       return Number((await layer.queryFeatureCount({ where })) || 0);
     }
-    const query = layer.createQuery();
+    const query: AgriQueryWithPaging = layer.createQuery();
     query.where = where;
     query.returnGeometry = false;
     query.outFields = [layer.objectIdField || "objectid"];
     query.returnCountOnly = true;
-    const result = await layer.queryFeatures(query);
+    const result: AgriCountFeatureSet = await layer.queryFeatures(query);
     if (typeof result?.count === "number") return result.count;
     return Number(result?.totalCount ?? 0);
   })().finally(() => {

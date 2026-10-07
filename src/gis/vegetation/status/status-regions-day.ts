@@ -1,7 +1,9 @@
 import { queryVegFeatures, readVegAttr, agriNotifyLog } from "../veg-base";
+import type { AgriQueryableLayer } from "../../../types/agri-layer";
+import { type AgriAttributes, errorMessage } from "../../agri-layer-types";
 
 export async function listRegionsForProcessedDay(
-  layer: any,
+  layer: AgriQueryableLayer,
   where: string,
   regionField: string,
   oidField: string,
@@ -18,13 +20,13 @@ export async function listRegionsForProcessedDay(
         onStatisticField: oidField,
         outStatisticFieldName: "row_cnt",
       },
-    ] as any;
+    ];
     query.returnGeometry = false;
     query.num = 100;
     const result = await queryVegFeatures(layer, query);
     const regions: string[] = [];
     for (const feature of result?.features ?? []) {
-      const attrs = (feature as any)?.attributes || {};
+      const attrs: AgriAttributes = feature?.attributes || {};
       const regionCode = String(
         readVegAttr(attrs, regionField, "region") ?? "",
       ).trim();
@@ -36,7 +38,7 @@ export async function listRegionsForProcessedDay(
   } catch (err) {
     agriNotifyLog("count:regions-for-day-failed", {
       ymd,
-      error: String((err as any)?.message || err),
+      error: errorMessage(err),
     });
     return [];
   }

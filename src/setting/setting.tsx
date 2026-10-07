@@ -1,4 +1,5 @@
 import {
+  type AllDataSourceTypes,
   DataSourceManager,
   DataSourceTypes,
   Immutable,
@@ -9,26 +10,30 @@ import { type AllWidgetSettingProps } from "jimu-for-builder";
 import { ArcGISDataSourceTypes } from "jimu-arcgis";
 import { DataSourceSelector } from "jimu-ui/advanced/data-source-selector";
 import { Label, NumericInput, Switch, TextInput } from "jimu-ui";
-import { type IMConfig } from "../config";
+import { type Config, type IMConfig, type IndicatorChildConfig } from "../config";
 import AgriPopupSettingPanel from "./agri-popup-setting";
 import AgriAccessSettingPanel from "./agri-access-setting";
 import {
   normalizeAgriServiceUrls,
   type AgriServiceUrls,
 } from "../shared/agri-service-urls";
-
-/** jimu-core re-exports seamless-immutable as a namespace; cast for callable use. */
-const Imm = Immutable as unknown as <T>(val: T) => any;
+import { hasAsMutable, toPlainArray } from "./plain-value";
 
 export default class Setting extends React.PureComponent<
   AllWidgetSettingProps<IMConfig>
 > {
   private readonly mapSettingsRef = React.createRef<HTMLDivElement>();
-  private readonly supportedTypes = Imm([
+  private readonly supportedTypes = Immutable.from<AllDataSourceTypes[]>([
     DataSourceTypes.FeatureLayer,
     DataSourceTypes.MapService,
   ]);
-  private readonly webMapTypes = Imm([ArcGISDataSourceTypes.WebMap]);
+  /**
+   * jimu-arcgis declares its own WebMap enum; the selector is typed with
+   * jimu-core's copy. Both carry the same runtime value ("WEB_MAP").
+   */
+  private readonly webMapTypes = Immutable.from<AllDataSourceTypes[]>([
+    ArcGISDataSourceTypes.WebMap as string as AllDataSourceTypes,
+  ]);
 
   componentDidMount(): void {
     window.addEventListener(
@@ -54,10 +59,10 @@ export default class Setting extends React.PureComponent<
     );
   };
 
-  private ensureConfig() {
+  private ensureConfig(): IMConfig {
     return (
       this.props.config ??
-      Imm({
+      Immutable.from<Config>({
         leftPanelWidthPercent: 26,
         bottomRowFraction: 38,
         indicator: {
@@ -90,7 +95,7 @@ export default class Setting extends React.PureComponent<
 
   private updateConfig(patch: Record<string, unknown>): void {
     const current = this.ensureConfig();
-    const next = current.merge(patch as any);
+    const next = current.merge(patch as Partial<Config>);
     this.props.onSettingChange({
       id: this.props.id,
       config: next,
@@ -99,9 +104,10 @@ export default class Setting extends React.PureComponent<
 
   private updateIndicator(patch: Record<string, unknown>): void {
     const current = this.ensureConfig();
-    const indicator = (current as any).indicator?.merge
-      ? (current as any).indicator.merge(patch)
-      : Imm({ ...(current as any).indicator, ...patch });
+    const indicatorPatch = patch as Partial<IndicatorChildConfig>;
+    const indicator = current.indicator?.merge
+      ? current.indicator.merge(indicatorPatch)
+      : Immutable.from<IndicatorChildConfig>({ ...current.indicator, ...indicatorPatch });
     this.props.onSettingChange({
       id: this.props.id,
       config: current.set("indicator", indicator),
@@ -109,10 +115,10 @@ export default class Setting extends React.PureComponent<
   }
 
   private readServiceUrlsPlain(): Partial<AgriServiceUrls> {
-    const raw = (this.ensureConfig() as any).serviceUrls;
+    const raw: unknown = this.ensureConfig().serviceUrls;
     if (!raw) return {};
-    if (typeof raw.asMutable === "function") {
-      return raw.asMutable({ deep: true }) as Partial<AgriServiceUrls>;
+    if (hasAsMutable<Partial<AgriServiceUrls>>(raw)) {
+      return raw.asMutable({ deep: true });
     }
     return { ...(raw as Partial<AgriServiceUrls>) };
   }
@@ -128,26 +134,18 @@ export default class Setting extends React.PureComponent<
     if (value) next[key] = value;
     else delete next[key];
     this.updateConfig({
-      serviceUrls: Object.keys(next).length ? Imm(next) : undefined,
+      serviceUrls: Object.keys(next).length ? Immutable.from(next) : undefined,
     });
   }
 
   private toPlainArray(value: unknown): unknown[] {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (typeof (value as any).asMutable === "function") {
-      return (value as any).asMutable({ deep: true });
-    }
-    if (typeof (value as any).toArray === "function") {
-      return (value as any).toArray();
-    }
-    return [];
+    return toPlainArray(value);
   }
 
   private onDataSourceChange = (useDataSources: unknown): void => {
-    const webMapId = String((this.ensureConfig() as any).webMapDataSourceId || "");
+    const webMapId = String(this.ensureConfig().webMapDataSourceId || "");
     const webMapSource = this.toPlainArray(this.props.useDataSources).find(
-      (source: any) => source?.dataSourceId === webMapId,
+      (source) => (source as UseDataSource | null)?.dataSourceId === webMapId,
     );
     this.props.onSettingChange({
       id: this.props.id,
@@ -160,7 +158,7 @@ export default class Setting extends React.PureComponent<
 
   private onWebMapChange = (next: UseDataSource[]): void => {
     const current = this.toPlainArray(this.props.useDataSources) as UseDataSource[];
-    const previousId = String((this.ensureConfig() as any).webMapDataSourceId || "");
+    const previousId = String(this.ensureConfig().webMapDataSourceId || "");
     const selected = next?.[0];
     const merged = current.filter((source) => source.dataSourceId !== previousId);
     if (selected && !merged.some((source) => source.dataSourceId === selected.dataSourceId)) {
@@ -175,7 +173,7 @@ export default class Setting extends React.PureComponent<
 
   render() {
     const cfg = this.ensureConfig();
-    const indicator = (cfg as any).indicator || Imm({});
+    const indicator = cfg.indicator || Immutable.from<IndicatorChildConfig>({});
     const defaultUrls = normalizeAgriServiceUrls();
     const serviceUrlFields: Array<{
       key: keyof AgriServiceUrls;
@@ -193,7 +191,7 @@ export default class Setting extends React.PureComponent<
       { key: "unusedLandUrl", label: "Unused land URL" },
     ];
     const allSources = this.toPlainArray(this.props.useDataSources) as UseDataSource[];
-    const webMapId = String((cfg as any).webMapDataSourceId || "");
+    const webMapId = String(cfg.webMapDataSourceId || "");
     const webMapSource = allSources.find((source) => source.dataSourceId === webMapId);
     const featureSources = allSources.filter((source) => {
       const ds = DataSourceManager.getInstance().getDataSource(source.dataSourceId);
@@ -224,7 +222,7 @@ export default class Setting extends React.PureComponent<
           <DataSourceSelector
             mustUseDataSource={false}
             types={this.webMapTypes}
-            useDataSources={Imm(webMapSource ? [webMapSource] : [])}
+            useDataSources={Immutable.from(webMapSource ? [webMapSource] : [])}
             onChange={this.onWebMapChange}
             widgetId={this.props.id}
             hideDataView
@@ -238,7 +236,7 @@ export default class Setting extends React.PureComponent<
           <DataSourceSelector
             mustUseDataSource
             types={this.supportedTypes}
-            useDataSources={Imm(featureSources)}
+            useDataSources={Immutable.from(featureSources)}
             onChange={this.onDataSourceChange}
             widgetId={this.props.id}
             hideDataView

@@ -1,9 +1,23 @@
 import { loadArcGISJSAPIModules } from "jimu-arcgis";
+import type FeatureLayer from "esri/layers/FeatureLayer";
+import type Field from "esri/layers/support/Field";
+import { errorMessage } from "./agri-plain-object";
 
 export interface AgriSingletonLayerHandle {
-  layer: any;
+  layer: FeatureLayer;
   fields: string[];
 }
+
+interface EsriRequestErrorShape {
+  httpStatus?: number;
+  details?: { httpStatus?: number };
+}
+
+const readHttpStatus = (err: unknown): number | null => {
+  if (err == null || typeof err !== "object") return null;
+  const shaped = err as EsriRequestErrorShape;
+  return shaped.details?.httpStatus ?? shaped.httpStatus ?? null;
+};
 
 type LayerLogFn = (phase: string, detail?: Record<string, unknown>) => void;
 
@@ -22,25 +36,25 @@ export function createSingletonLayerLoader(
       const url = getUrl();
       logFn("load:start", { url });
       layerPromise = (async () => {
-        const [FeatureLayer] = await loadArcGISJSAPIModules([
+        const [FeatureLayerCtor] = (await loadArcGISJSAPIModules([
           "esri/layers/FeatureLayer",
-        ]);
-        const layer = new FeatureLayer({ url });
+        ])) as [typeof FeatureLayer];
+        const layer = new FeatureLayerCtor({ url });
         await layer.load();
-        const fields: string[] = (layer.fields || []).map((f: any) => f.name);
+        const fields: string[] = (layer.fields || []).map((f: Field) => f.name);
         logFn("load:success", {
           url,
-          title: (layer as any)?.title,
+          title: layer.title,
           fieldCount: fields.length,
           fields,
         });
         return { layer, fields };
-      })().catch((err) => {
+      })().catch((err: unknown) => {
         layerPromise = null;
         logFn("load:FAILED", {
           url,
-          error: String(err?.message || err),
-          status: err?.details?.httpStatus ?? err?.httpStatus ?? null,
+          error: errorMessage(err),
+          status: readHttpStatus(err),
         });
         throw err;
       });

@@ -8,6 +8,7 @@ import {
   React,
 } from "jimu-core";
 import throttle from "lodash/throttle";
+import type { DebouncedFunc } from "lodash";
 import AgriDashboardSpinner from "../../../shared/AgriDashboardSpinner";
 import AgriAnimatedCount from "../../../shared/AgriAnimatedCount";
 import {
@@ -129,7 +130,7 @@ export interface IndicatorConfig {
   showFeatureCount?: boolean;
   showLastUpdate?: boolean;
   showFilterSummary?: boolean;
-  iconImage?: any;
+  iconImage?: unknown;
 
   // styling overrides (optional)
   backgroundColor?: string;
@@ -142,6 +143,9 @@ export interface IndicatorConfig {
   // auto refresh
   autoRefresh?: boolean;
   refreshInterval?: number; // minutes
+
+  /** Card sits on top of the map (transparent chrome). */
+  mapOverlayMode?: boolean;
 }
 
 import { FILTER_FIELDS } from "./indicator-constants";
@@ -231,45 +235,45 @@ import {
 } from "./components/render-panel";
 import type { IndicatorWidgetHost } from "./indicator-host";
 export default class VegetationStatsWidget extends React.PureComponent<
-  AllWidgetProps<any>,
+  AllWidgetProps<IndicatorConfig>,
   VegetationStatsWidgetState
-> {
-  private throttledFetchData: any;
-  private MAX_CONNECTION_ATTEMPTS = MAX_MAP_CONNECTION_ATTEMPTS;
-  private initializationTimer: any;
-  private _mapConnectionPromise: Promise<void> | null = null;
-  private refreshTimer: any;
-  private _abortController: AbortController | null = null;
-  private _isMounted = false;
-  private _requestId = 0;
-  private _unbindMasterFilter: (() => void) | null = null;
+> implements IndicatorWidgetHost {
+  throttledFetchData: DebouncedFunc<(forceRefresh?: boolean) => Promise<void>>;
+  MAX_CONNECTION_ATTEMPTS = MAX_MAP_CONNECTION_ATTEMPTS;
+  initializationTimer: ReturnType<typeof setTimeout> | null = null;
+  _mapConnectionPromise: Promise<void> | null = null;
+  refreshTimer: ReturnType<typeof setInterval> | null = null;
+  _abortController: AbortController | null = null;
+  _isMounted = false;
+  _requestId = 0;
+  _unbindMasterFilter: (() => void) | null = null;
   /** Timestamp of the last masterFilterChanged event — used to skip auto-refresh
    * when a filter change already triggered refreshData() recently. */
-  private _lastFilterEventMs = 0;
-  private _onReset: () => void;
-  private _isResetting = false;
-  private _lastMasterFilterTs = 0;
-  private _lastMasterFilterBroadcastGeneration = 0;
-  private _canonicalFeatureLayer?: __esri.FeatureLayer;
+  _lastFilterEventMs = 0;
+  _onReset: () => void;
+  _isResetting = false;
+  _lastMasterFilterTs = 0;
+  _lastMasterFilterBroadcastGeneration = 0;
+  _canonicalFeatureLayer?: __esri.FeatureLayer;
 
   // Viloyat routing cache (viloyat normalized key -> index in `this.state.featureLayers`)
-  private _viloyatKeyToLayerIndex: Record<string, number> = {};
-  private _containerRef = React.createRef<HTMLDivElement>();
-  private _resizeObserver: ResizeObserver | null = null;
+  _viloyatKeyToLayerIndex: Record<string, number> = {};
+  _containerRef = React.createRef<HTMLDivElement>();
+  _resizeObserver: ResizeObserver | null = null;
 
-  private labelNoValue = (): string => {
-    return labelNoValue(this as unknown as IndicatorWidgetHost);
+  labelNoValue = (): string => {
+    return labelNoValue(this);
   };
 
-  private translateKnownError = (msg: string): string => {
-    return translateKnownError(this as unknown as IndicatorWidgetHost, msg);
+  translateKnownError = (msg: string): string => {
+    return translateKnownError(this, msg);
   };
 
-  private handleLanguageChange = (event: Event) => {
-    return handleLanguageChange(this as unknown as IndicatorWidgetHost, event);
+  handleLanguageChange = (event: Event) => {
+    return handleLanguageChange(this, event);
   };
 
-  constructor(props: AllWidgetProps<any>) {
+  constructor(props: AllWidgetProps<IndicatorConfig>) {
     super(props);
 
     const initialLanguage = resolveInitialLanguage();
@@ -381,47 +385,47 @@ export default class VegetationStatsWidget extends React.PureComponent<
     };
   }
 
-  private normalizeUzbekForApi = (s: string): string => {
-    return normalizeUzbekForApi(this as unknown as IndicatorWidgetHost, s);
+  normalizeUzbekForApi = (s: string): string => {
+    return normalizeUzbekForApi(this, s);
   };
 
-  private getFieldType = (name: string): string | null => {
-    return getFieldType(this as unknown as IndicatorWidgetHost, name);
+  getFieldType = (name: string): string | null => {
+    return getFieldType(this, name);
   };
 
-  private nz = (field: string) => {
-    return nz(this as unknown as IndicatorWidgetHost, field);
+  nz = (field: string) => {
+    return nz(this, field);
   };
 
-  private makeApostropheVariants = (s: string): string[] => {
-    return makeApostropheVariants(this as unknown as IndicatorWidgetHost, s);
+  makeApostropheVariants = (s: string): string[] => {
+    return makeApostropheVariants(this, s);
   };
 
-  private makeDistrictSuffixVariants = (raw: string): string[] => {
-    return makeDistrictSuffixVariants(this as unknown as IndicatorWidgetHost, raw);
+  makeDistrictSuffixVariants = (raw: string): string[] => {
+    return makeDistrictSuffixVariants(this, raw);
   };
 
-  private makeRegionSuffixVariants = (raw: string): string[] => {
-    return makeRegionSuffixVariants(this as unknown as IndicatorWidgetHost, raw);
+  makeRegionSuffixVariants = (raw: string): string[] => {
+    return makeRegionSuffixVariants(this, raw);
   };
 
-  private normalizeTurlar(raw: unknown, fallback = ""): string[] {
-    return normalizeTurlar(this as unknown as IndicatorWidgetHost, raw, fallback);
+  normalizeTurlar(raw: unknown, fallback = ""): string[] {
+    return normalizeTurlar(this, raw, fallback);
   }
 
-  private buildTurlarClause(field: string, values: string[]): string {
-    return buildTurlarClause(this as unknown as IndicatorWidgetHost, field, values);
+  buildTurlarClause(field: string, values: string[]): string {
+    return buildTurlarClause(this, field, values);
   }
   componentDidMount() {
-    return componentDidMount(this as unknown as IndicatorWidgetHost);
+    return componentDidMount(this);
   }
 
-  private shouldFetchForViloyat(): boolean {
-    return shouldFetchForViloyat(this as unknown as IndicatorWidgetHost);
+  shouldFetchForViloyat(): boolean {
+    return shouldFetchForViloyat(this);
   }
 
-  private handleMasterFilterChanged = (event: Event) => {
-    return handleMasterFilterChanged(this as unknown as IndicatorWidgetHost, event);
+  handleMasterFilterChanged = (event: Event) => {
+    return handleMasterFilterChanged(this, event);
   };
 
   /**
@@ -429,69 +433,69 @@ export default class VegetationStatsWidget extends React.PureComponent<
    * Agri_table_data join. `_vhJoinSource` keeps the exact array reference the
    * expansion was computed from so a stale expansion is never applied.
    */
-  private _vhJoinSource: string[] | null = null;
-  private _vhJoinExpanded: string[] | null = null;
+  _vhJoinSource: string[] | null = null;
+  _vhJoinExpanded: string[] | null = null;
 
-  private prepareVhJoinIds = async (ids: string[] | null): Promise<void> => {
-    return prepareVhJoinIds(this as unknown as IndicatorWidgetHost, ids);
+  prepareVhJoinIds = async (ids: string[] | null): Promise<void> => {
+    return prepareVhJoinIds(this, ids);
   };
 
   componentWillUnmount() {
-    return componentWillUnmount(this as unknown as IndicatorWidgetHost);
+    return componentWillUnmount(this);
   }
 
   componentDidUpdate(
-    prevProps: AllWidgetProps<any>,
+    prevProps: AllWidgetProps<IndicatorConfig>,
     prevState: VegetationStatsWidgetState,
   ) {
-    return componentDidUpdate(this as unknown as IndicatorWidgetHost, prevProps, prevState);
+    return componentDidUpdate(this, prevProps, prevState);
   }
 
   // =========================
   // External event handlers
   // =========================
 
-  private handleExternalCategory = async (event: CustomEvent) => {
-    return handleExternalCategory(this as unknown as IndicatorWidgetHost, event);
+  handleExternalCategory = async (event: CustomEvent) => {
+    return handleExternalCategory(this, event);
   };
 
-  handleConstructionYearChanged = (event: any) => {
-    return handleConstructionYearChanged(this as unknown as IndicatorWidgetHost, event);
+  handleConstructionYearChanged = (event: Event) => {
+    return handleConstructionYearChanged(this, event);
   };
 
-  handleRegionChange = (event: any): void => {
-    return handleRegionChange(this as unknown as IndicatorWidgetHost, event);
+  handleRegionChange = (event: Event): void => {
+    return handleRegionChange(this, event);
   };
 
-  handleYilChange = (event: any): void => {
-    return handleYilChange(this as unknown as IndicatorWidgetHost, event);
+  handleYilChange = (event: Event): void => {
+    return handleYilChange(this, event);
   };
 
   handleWaterSupplyFilterChange = (event: CustomEvent) => {
-    return handleWaterSupplyFilterChange(this as unknown as IndicatorWidgetHost, event);
+    return handleWaterSupplyFilterChange(this, event);
   };
 
   handleCategorySelection = (event: CustomEvent) => {
-    return handleCategorySelection(this as unknown as IndicatorWidgetHost, event);
+    return handleCategorySelection(this, event);
   };
 
-  handleKadastrFiltersChanged = (event: any) => {
-    return handleKadastrFiltersChanged(this as unknown as IndicatorWidgetHost, event);
+  handleKadastrFiltersChanged = (event: Event) => {
+    return handleKadastrFiltersChanged(this, event);
   };
 
   handleKadastrFiltersReset = () =>
-    handleKadastrFiltersReset(this as unknown as IndicatorWidgetHost);
+    handleKadastrFiltersReset(this);
 
   handleVegetationStatusChange = (event: CustomEvent) => {
-    return handleVegetationStatusChange(this as unknown as IndicatorWidgetHost, event);
+    return handleVegetationStatusChange(this, event);
   };
 
   handleCropTypeChange = (event: CustomEvent) => {
-    return handleCropTypeChange(this as unknown as IndicatorWidgetHost, event);
+    return handleCropTypeChange(this, event);
   };
 
   refreshData = () => {
-    return refreshData(this as unknown as IndicatorWidgetHost);
+    return refreshData(this);
   };
 
   // =========================
@@ -499,7 +503,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   readFiltersFromUrl(): void {
-    return readFiltersFromUrl(this as unknown as IndicatorWidgetHost);
+    return readFiltersFromUrl(this);
   }
 
   // =========================
@@ -507,58 +511,58 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   ensureInitialization = () => {
-    return ensureInitialization(this as unknown as IndicatorWidgetHost);
+    return ensureInitialization(this);
   };
 
   retryMapConnection() {
-    return retryMapConnection(this as unknown as IndicatorWidgetHost);
+    return retryMapConnection(this);
   }
 
   onActiveViewChange = (jimuMapView: JimuMapView) => {
-    return onActiveViewChange(this as unknown as IndicatorWidgetHost, jimuMapView);
+    return onActiveViewChange(this, jimuMapView);
   };
 
-  private makeViloyatKeyForRouting = (viloyat: string): string => {
-    return makeViloyatKeyForRouting(this as unknown as IndicatorWidgetHost, viloyat);
+  makeViloyatKeyForRouting = (viloyat: string): string => {
+    return makeViloyatKeyForRouting(this, viloyat);
   };
 
-  private getFeatureLayerForViloyat = (
+  getFeatureLayerForViloyat = (
     viloyat: string,
     layersOverride?: __esri.FeatureLayer[],
   ): __esri.FeatureLayer | undefined => {
-    return getFeatureLayerForViloyat(this as unknown as IndicatorWidgetHost, viloyat, layersOverride);
+    return getFeatureLayerForViloyat(this, viloyat, layersOverride);
   };
 
-  private isRepublicLayer = (layer?: __esri.FeatureLayer): boolean => {
-    return isRepublicLayer(this as unknown as IndicatorWidgetHost, layer);
+  isRepublicLayer = (layer?: __esri.FeatureLayer): boolean => {
+    return isRepublicLayer(this, layer);
   };
 
-  private getDefaultFeatureLayer = (
+  getDefaultFeatureLayer = (
     layersOverride?: __esri.FeatureLayer[],
   ): __esri.FeatureLayer | undefined => {
-    return getDefaultFeatureLayer(this as unknown as IndicatorWidgetHost, layersOverride);
+    return getDefaultFeatureLayer(this, layersOverride);
   };
 
-  private buildViloyatLayerIndex = async (
+  buildViloyatLayerIndex = async (
     layers: __esri.FeatureLayer[],
   ): Promise<void> => {
-    return buildViloyatLayerIndex(this as unknown as IndicatorWidgetHost, layers);
+    return buildViloyatLayerIndex(this, layers);
   };
 
   initializeMapConnection = (jimuMapView: JimuMapView): Promise<void> => {
-    return initializeMapConnection(this as unknown as IndicatorWidgetHost, jimuMapView);
+    return initializeMapConnection(this, jimuMapView);
   };
 
-  private initializeMapConnectionOnce = async (jimuMapView: JimuMapView) => {
-    return initializeMapConnectionOnce(this as unknown as IndicatorWidgetHost, jimuMapView);
+  initializeMapConnectionOnce = async (jimuMapView: JimuMapView) => {
+    return initializeMapConnectionOnce(this, jimuMapView);
   };
 
   onDataSourceCreated = (dataSource: DataSource) => {
-    return onDataSourceCreated(this as unknown as IndicatorWidgetHost, dataSource);
+    return onDataSourceCreated(this, dataSource);
   };
 
-  onDataSourceInfoChange = (info: any) => {
-    return onDataSourceInfoChange(this as unknown as IndicatorWidgetHost, info);
+  onDataSourceInfoChange = (info: unknown) => {
+    return onDataSourceInfoChange(this, info);
   };
 
   // =========================
@@ -566,32 +570,32 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   buildWhereClause(includeViloyat = true): string {
-    return buildWhereClause(this as unknown as IndicatorWidgetHost, includeViloyat);
+    return buildWhereClause(this, includeViloyat);
   }
 
   // =========================
   // API url builder
   // =========================
 
-  private buildApiUrl(): string {
-    return buildApiUrl(this as unknown as IndicatorWidgetHost);
+  buildApiUrl(): string {
+    return buildApiUrl(this);
   }
 
   // =========================
   // Grouped stats
   // =========================
 
-  private async fetchGroupedStats(): Promise<void> {
-    return fetchGroupedStats(this as unknown as IndicatorWidgetHost);
+  async fetchGroupedStats(): Promise<void> {
+    return fetchGroupedStats(this);
   }
 
-  private async fetchGroupedFirst(
+  async fetchGroupedFirst(
     featureLayer: __esri.FeatureLayer,
     groupField: string,
     valueField: string,
     _outName: string,
   ): Promise<void> {
-    return fetchGroupedFirst(this as unknown as IndicatorWidgetHost, featureLayer, groupField, valueField, _outName);
+    return fetchGroupedFirst(this, featureLayer, groupField, valueField, _outName);
   }
 
   // =========================
@@ -599,7 +603,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   fetchApiData = async () => {
-    return fetchApiData(this as unknown as IndicatorWidgetHost);
+    return fetchApiData(this);
   };
 
   // =========================
@@ -607,7 +611,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   fetchData = async (_forceRefresh?: boolean) => {
-    return fetchData(this as unknown as IndicatorWidgetHost, _forceRefresh);
+    return fetchData(this, _forceRefresh);
   };
 
   // =========================
@@ -615,15 +619,15 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   setupAutoRefresh() {
-    return setupAutoRefresh(this as unknown as IndicatorWidgetHost);
+    return setupAutoRefresh(this);
   }
 
-  private initializeTheme = (): void => {
-    return initializeTheme(this as unknown as IndicatorWidgetHost);
+  initializeTheme = (): void => {
+    return initializeTheme(this);
   };
 
-  handleThemeChange = (event: any): void => {
-    return handleThemeChange(this as unknown as IndicatorWidgetHost, event);
+  handleThemeChange = (event: Event): void => {
+    return handleThemeChange(this, event);
   };
 
   // =========================
@@ -631,7 +635,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   getCustomStyles = () => {
-    return getCustomStyles(this as unknown as IndicatorWidgetHost);
+    return getCustomStyles(this);
   };
 
   // =========================
@@ -639,6 +643,6 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   render() {
-    return render(this as unknown as IndicatorWidgetHost);
+    return render(this);
   }
 }

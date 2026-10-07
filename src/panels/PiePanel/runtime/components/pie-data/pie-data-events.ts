@@ -6,10 +6,11 @@ import { findAreaFieldByPreferredNames, AREA_FIELD_PREFERRED_PIE } from "../../.
 import { getPieCategoryStatsCached } from "../../../../../data/agri-stats-store";
 import type { AgriPieProps, AgriPieState } from "../../widget";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../../shared/map-connection-service";
-import * as echarts from "echarts";
+import { initPieChart, toPieSliceData, type PieSliceClickParams } from "../../echarts-setup";
+import { readPanelEventDetail, toPanelLanguage } from "../../../../panel-filter-detail";
 
 export const handleMasterFilterChange = (host: PieWidgetHost, event: Event) => {
-  const d: any = (event as CustomEvent).detail || {};
+  const d = readPanelEventDetail(event);
   if (!d.filters) return;
 
   if (!host._cropMapsReady) {
@@ -82,8 +83,8 @@ export const handleMasterFilterChange = (host: PieWidgetHost, event: Event) => {
 
   if (nextVh && !hasField("barCategoryValue")) nextBarValue = null;
 
-  const nextLanguage: "uz_cyr" | "uz_lat" | "ru" | "en" = hasField("language")
-    ? (incoming.language as any) || host.state.language || "ru"
+  const nextLanguage = hasField("language")
+    ? toPanelLanguage(incoming.language, host.state.language || "ru")
     : host.state.language;
 
   const effectiveViloyat = host.normalizeName(nextViloyatRaw || "");
@@ -271,7 +272,7 @@ export function findAreaStatisticField(host: PieWidgetHost, fl: __esri.FeatureLa
 }
 export async function queryCategoryStatsJSON(host: PieWidgetHost, fl: __esri.FeatureLayer, where: string, categoryField: string): Promise<Array<{ key: string; value: number }>> {
   const areaField = host.findAreaStatisticField(fl);
-  const oidField = (fl as any)?.objectIdField || "OBJECTID";
+  const oidField = fl?.objectIdField || "OBJECTID";
   return getPieCategoryStatsCached({
     layer: fl,
     where: where || "1=1",
@@ -483,11 +484,11 @@ export const ensurePieChart = (pieHost: PieWidgetHost) => {
   }
 
   if (!pieHost._pieChart) {
-    pieHost._pieChart = echarts.init(host);
+    pieHost._pieChart = initPieChart(host);
     pieHost._pieChartHostEl = host;
-    pieHost._pieChart.on("click", (params: any) => {
+    pieHost._pieChart.on("click", (params: PieSliceClickParams) => {
       if (typeof params?.dataIndex !== "number") return;
-      pieHost.handleSliceClick(params.data || {}, params.dataIndex);
+      pieHost.handleSliceClick(toPieSliceData(params.data), params.dataIndex);
     });
   }
 

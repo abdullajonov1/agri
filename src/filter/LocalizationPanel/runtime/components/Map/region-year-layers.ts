@@ -1,6 +1,16 @@
 import { preloadRegionYearMapImages, refreshRegionYearMapExports, syncRegionYearLayerVisibility, type ShownRegionYearLayer, unlockShownRegionYearFieldScales } from "../../../../../gis/feature-layer-data";
 import { agriLog } from "../localization-log";
 import type { LocalizationHost } from "../host";
+import { errorMessage } from "../../../../../shared/agri-plain-object";
+
+/** LayerView members read while waiting for a MapImage redraw. */
+interface UpdatingLayerViewLike {
+  updating?: boolean;
+  watch?: (
+    path: string,
+    callback: (updating: boolean) => void,
+  ) => { remove?: () => void };
+}
 
 /** Background-warm the selected region's MapImage for the active year. */
 export const warmYearRegionMapImages = (host: LocalizationHost): void => {
@@ -29,7 +39,7 @@ export const warmYearRegionMapImages = (host: LocalizationHost): void => {
  */
 export const setShownRegionYearOpacity = (host: LocalizationHost, opacity: number): void => {
   for (const entry of host._lastShownRegionYearLayers || []) {
-    const layer = (entry as any)?.layer;
+    const layer = entry?.layer;
     if (!layer) continue;
     try {
       // MapImage tiles paint from the parent service opacity; leaf Sublayer
@@ -94,10 +104,10 @@ export const repaintShownRegionYearLayers = (host: LocalizationHost, phase: stri
       tuman: host.state.tuman || "",
       viewScale: Number(host.state.activeMapView?.view?.scale || 0) || null,
     });
-  } catch (error: any) {
+  } catch (error) {
     agriLog("map:settle-repaint:FAILED", {
       phase,
-      error: String(error?.message || error),
+      error: errorMessage(error),
     });
   }
 };
@@ -134,7 +144,7 @@ export const waitForShownRegionYearRedraw = async (
 
   await Promise.all(
     (host._lastShownRegionYearLayers || []).map(async (entry) => {
-      const layer = (entry as any)?.layer;
+      const layer = entry?.layer;
       if (!layer) return;
       if (refresh) {
         try {
@@ -144,7 +154,9 @@ export const waitForShownRegionYearRedraw = async (
         }
       }
       try {
-        const lv: any = await view.whenLayerView(layer);
+        const lv: UpdatingLayerViewLike = await view.whenLayerView(
+          layer as __esri.Layer,
+        );
         if (!lv) return;
 
         // Give the layerView a chance to flip into `updating=true` after
@@ -215,7 +227,10 @@ export function buildWhereForLayer(
   return where;
 }
 
-export const syncShownRegionYearLayers = (host: LocalizationHost, map: any): ShownRegionYearLayer[] => {
+export const syncShownRegionYearLayers = (
+  host: LocalizationHost,
+  map: __esri.Map | null | undefined,
+): ShownRegionYearLayer[] => {
   // Strict: null = no VH uniqueid filter; [] = VH active but zero matches (1=0);
   // non-empty = uniqueid IN (...). Never treat [] as null (that showed all polygons).
   // Deferred first paint: ignore previous uniqueids on the map (turi-only) but

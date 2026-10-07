@@ -17,6 +17,7 @@ import {
   setAgriPersistentCache,
 } from "../data/agri-persistent-cache";
 import { agroV5Log } from "../gis/agri-debug-log";
+import { errorMessage } from "../shared/agri-plain-object";
 
 type PackListener = (pack: DashboardPack) => void;
 
@@ -116,7 +117,7 @@ export function setDashboardPack(next: DashboardPack): void {
       // Panel must not break the store or sibling listeners.
       agroV5Log("dashboardPack:listener-error", {
         phase: pack?.phase,
-        error: String((error as any)?.message ?? error),
+        error: errorMessage(error),
       });
     }
   });

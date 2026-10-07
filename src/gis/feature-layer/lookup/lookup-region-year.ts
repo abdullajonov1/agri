@@ -1,5 +1,9 @@
 import { type ShownRegionYearLayer, clearScaleLimitsOnRegionYearTree, clearFieldLayerScaleLimits, looksLikeRegionYearLayerHaystack, haystackHasKnownRegionToken, getAgriLayerMapKey } from "../primitives";
 import { isAgriMapLayerCandidate } from "./lookup-collect";
+import type { AgriLayerLike, AgriMapLike } from "../../agri-layer-types";
+
+/** GroupLayer exposes `layers`; MapImage / Feature leaves do not. */
+type AgriTreeNode = AgriLayerLike & Pick<AgriMapLike, "layers">;
 
 /** Public: re-unlock scales on already-shown region-year layers (post-load). */
 export function unlockShownRegionYearFieldScales(
@@ -16,11 +20,13 @@ export function unlockShownRegionYearFieldScales(
  * Collect only per-region field leaves (never the republic aggregate container).
  * Safe: does not toggle visibility and does not request exports.
  */
-export function collectRegionYearLeafLayers(map: any): any[] {
-  const out: any[] = [];
-  const seen = new Set<any>();
+export function collectRegionYearLeafLayers(
+  map: AgriMapLike,
+): AgriLayerLike[] {
+  const out: AgriLayerLike[] = [];
+  const seen = new Set<AgriLayerLike>();
 
-  const consider = (layer: any): void => {
+  const consider = (layer: AgriTreeNode | null | undefined): void => {
     if (!layer || seen.has(layer)) return;
     seen.add(layer);
     const type = String(layer?.type || "").toLowerCase();
@@ -60,14 +66,16 @@ export function collectRegionYearLeafLayers(map: any): any[] {
   return out;
 }
 /** Collect every queryable field layer on the map (feature + map-image sublayers). */
-export function getAllFeatureLayersFromMap(map: any): any[] {
+export function getAllFeatureLayersFromMap(
+  map: AgriMapLike | null | undefined,
+): AgriLayerLike[] {
   if (!map) return [];
-  const layers: any[] =
+  const layers: AgriLayerLike[] =
     map.allLayers?.toArray?.() || map.layers?.toArray?.() || [];
-  const result: any[] = [];
+  const result: AgriLayerLike[] = [];
   const seen = new Set<string>();
 
-  const push = (layer: any): void => {
+  const push = (layer: AgriLayerLike): void => {
     if (!isAgriMapLayerCandidate(layer)) return;
     const key = getAgriLayerMapKey(layer);
     if (!key || seen.has(key)) return;
@@ -75,7 +83,7 @@ export function getAllFeatureLayersFromMap(map: any): any[] {
     result.push(layer);
   };
 
-  const walk = (node: any): void => {
+  const walk = (node: AgriLayerLike | null | undefined): void => {
     if (!node) return;
     push(node);
     const subs =

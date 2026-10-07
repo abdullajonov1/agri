@@ -1,12 +1,13 @@
-import type { LocalizationHost } from "../../host";
+import type { LocalizationConfig, LocalizationHost } from "../../host";
 import { buildNdviTableWhereWithRegion } from "../../../../../localization/map-where-clauses";
 import { normalizeUniqueidKey } from "../../../../../../data/agri-uniqueid-sql";
 import { shouldForceRegionYearMapExportRefresh, decideVhUniqueIdApplyPhase, isAgriTableDataUrl, augmentWhereWithNdviClauses, pickPrimaryWhereForSpatialJoin, spatialWhereFromPrimarySync } from "../../../../../localization/map-filter-apply";
 import { ensureRegionYearMapImagesReady, unlockShownRegionYearFieldScales, refreshRegionYearMapExports, isMapImageOwnedLayer, getDetachedQueryLayerFor } from "../../../../../../gis/feature-layer-data";
 import { getAgriTableDataUrl, buildSpatialJoinWhere, queryAgriUniqueIdsForWhere } from "../../../../../../gis/agri-table-data-source";
 import { buildDefinitionExpressionDigest, isEmptyMapExtent } from "../../../../../localization/map-zoom-policy";
-import { agriLog } from "../../localization-log";
+import { agriLog, debugCatch } from "../../localization-log";
 import { collectShownRegionYearQueryTargets, readQueryableDefinitionExpression, unionMapExtents } from "../../../../../localization/map-shown-extent";
+import { errorMessage } from "../../../../../../shared/agri-plain-object";
 
 /** Tell the dashboard shell to show/hide the "no data found" map overlay. */
 export const setMapNoData = (host: LocalizationHost, noData: boolean, reason: string): void => {
@@ -71,12 +72,12 @@ export const getPolygonAreasWithCurrentFilter = async (host: LocalizationHost, o
     primaryLayer,
   );
   if (!where || where === "1=0") return new Map();
-  const layerKey = String((primaryLayer as any).url || primaryLayer.id || "");
+  const layerKey = String(primaryLayer.url || primaryLayer.id || "");
   const cacheKey = `${layerKey}|turi=${includeTuri ? 1 : 0}|${where}`;
   const cached = host._polygonAreaQueryCache.get(cacheKey);
   if (cached) return cached;
 
-  const cfg = (host.props.config || {}) as any;
+  const cfg = (host.props.config || {}) as LocalizationConfig;
   const requestedJoinField =
     (cfg.polygonJoinField || "uniqueid").trim() || "uniqueid";
   const polygonJoinField =
@@ -95,14 +96,15 @@ export const getPolygonAreasWithCurrentFilter = async (host: LocalizationHost, o
     let lastOid = -1;
     let completed = false;
     for (let page = 0; page < 250 && host._isMounted; page++) {
-      const q = primaryLayer.createQuery();
-      (q as any).where =
+      const q: __esri.Query & { resultRecordCount?: number } =
+        primaryLayer.createQuery();
+      q.where =
         lastOid < 0 ? where : `(${where}) AND ${oidField} > ${lastOid}`;
-      (q as any).outFields = [oidField, polygonJoinField, areaField];
-      (q as any).returnGeometry = false;
-      (q as any).orderByFields = [`${oidField} ASC`];
-      (q as any).num = pageSize;
-      (q as any).resultRecordCount = pageSize;
+      q.outFields = [oidField, polygonJoinField, areaField];
+      q.returnGeometry = false;
+      q.orderByFields = [`${oidField} ASC`];
+      q.num = pageSize;
+      q.resultRecordCount = pageSize;
 
       const res = await primaryLayer.queryFeatures(q);
       const features = res?.features ?? [];
@@ -252,7 +254,7 @@ export async function applyFiltersPersistent(
   if (featureLayers?.length) {
     featureLayers.forEach((fl) => {
       const isAgriTable = isAgriTableDataUrl(
-        (fl as any)?.url || getAgriTableDataUrl(),
+        fl?.url || getAgriTableDataUrl(),
       );
       // Charts query Agri_table_data in republic mode (year only).
       // Map polygons still stay hidden until a viloyat is selected.
@@ -311,7 +313,7 @@ export async function applyFiltersPersistent(
     const effectiveViloyat = effectiveViloyatForTable;
     const layerDebug = featureLayers.map((fl) => {
       const key = host.getLayerKey(fl);
-      const title = ((fl as any)?.title || (fl as any)?.id || key).toString();
+      const title = (fl?.title || fl?.id || key).toString();
       const matchState = host.getLayerMatchStateForViloyat(
         fl,
         effectiveViloyat,
@@ -320,10 +322,10 @@ export async function applyFiltersPersistent(
         title,
         matchState,
         definitionExpression: fl.definitionExpression || "1=0",
-        visible: (fl as any)?.visible,
-        minScale: (fl as any)?.minScale,
-        maxScale: (fl as any)?.maxScale,
-        effectiveScale: (host.state.activeMapView?.view as any)?.scale,
+        visible: fl?.visible,
+        minScale: fl?.minScale,
+        maxScale: fl?.maxScale,
+        effectiveScale: host.state.activeMapView?.view?.scale,
       };
     });
     const activeLayerTitles = layerDebug
@@ -334,7 +336,15 @@ export async function applyFiltersPersistent(
     featureLayers || [],
   );
 }
-export const zoomToSelectedDistrict = async (host: LocalizationHost, view: any): Promise<boolean> => {
+/** View animation members read before a district goTo (MapView exposes them). */
+interface ViewAnimationLike {
+  animation?: { state?: string; stop?: () => void } | null;
+}
+
+export const zoomToSelectedDistrict = async (
+  host: LocalizationHost,
+  view: __esri.MapView | __esri.SceneView,
+): Promise<boolean> => {
   const district = String(host.state.tuman || "").trim();
   if (!district || !view) return false;
 
@@ -349,10 +359,10 @@ export const zoomToSelectedDistrict = async (host: LocalizationHost, view: any):
     shownLayerCount: entries.length,
   });
 
-  let mergedExtent: any = null;
+  let mergedExtent: __esri.Extent | null = null;
   let queriedSublayerCount = 0;
 
-  const extentTasks: Promise<any | null>[] = [];
+  const extentTasks: Promise<__esri.Extent | null>[] = [];
 
   try {
     for (const entry of entries) {
@@ -362,35 +372,37 @@ export const zoomToSelectedDistrict = async (host: LocalizationHost, view: any):
 
       agriLog("zoom:district:layer", {
         district,
-        layer: String((entry.layer as any)?.title || (entry.layer as any)?.id || ""),
+        layer: String(entry.layer?.title || entry.layer?.id || ""),
         sublayerCount: queryTargets.length,
       });
 
       for (const sublayer of queryTargets) {
         extentTasks.push(
-          (async (): Promise<any | null> => {
+          (async (): Promise<__esri.Extent | null> => {
             if (!isCurrent()) return null;
             try {
               const where = readQueryableDefinitionExpression(sublayer);
               if (!where) return null;
 
-              const detached = await getDetachedQueryLayerFor(sublayer);
+              const detached = (await getDetachedQueryLayerFor(
+                sublayer,
+              )) as __esri.FeatureLayer | null;
               if (!detached || !isCurrent()) return null;
               queriedSublayerCount += 1;
 
-              let extent: any = null;
+              let extent: __esri.Extent | null | undefined = null;
               try {
                 const query = detached.createQuery();
                 query.where = where;
                 query.returnGeometry = true;
                 extent = (await detached.queryExtent(query))?.extent;
-              } catch (error: any) {
+              } catch (error) {
                 agriLog("zoom:district:query-extent-failed", {
                   district,
                   sublayer: String(
-                    (sublayer as any)?.title || (sublayer as any)?.id || "",
+                    sublayer?.title || sublayer?.id || "",
                   ),
-                  message: String(error?.message || error),
+                  message: errorMessage(error),
                 });
               }
 
@@ -399,7 +411,7 @@ export const zoomToSelectedDistrict = async (host: LocalizationHost, view: any):
                 query.where = where;
                 query.returnGeometry = true;
                 const objectIdField = String(
-                  (detached as any)?.objectIdField || "OBJECTID",
+                  detached?.objectIdField || "OBJECTID",
                 );
                 query.outFields = [objectIdField];
                 const result = await detached.queryFeatures(query);
@@ -413,13 +425,13 @@ export const zoomToSelectedDistrict = async (host: LocalizationHost, view: any):
               }
 
               return isEmptyExtent(extent) ? null : extent;
-            } catch (error: any) {
+            } catch (error) {
               agriLog("zoom:district:sublayer-failed", {
                 district,
                 sublayer: String(
-                  (sublayer as any)?.title || (sublayer as any)?.id || "",
+                  sublayer?.title || sublayer?.id || "",
                 ),
-                message: String(error?.message || error),
+                message: errorMessage(error),
               });
               return null;
             }
@@ -449,26 +461,28 @@ export const zoomToSelectedDistrict = async (host: LocalizationHost, view: any):
     });
 
     try {
-      const animation = view?.animation;
+      const animation = (view as ViewAnimationLike)?.animation;
       if (animation?.state === "running" && typeof animation.stop === "function") {
         animation.stop();
       }
-    } catch {}
+    } catch (err) {
+      debugCatch("zoom:district:animation-stop-failed", err);
+    }
     if (!isCurrent()) return false;
 
     await view.goTo(mergedExtent.expand(1.03), {
       duration: 700,
-      easing: "ease-in-out" as any,
+      easing: "ease-in-out",
     });
     if (!isCurrent()) return false;
 
     agriLog("zoom:district:goTo", { district });
     return true;
-  } catch (error: any) {
+  } catch (error) {
     if (error?.name !== "AbortError") {
       agriLog("zoom:district:failed", {
         district,
-        message: String(error?.message || error),
+        message: errorMessage(error),
       });
     }
     return false;

@@ -2,8 +2,9 @@
  * Tiny MapImage / region SOATO predicates.
  * Kept separate from the large feature-layer-data orchestration module.
  */
+import type { AgriLayerLike } from "./agri-layer-types";
 
-export function isMapImageSublayer(layer: any): boolean {
+export function isMapImageSublayer(layer: AgriLayerLike | null | undefined): boolean {
   return String(layer?.type || "").toLowerCase() === "sublayer";
 }
 
@@ -29,10 +30,10 @@ const AGRI_ADMIN_BOUNDARY_URL_RE =
  * them — otherwise a map click resolves to a tuman polygon (no uniqueid) and
  * neither the popup, the zoom nor the vegetation overlay can work.
  */
-export function isAgriAdminBoundaryLayer(layer: any): boolean {
+export function isAgriAdminBoundaryLayer(layer: AgriLayerLike | null | undefined): boolean {
   if (!layer) return false;
-  const seen = new Set<any>();
-  let current: any = layer;
+  const seen = new Set<AgriLayerLike>();
+  let current: AgriLayerLike | null | undefined = layer;
   while (current && !seen.has(current)) {
     seen.add(current);
     const id = String(current?.id || "").trim();
@@ -62,7 +63,9 @@ export function isRegionSoatoCode(value: string): boolean {
  * MapImage-owned leaves should refresh the parent service only.
  * Refreshing both leaf + parent cancels the first MapServer export.
  */
-export function shouldRefreshMapImageParentOnly(layer: any): boolean {
+export function shouldRefreshMapImageParentOnly(
+  layer: AgriLayerLike | null | undefined,
+): boolean {
   if (!layer) return false;
   const type = String(layer?.type || "").toLowerCase();
   if (type === "map-image") return true;

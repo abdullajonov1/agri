@@ -31,85 +31,124 @@ export type GraffRegionalTimeseriesRow = {
   ndwi_min: number;
   ndwi_max: number;
   polygon_count: number;
-  [key: string]: any;
+  [key: string]: unknown;
 };
+
+const GRAFF_AVERAGE_FIELDS = ["ndvi", "savi", "rvi", "ci", "evi", "ndwi"] as const;
+const GRAFF_RANGE_FIELDS = ["ndvi", "savi", "rvi", "ci", "ndwi"] as const;
+
+type GraffMergeBucket = {
+  /** First row seen for the date — carries non-index columns through. */
+  base: GraffRegionalTimeseriesRow;
+  polygonCount: number;
+  sums: Record<string, number>;
+  weights: Record<string, number>;
+  mins: Record<string, number>;
+  maxs: Record<string, number>;
+};
+
+/** Row date (ISO string, YMD, epoch s/ms) → `YYYY-MM-DD`, or null. */
+function graffRowYmd(rawValue: unknown): string | null {
+  const rawDate = String(rawValue ?? "").trim();
+  let parsedDate: Date;
+  if (typeof rawValue === "number" || /^\d{10,13}$/.test(rawDate)) {
+    const epoch = Number(rawValue);
+    parsedDate = new Date(rawDate.length === 10 ? epoch * 1000 : epoch);
+  } else {
+    parsedDate = new Date(rawDate);
+  }
+  if (Number.isNaN(parsedDate.getTime())) return null;
+  return parsedDate.toISOString().slice(0, 10) || null;
+}
+
+const toFiniteOrNaN = (raw: unknown): number =>
+  raw == null ? Number.NaN : Number(raw);
+
+function newGraffMergeBucket(row: GraffRegionalTimeseriesRow): GraffMergeBucket {
+  const bucket: GraffMergeBucket = {
+    base: row,
+    polygonCount: 0,
+    sums: {},
+    weights: {},
+    mins: {},
+    maxs: {},
+  };
+  GRAFF_AVERAGE_FIELDS.forEach((field) => {
+    bucket.sums[field] = 0;
+    bucket.weights[field] = 0;
+  });
+  GRAFF_RANGE_FIELDS.forEach((field) => {
+    bucket.mins[field] = Number.POSITIVE_INFINITY;
+    bucket.maxs[field] = Number.NEGATIVE_INFINITY;
+  });
+  return bucket;
+}
+
+function addRowToGraffBucket(
+  bucket: GraffMergeBucket,
+  row: GraffRegionalTimeseriesRow,
+): void {
+  const polygonCount = Math.max(0, Number(row.polygon_count) || 0);
+  const weight = polygonCount || 1;
+  bucket.polygonCount += polygonCount;
+  GRAFF_AVERAGE_FIELDS.forEach((field) => {
+    const value = toFiniteOrNaN(row[field]);
+    if (!Number.isFinite(value)) return;
+    bucket.sums[field] += value * weight;
+    bucket.weights[field] += weight;
+  });
+  GRAFF_RANGE_FIELDS.forEach((field) => {
+    const minValue = toFiniteOrNaN(row[`${field}_min`]);
+    const maxValue = toFiniteOrNaN(row[`${field}_max`]);
+    if (Number.isFinite(minValue)) {
+      bucket.mins[field] = Math.min(bucket.mins[field], minValue);
+    }
+    if (Number.isFinite(maxValue)) {
+      bucket.maxs[field] = Math.max(bucket.maxs[field], maxValue);
+    }
+  });
+}
+
+function finishGraffBucket(
+  date: string,
+  bucket: GraffMergeBucket,
+): GraffRegionalTimeseriesRow {
+  const out: Record<string, unknown> = {
+    ...bucket.base,
+    date,
+    polygon_count: bucket.polygonCount,
+  };
+  GRAFF_AVERAGE_FIELDS.forEach((field) => {
+    const fieldWeight = bucket.weights[field] || 0;
+    out[field] = fieldWeight ? bucket.sums[field] / fieldWeight : null;
+  });
+  GRAFF_RANGE_FIELDS.forEach((field) => {
+    const min = bucket.mins[field];
+    const max = bucket.maxs[field];
+    out[`${field}_min`] = Number.isFinite(min) ? min : 0;
+    out[`${field}_max`] = Number.isFinite(max) ? max : 0;
+  });
+  return out as GraffRegionalTimeseriesRow;
+}
 
 /** Merge per-crop regional timeseries groups (exact GraffPanel algorithm). */
 export function mergeRegionalTimeseriesGroups(
   groups: GraffRegionalTimeseriesRow[][],
 ): GraffRegionalTimeseriesRow[] {
-  const averageFields = ["ndvi", "savi", "rvi", "ci", "evi", "ndwi"] as const;
-  const rangeFields = ["ndvi", "savi", "rvi", "ci", "ndwi"] as const;
-  const buckets = new Map<string, any>();
-
+  const buckets = new Map<string, GraffMergeBucket>();
   for (const row of groups.flat()) {
-    const rawValue: unknown = row.date;
-    const rawDate = String(rawValue ?? "").trim();
-    let parsedDate: Date;
-    if (typeof rawValue === "number" || /^\d{10,13}$/.test(rawDate)) {
-      const epoch = Number(rawValue);
-      parsedDate = new Date(rawDate.length === 10 ? epoch * 1000 : epoch);
-    } else {
-      parsedDate = new Date(rawDate);
-    }
-    if (Number.isNaN(parsedDate.getTime())) continue;
-    const date = parsedDate.toISOString().slice(0, 10);
+    const date = graffRowYmd(row.date);
     if (!date) continue;
     let bucket = buckets.get(date);
     if (!bucket) {
-      bucket = {
-        ...row,
-        date,
-        polygon_count: 0,
-        __fieldWeights: {} as Record<string, number>,
-      };
-      averageFields.forEach((field) => {
-        bucket[field] = 0;
-        bucket.__fieldWeights[field] = 0;
-      });
-      rangeFields.forEach((field) => {
-        bucket[`${field}_min`] = Number.POSITIVE_INFINITY;
-        bucket[`${field}_max`] = Number.NEGATIVE_INFINITY;
-      });
+      bucket = newGraffMergeBucket(row);
       buckets.set(date, bucket);
     }
-
-    const polygonCount = Math.max(0, Number(row.polygon_count) || 0);
-    const weight = polygonCount || 1;
-    bucket.polygon_count += polygonCount;
-    averageFields.forEach((field) => {
-      const raw = row[field];
-      const value = raw == null ? Number.NaN : Number(raw);
-      if (!Number.isFinite(value)) return;
-      bucket[field] += value * weight;
-      bucket.__fieldWeights[field] += weight;
-    });
-    rangeFields.forEach((field) => {
-      const minRaw = row[`${field}_min`];
-      const maxRaw = row[`${field}_max`];
-      const minValue = minRaw == null ? Number.NaN : Number(minRaw);
-      const maxValue = maxRaw == null ? Number.NaN : Number(maxRaw);
-      if (Number.isFinite(minValue)) {
-        bucket[`${field}_min`] = Math.min(bucket[`${field}_min`], minValue);
-      }
-      if (Number.isFinite(maxValue)) {
-        bucket[`${field}_max`] = Math.max(bucket[`${field}_max`], maxValue);
-      }
-    });
+    addRowToGraffBucket(bucket, row);
   }
-
-  return Array.from(buckets.values()).map((bucket) => {
-    averageFields.forEach((field) => {
-      const fieldWeight = Number(bucket.__fieldWeights[field]) || 0;
-      bucket[field] = fieldWeight ? bucket[field] / fieldWeight : null;
-    });
-    rangeFields.forEach((field) => {
-      if (!Number.isFinite(bucket[`${field}_min`])) bucket[`${field}_min`] = 0;
-      if (!Number.isFinite(bucket[`${field}_max`])) bucket[`${field}_max`] = 0;
-    });
-    delete bucket.__fieldWeights;
-    return bucket as GraffRegionalTimeseriesRow;
-  });
+  return Array.from(buckets.entries()).map(([date, bucket]) =>
+    finishGraffBucket(date, bucket),
+  );
 }
 
 export function buildGraffRegionalScopeKey(opts: {

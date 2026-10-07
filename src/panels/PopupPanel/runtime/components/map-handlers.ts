@@ -11,6 +11,30 @@ import { discoverMapWidgetIdInApp } from "../../../../gis/agri-linked-map-layout
 import { JimuMapView, MapViewManager } from "jimu-arcgis";
 import { DataSourceManager } from "jimu-core";
 import { getSelectedDsIds } from "../../../../gis/agri-data-source-engine";
+import type {
+  AgriLayerLike,
+  PopupJimuLayerViewLike,
+  PopupLanguageDetail,
+  PopupThemeDetail,
+  PopupUseDataSource,
+} from "../popup-types";
+import { asDataSourceLike, readSupportsAttachments } from "../popup-type-guards";
+
+type MaybeLayer = AgriLayerLike | null | undefined;
+
+/** `props.useMapWidgetIds` read defensively (ImmutableArray or plain array). */
+interface MapWidgetIdList {
+  length?: number;
+  asMutable?(): unknown;
+  toArray?(): unknown;
+}
+
+/** JimuMapView members probed beyond the typed public API. */
+interface JimuMapViewProbe {
+  id?: string;
+  mapWidgetId?: string;
+  getJimuLayerViewByDataSourceId?(dsId: string): PopupJimuLayerViewLike | null | undefined;
+}
 
 /**
  * Off-map FeatureLayer client for a live map layer's URL. Every query in
@@ -22,22 +46,23 @@ import { getSelectedDsIds } from "../../../../gis/agri-data-source-engine";
  * Shared helper also skips MapServer roots and Group Layer folders
  * ("Agri 2026 republic data") that FeatureLayer cannot load.
  */
-export const getDetachedQueryLayer = async (host: PopupWidgetHost, layer: any): Promise<__esri.FeatureLayer | null> => {
+export const getDetachedQueryLayer = async (host: PopupWidgetHost, layer: MaybeLayer): Promise<__esri.FeatureLayer | null> => {
   if (!layer || isMapImageGroupSublayer(layer)) return null;
-  const detached = await getDetachedQueryLayerFor(layer);
+  // The shared helper returns an off-map esri FeatureLayer (typed loosely there).
+  const detached = (await getDetachedQueryLayerFor(layer)) as FeatureLayer | null;
   if (!detached) return null;
   const url = String(layer?.url || "").trim().replace(/\/+$/, "");
   if (url) host._queryOnlyLayers.set(url, detached);
-  return detached as unknown as __esri.FeatureLayer;
+  return detached;
 };
 
 /** Snapshot the live definitionExpression of each layer (pre-hitTest). */
-export function snapshotDefinitionExpressions(host: PopupWidgetHost, layers: Array<__esri.FeatureLayer | any>): Map<any, string> {
-  const snapshot = new Map<any, string>();
+export function snapshotDefinitionExpressions(host: PopupWidgetHost, layers: MaybeLayer[]): Map<AgriLayerLike, string> {
+  const snapshot = new Map<AgriLayerLike, string>();
   for (const layer of layers) {
     if (!layer || snapshot.has(layer)) continue;
     try {
-      snapshot.set(layer, String((layer as any).definitionExpression ?? ""));
+      snapshot.set(layer, String(layer.definitionExpression ?? ""));
     } catch {
       /* ignore */
     }
@@ -50,12 +75,12 @@ export function snapshotDefinitionExpressions(host: PopupWidgetHost, layers: Arr
  * identify / load rehydration) synchronously, before the unfiltered
  * MapImage export can be painted.
  */
-export function restoreDriftedDefinitionExpressions(host: PopupWidgetHost, snapshot: Map<any, string>): void {
+export function restoreDriftedDefinitionExpressions(host: PopupWidgetHost, snapshot: Map<AgriLayerLike, string>): void {
   snapshot.forEach((expression, layer) => {
     try {
-      const current = String((layer as any).definitionExpression ?? "");
+      const current = String(layer.definitionExpression ?? "");
       if (current !== expression) {
-        (layer as any).definitionExpression = expression;
+        layer.definitionExpression = expression;
         agriMapClickWarn("definitionExpression drift restored", {
           layer: layer?.title || layer?.url || layer?.id,
           drifted: current || "<empty>",
@@ -85,7 +110,7 @@ export async function queryFeatureByObjectIdCached(host: PopupWidgetHost, layer:
 
   const job = (async () => {
     const liveDefinitionExpression = String(
-      (layer as any).definitionExpression || "",
+      layer.definitionExpression || "",
     );
 
     // Calling queryFeatures on a live MapImage sublayer can rehydrate that
@@ -111,10 +136,10 @@ export async function queryFeatureByObjectIdCached(host: PopupWidgetHost, layer:
     // never touches the live layer.
     if (
       queryLayer === layer &&
-      String((layer as any).definitionExpression || "") !==
+      String(layer.definitionExpression || "") !==
         liveDefinitionExpression
     ) {
-      (layer as any).definitionExpression = liveDefinitionExpression;
+      layer.definitionExpression = liveDefinitionExpression;
     }
     agriMapClickDebug("feature-query:response", {
       layer: layer.title || layer.url || layer.id,
@@ -123,7 +148,7 @@ export async function queryFeatureByObjectIdCached(host: PopupWidgetHost, layer:
       attributeKeys: Object.keys(res.features?.[0]?.attributes || {}),
       queryMode: queryLayer === layer ? "live-fallback" : "detached",
       liveDefinitionExpression:
-        (layer as any).definitionExpression || null,
+        layer.definitionExpression || null,
     });
     return res.features?.[0] || null;
   })();
@@ -168,13 +193,14 @@ export const setupThemeObserver = (host: PopupWidgetHost): void => {
   });
 };
 
-export const handleThemeChange = (host: PopupWidgetHost, e: any): void => {
+export const handleThemeChange = (host: PopupWidgetHost, e: CustomEvent<PopupThemeDetail> | null | undefined): void => {
   if (!host._isMounted) return;
-  const detail = e?.detail || {};
+  const detail: PopupThemeDetail = e?.detail || {};
   let isDarkTheme = host.getResolvedTheme();
 
-  if (typeof detail.isDarkTheme === "boolean") {
-    isDarkTheme = detail.isDarkTheme;
+  const flag = detail.isDarkTheme;
+  if (typeof flag === "boolean") {
+    isDarkTheme = flag;
   } else if (typeof detail.theme === "string") {
     isDarkTheme = String(detail.theme).toLowerCase() !== "light";
   }
@@ -184,7 +210,7 @@ export const handleThemeChange = (host: PopupWidgetHost, e: any): void => {
   }
 };
 
-export const handleLanguageChange = (host: PopupWidgetHost, e: any): void => {
+export const handleLanguageChange = (host: PopupWidgetHost, e: CustomEvent<PopupLanguageDetail> | null | undefined): void => {
   if (!host._isMounted) return;
   const lang = e?.detail?.lang || e?.detail?.language || e?.detail?.code;
   const normalized = normalizeLang(lang);
@@ -195,26 +221,8 @@ export const handleLanguageChange = (host: PopupWidgetHost, e: any): void => {
 
 /** ✅ NEW: safely detect whether this layer supports attachments */
 export function layerSupportsAttachments(host: PopupWidgetHost, layer: __esri.FeatureLayer | FeatureLayer | null | undefined): boolean {
-  if (!layer) return false;
-
-  // Different JSAPI/EB builds expose it slightly differently
-  const anyLayer: any = layer as any;
-
-  // Common signals
-  if (typeof anyLayer.supportsAttachments === "boolean")
-    return anyLayer.supportsAttachments;
-
-  const cap = anyLayer.capabilities;
-  const supported =
-    cap?.data?.supportsAttachments ??
-    cap?.data?.supportsAttachment ??
-    cap?.operations?.supportsAttachments ??
-    cap?.operations?.supportsAttachment;
-
-  if (typeof supported === "boolean") return supported;
-
-  // Unknown => assume false to avoid ugly warning
-  return false;
+  // Different JSAPI/EB builds expose it slightly differently.
+  return readSupportsAttachments(layer);
 }
 
 export const setupHighlightLayer = (host: PopupWidgetHost, view: __esri.MapView | __esri.SceneView) => {
@@ -304,7 +312,7 @@ export const cleanupHighlight = (host: PopupWidgetHost) => {
 };
 
 export function getLinkedMapWidgetId(host: PopupWidgetHost): string | null {
-  const ids = host.props.useMapWidgetIds as any;
+  const ids: MapWidgetIdList | null | undefined = host.props.useMapWidgetIds;
   const list = ids?.length
     ? ids.asMutable?.() || ids.toArray?.() || ids
     : [];
@@ -335,13 +343,13 @@ export function getMapViewFromManager(host: PopupWidgetHost, mapWidgetId: string
       const active = group?.getActiveJimuMapView?.();
       if (active?.view) return active;
       const groupViews = group?.getAllJimuMapViews?.() || [];
-      const firstLoaded = groupViews.find((view: any) => view?.view);
+      const firstLoaded = groupViews.find((view: JimuMapView | null | undefined) => view?.view);
       if (firstLoaded) return firstLoaded;
     }
     const all = manager.getAllJimuMapViews?.() || [];
     return (
-      all.find((view: any) => view?.view && view?.isActive !== false) ||
-      all.find((view: any) => view?.view) ||
+      all.find((view: JimuMapView | null | undefined) => view?.view && view?.isActive !== false) ||
+      all.find((view: JimuMapView | null | undefined) => view?.view) ||
       null
     );
   } catch {
@@ -395,9 +403,9 @@ export const scheduleMapInitRetry = (host: PopupWidgetHost, jmv: JimuMapView): v
   }, 800);
 };
 
-export function expandUseDataSourceEntries(host: PopupWidgetHost, useList: any[]): any[] {
+export function expandUseDataSourceEntries(host: PopupWidgetHost, useList: PopupUseDataSource[]): PopupUseDataSource[] {
   const dsMgr = DataSourceManager.getInstance();
-  const out: any[] = [];
+  const out: PopupUseDataSource[] = [];
   const seen = new Set<string>();
 
   for (const uds of useList) {
@@ -406,7 +414,7 @@ export function expandUseDataSourceEntries(host: PopupWidgetHost, useList: any[]
     seen.add(id);
     out.push(uds);
 
-    const ds = dsMgr.getDataSource(id) as any;
+    const ds = asDataSourceLike(dsMgr.getDataSource(id));
     const children = ds?.getChildDataSources?.() || [];
     for (const child of children) {
       const childId = String(child?.id || "");
@@ -419,8 +427,8 @@ export function expandUseDataSourceEntries(host: PopupWidgetHost, useList: any[]
   return out;
 }
 
-export const addResolvedLayer = (host: PopupWidgetHost, target: __esri.FeatureLayer[], layerKeyToDsId: Record<string, string>, seen: Set<string>, layer: any, dsId?: string): void => {
-  const queryable = getQueryableLayer(layer) || layer;
+export const addResolvedLayer = (host: PopupWidgetHost, target: __esri.FeatureLayer[], layerKeyToDsId: Record<string, string>, seen: Set<string>, layer: MaybeLayer, dsId?: string): void => {
+  const queryable: MaybeLayer = getQueryableLayer(layer) || layer;
   if (!isQueryableFieldLayer(queryable)) return;
   const key =
     getAgriLayerMapKey(queryable) ||
@@ -431,7 +439,7 @@ export const addResolvedLayer = (host: PopupWidgetHost, target: __esri.FeatureLa
   if (dsId) layerKeyToDsId[key] = dsId;
 };
 
-export const collectLayersFromDataSources = (host: PopupWidgetHost, jmv: JimuMapView, useList: any[]): {
+export const collectLayersFromDataSources = (host: PopupWidgetHost, jmv: JimuMapView, useList: PopupUseDataSource[]): {
     layers: __esri.FeatureLayer[];
     layerKeyToDsId: Record<string, string>;
   } => {
@@ -444,7 +452,7 @@ export const collectLayersFromDataSources = (host: PopupWidgetHost, jmv: JimuMap
     const dsId = String(uds?.dataSourceId || "");
     if (!dsId) continue;
 
-    const cachedDs = host.state.dataSourcesById?.[dsId] as any;
+    const cachedDs = asDataSourceLike(host.state.dataSourcesById?.[dsId]);
     if (cachedDs) {
       const cachedLayer =
         cachedDs.layer ||
@@ -456,7 +464,7 @@ export const collectLayersFromDataSources = (host: PopupWidgetHost, jmv: JimuMap
     }
 
     const dsMgr = DataSourceManager.getInstance();
-    const ds = dsMgr.getDataSource(dsId) as any;
+    const ds = asDataSourceLike(dsMgr.getDataSource(dsId));
     if (ds) {
       const dsLayer =
         (typeof ds.getLayer === "function" ? ds.getLayer() : null) ||
@@ -498,9 +506,8 @@ export const onActiveViewChange = (host: PopupWidgetHost, jimuMapView: JimuMapVi
     host.observeMapAreaResize(activeView);
   }
 
-  const viewId = String(
-    (jimuMapView as any).id || (jimuMapView as any).mapWidgetId || "",
-  );
+  const viewProbe: JimuMapViewProbe = jimuMapView;
+  const viewId = String(viewProbe.id || viewProbe.mapWidgetId || "");
   // Same map already wired — do not setState again (causes freeze loops).
   if (viewId && viewId === host.connectedMapViewId && host.state.jimuMapView) {
     if (!host._clickHandle) host.attachMapClick(jimuMapView);
@@ -541,7 +548,7 @@ export const initializeMapConnection = async (host: PopupWidgetHost, jmv: JimuMa
   const view = jmv?.view;
   if (!view || !view.map) return;
 
-  const rawList = (host.props.useDataSources?.asMutable?.() as any[]) || [];
+  const rawList: PopupUseDataSource[] = host.props.useDataSources?.asMutable?.() || [];
   const useList = host.expandUseDataSourceEntries(rawList);
   // Empty useDataSources is normal right after drop — resolve map layers only.
   // Never bounce through scheduleMapViewFallback here (that re-entered
@@ -649,7 +656,7 @@ export const initializeMapConnection = async (host: PopupWidgetHost, jmv: JimuMa
   );
 };
 
-export const toLiveMapLayer = (host: PopupWidgetHost, layer: any, map: __esri.Map | null | undefined): __esri.FeatureLayer | null => {
+export const toLiveMapLayer = (host: PopupWidgetHost, layer: MaybeLayer, map: __esri.Map | null | undefined): __esri.FeatureLayer | null => {
   if (!layer) return null;
   const url = String(layer?.url || "");
   if (map && url) {
@@ -660,11 +667,11 @@ export const toLiveMapLayer = (host: PopupWidgetHost, layer: any, map: __esri.Ma
     const byId = findQueryableLayerOnMapById(map, String(layer.id));
     if (byId) return byId as __esri.FeatureLayer;
   }
-  const queryable = getQueryableLayer(layer);
+  const queryable: MaybeLayer = getQueryableLayer(layer);
   return (queryable || layer) as __esri.FeatureLayer;
 };
 
-export const layerKeysMatch = (host: PopupWidgetHost, a: any, b: any): boolean => {
+export const layerKeysMatch = (host: PopupWidgetHost, a: MaybeLayer, b: MaybeLayer): boolean => {
   if (!a || !b) return false;
   const keyA = getAgriLayerMapKey(a);
   const keyB = getAgriLayerMapKey(b);
@@ -678,7 +685,7 @@ export const layerKeysMatch = (host: PopupWidgetHost, a: any, b: any): boolean =
 };
 
 /** Resolve the live map layer for a selected useDataSource (FeatureLayer or MapImage sublayer). */
-export const resolveFeatureLayerForUseDataSource = async (host: PopupWidgetHost, jmv: JimuMapView, useDs: any): Promise<__esri.FeatureLayer | null> => {
+export const resolveFeatureLayerForUseDataSource = async (host: PopupWidgetHost, jmv: JimuMapView, useDs: PopupUseDataSource | null | undefined): Promise<__esri.FeatureLayer | null> => {
   try {
     if (!useDs?.dataSourceId) return null;
 
@@ -686,11 +693,12 @@ export const resolveFeatureLayerForUseDataSource = async (host: PopupWidgetHost,
     const map = jmv?.view?.map;
     if (!map) return null;
 
-    const jlvByApi = (jmv as any).getJimuLayerViewByDataSourceId?.(dsId);
-    const fromApi = getQueryableLayer(jlvByApi?.layer);
+    const jmvProbe: JimuMapViewProbe = jmv;
+    const jlvByApi = jmvProbe.getJimuLayerViewByDataSourceId?.(dsId);
+    const fromApi: MaybeLayer = getQueryableLayer(jlvByApi?.layer);
     if (fromApi) return host.toLiveMapLayer(fromApi, map);
 
-    const jlvList: any[] = jmv.getAllJimuLayerViews?.() || [];
+    const jlvList: PopupJimuLayerViewLike[] = jmv.getAllJimuLayerViews?.() || [];
     const layerIdHint = extractMapLayerIdFromDsId(dsId);
 
     for (const lv of jlvList) {
@@ -698,7 +706,7 @@ export const resolveFeatureLayerForUseDataSource = async (host: PopupWidgetHost,
         lv?.layerDataSourceId === dsId ||
         lv?.dataSourceId === dsId
       ) {
-        const resolved = getQueryableLayer(lv?.layer);
+        const resolved: MaybeLayer = getQueryableLayer(lv?.layer);
         if (resolved) return host.toLiveMapLayer(resolved, map);
       }
     }
@@ -707,12 +715,12 @@ export const resolveFeatureLayerForUseDataSource = async (host: PopupWidgetHost,
       const match = jlvList.find(
         (lv) => String(lv?.layer?.id || "") === layerIdHint,
       );
-      const resolved = getQueryableLayer(match?.layer);
+      const resolved: MaybeLayer = getQueryableLayer(match?.layer);
       if (resolved) return host.toLiveMapLayer(resolved, map);
     }
 
     const dsMgr = DataSourceManager.getInstance();
-    const ds: any = dsMgr.getDataSource(dsId);
+    const ds = asDataSourceLike(dsMgr.getDataSource(dsId));
     if (ds) {
       try {
         if (typeof ds.fetchSchema === "function") await ds.fetchSchema();
@@ -724,7 +732,7 @@ export const resolveFeatureLayerForUseDataSource = async (host: PopupWidgetHost,
         (typeof ds.getLayer === "function" ? ds.getLayer() : null) ||
         ds.layer ||
         (typeof ds.getJimuLayer === "function" ? ds.getJimuLayer() : null);
-      const queryable = getQueryableLayer(dsLayer);
+      const queryable: MaybeLayer = getQueryableLayer(dsLayer);
       if (queryable) {
         const live = host.toLiveMapLayer(queryable, map);
         if (live) return live;

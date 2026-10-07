@@ -5,6 +5,42 @@ import type { VegetationIndiceType } from "../../../../../gis/agri-polygon-api-s
 import { formatArcgisDateToYmd } from "../../../../../gis/agri-vegetation-data-source";
 import { VEGETATION_IMAGE_LAYER_ID } from "../../graff-raster-overlay";
 import { INDEX_COLORS } from "./graph-view";
+import type { ChartVegetationRow } from "../../graff-state";
+import { describeThrown, eventDetail } from "../../graff-guards";
+import { isPlainRecord } from "../../../../../shared/agri-plain-object";
+
+/** Chart rows read by dynamic key (`ndvi`, `ndvi_min`, …). */
+type ChartRowRecord = Record<string, unknown>;
+
+/**
+ * vegetationData rows are shaped differently depending on mode: a selected
+ * polygon's own series uses `raster_date` (VegetationIndex), while the
+ * regional (no-polygon-selected) timeseries normalizes it to `date`.
+ */
+const chartRowYmd = (
+  host: GraffWidgetHost,
+  row: ChartVegetationRow | null | undefined,
+  advertised: string[],
+): string | null => {
+  const rec: ChartRowRecord | undefined = isPlainRecord(row) ? row : undefined;
+  const rawDate = rec?.raster_date ?? rec?.date;
+  if (!rawDate) return null;
+  return (
+    host.resolveAgainstAvailableDates(rawDate, advertised) ||
+    formatArcgisDateToYmd(rawDate) ||
+    null
+  );
+};
+
+const findChartRowByYmd = (
+  host: GraffWidgetHost,
+  rows: ChartVegetationRow[] | null | undefined,
+  advertised: string[],
+  ymd: string,
+): ChartRowRecord | undefined => {
+  const found = (rows || []).find((r) => chartRowYmd(host, r, advertised) === ymd);
+  return isPlainRecord(found) ? found : undefined;
+};
 
 /**
  * Tells the bottom-left map indicator (AgriDateIndexIndicator) which
@@ -55,23 +91,14 @@ export const broadcastDateIndexSelection = (host: GraffWidgetHost): void => {
     lastIndex: selectedChartIndexKey as VegetationIndiceType,
   });
 
-  // vegetationData rows are shaped differently depending on mode: a
-  // selected polygon's own series uses `raster_date` (VegetationIndex),
-  // while the regional (no-polygon-selected) timeseries normalizes it to
-  // `date` (RegionalTimeseriesRow) — checking only raster_date meant the
-  // value always failed to resolve (silently showing "-") whenever a date
-  // was clicked before any polygon was picked, on the initial regional
-  // chart.
-  const row = (vegetationData || []).find((r: any) => {
-    const rawDate = r.raster_date ?? r.date;
-    if (!rawDate) return false;
-    const ymd =
-      host.resolveAgainstAvailableDates(
-        rawDate,
-        polygonAvailableDates || [],
-      ) || formatArcgisDateToYmd(rawDate);
-    return ymd === selectedNdviDate;
-  }) as any;
+  // Match on raster_date OR date (see chartRowYmd) — checking only
+  // raster_date showed "-" for dates clicked on the regional chart.
+  const row = findChartRowByYmd(
+    host,
+    vegetationData,
+    polygonAvailableDates || [],
+    selectedNdviDate,
+  );
   const rawValue = row ? Number(row[selectedChartIndexKey]) : NaN;
 
   graffLog('chartPoint:indicator-broadcast', {
@@ -106,15 +133,7 @@ export const getNavigableDateIndexDates = (host: GraffWidgetHost): string[] => {
   const { vegetationData, polygonAvailableDates } = host.state;
   const advertised = polygonAvailableDates || [];
   const fromSeries = (vegetationData || [])
-    .map((r: any) => {
-      const rawDate = r.raster_date ?? r.date;
-      if (!rawDate) return "";
-      return (
-        host.resolveAgainstAvailableDates(rawDate, advertised) ||
-        formatArcgisDateToYmd(rawDate) ||
-        ""
-      );
-    })
+    .map((r) => chartRowYmd(host, r, advertised) || "")
     .filter(Boolean);
   const unique = Array.from(new Set(fromSeries));
   unique.sort((a, b) => a.localeCompare(b));
@@ -126,7 +145,7 @@ export const getNavigableDateIndexDates = (host: GraffWidgetHost): string[] => {
  */
 export const handleDateIndexNavigate = (host: GraffWidgetHost, event: Event): void => {
   if (!host._isMounted) return;
-  const d: any = (event as CustomEvent)?.detail || {};
+  const d = eventDetail<{ date?: unknown; direction?: unknown }>(event);
   const {
     selecteduniqueid,
     selectedNdviDate,
@@ -153,16 +172,12 @@ export const handleDateIndexNavigate = (host: GraffWidgetHost, event: Event): vo
 
   if (nextDate === selectedNdviDate) return;
 
-  const row = (vegetationData || []).find((r: any) => {
-    const rawDate = r.raster_date ?? r.date;
-    if (!rawDate) return false;
-    const ymd =
-      host.resolveAgainstAvailableDates(
-        rawDate,
-        host.state.polygonAvailableDates || [],
-      ) || formatArcgisDateToYmd(rawDate);
-    return ymd === nextDate;
-  }) as any;
+  const row = findChartRowByYmd(
+    host,
+    vegetationData,
+    host.state.polygonAvailableDates || [],
+    nextDate,
+  );
   const rawValue = row ? Number(row[selectedChartIndexKey]) : NaN;
 
   graffLog("chartPoint:indicator-navigate", {
@@ -250,17 +265,19 @@ export const removeVegetationImageOverlay = (host: GraffWidgetHost): void => {
       // Defensive sweep: remove any other/orphaned overlay(s) sharing our
       // fixed id, regardless of whether this instance still references them.
       const stray = (map.layers?.toArray?.() || []).filter(
-        (l: any) => l?.id === VEGETATION_IMAGE_LAYER_ID,
+        (l) => l?.id === VEGETATION_IMAGE_LAYER_ID,
       );
       for (const l of stray) {
         try {
           map.remove(l);
-        } catch {
-          /* ignore */
+        } catch (err) {
+          // Layer already removed by another instance — keep sweeping.
+          graffLog("overlay:remove-stray-failed", { error: describeThrown(err) });
         }
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      // Map torn down mid-remove; references are cleared below regardless.
+      graffLog("overlay:remove-failed", { error: describeThrown(err) });
     }
   }
   host._vegetationImageLayer = null;
@@ -296,14 +313,7 @@ export const resolveHoverIndexRange = (host: GraffWidgetHost, indiceType: string
     host.resolveAgainstAvailableDates(rasterDate, advertised) ||
     formatArcgisDateToYmd(rasterDate) ||
     String(rasterDate || "").trim();
-  const row = (host.state.vegetationData || []).find((r: any) => {
-    const rawDate = r?.raster_date ?? r?.date;
-    if (!rawDate) return false;
-    const ymd =
-      host.resolveAgainstAvailableDates(rawDate, advertised) ||
-      formatArcgisDateToYmd(rawDate);
-    return ymd === target;
-  }) as any;
+  const row = findChartRowByYmd(host, host.state.vegetationData, advertised, target);
   if (!row) return { indexMin: null, indexMax: null };
 
   const min = Number(row[`${key}_min`]);

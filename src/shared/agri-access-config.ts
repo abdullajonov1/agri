@@ -1,5 +1,6 @@
 import { getAppStore } from "jimu-core";
-import { normalizeAposKey } from "../data/agri-sql";
+import { escapeArcGIS, normalizeAposKey, sanitizeLikeInput } from "../data/agri-sql";
+import { isPlainRecord, toPlainRecord } from "./agri-plain-object";
 
 /**
  * Client-side access WHERE is UX-only. Real enforcement must mirror these rules
@@ -58,12 +59,9 @@ let accessConfigProvided = false;
 export let fullAccess = false;
 export let lockedViloyat = "";
 
-const escapeSqlString = (value: string): string =>
-  String(value ?? "").replace(/'/g, "''");
-
 /** Strip LIKE metacharacters — ArcGIS often rejects ESCAPE clauses. */
 export const escapeAccessLikePattern = (value: string): string =>
-  String(value ?? "").replace(/[%_\\]/g, "");
+  sanitizeLikeInput(value);
 
 const isSafeAccessFieldName = (field: string): boolean =>
   ACCESS_FIELD_NAME_RE.test(String(field ?? "").trim());
@@ -89,44 +87,47 @@ const normalizeOperator = (operator: unknown): RuleOperator | null => {
   return null;
 };
 
-export const normalizeAccessConfig = (config: unknown): AccessConfig => {
-  const rawConfig =
-    config && typeof (config as any).asMutable === "function"
-      ? (config as any).asMutable({ deep: true })
-      : config;
+const toStringList = (value: unknown): string[] =>
+  Array.isArray(value) ? value.map((item: unknown) => String(item)) : [];
 
+const optionalString = (value: unknown): string | undefined =>
+  value !== undefined ? String(value) : undefined;
+
+const normalizeAccessRule = (raw: unknown): AccessRule => {
+  const rule = isPlainRecord(raw) ? raw : {};
+  return {
+    id: String(rule.id ?? ""),
+    operator: normalizeOperator(rule.operator) ?? "equal",
+    value: optionalString(rule.value),
+    from: optionalString(rule.from),
+    to: optionalString(rule.to),
+    values: toStringList(rule.values),
+    groups: toStringList(rule.groups),
+  };
+};
+
+const normalizeAccessFieldRule = (raw: unknown): AccessFieldRule => {
+  const fieldRule = isPlainRecord(raw) ? raw : {};
+  return {
+    id: String(fieldRule.id ?? ""),
+    title: String(fieldRule.title ?? ""),
+    field: String(fieldRule.field ?? ""),
+    rules: Array.isArray(fieldRule.rules)
+      ? fieldRule.rules.map(normalizeAccessRule)
+      : [],
+  };
+};
+
+export const normalizeAccessConfig = (config: unknown): AccessConfig => {
+  const rawConfig = toPlainRecord(config);
   if (!rawConfig) {
     return emptyAccessConfig;
   }
 
   return {
-    fullAccessGroups: Array.isArray((rawConfig as any).fullAccessGroups)
-      ? (rawConfig as any).fullAccessGroups.map((groupId: unknown) =>
-          String(groupId),
-        )
-      : [],
-    rules: Array.isArray((rawConfig as any).rules)
-      ? (rawConfig as any).rules.map((fieldRule: any) => ({
-          id: String(fieldRule?.id ?? ""),
-          title: String(fieldRule?.title ?? ""),
-          field: String(fieldRule?.field ?? ""),
-          rules: Array.isArray(fieldRule?.rules)
-            ? fieldRule.rules.map((rule: any) => ({
-                id: String(rule?.id ?? ""),
-                operator: normalizeOperator(rule?.operator) ?? "equal",
-                value:
-                  rule?.value !== undefined ? String(rule.value) : undefined,
-                from: rule?.from !== undefined ? String(rule.from) : undefined,
-                to: rule?.to !== undefined ? String(rule.to) : undefined,
-                values: Array.isArray(rule?.values)
-                  ? rule.values.map((value: unknown) => String(value))
-                  : [],
-                groups: Array.isArray(rule?.groups)
-                  ? rule.groups.map((groupId: unknown) => String(groupId))
-                  : [],
-              }))
-            : [],
-        }))
+    fullAccessGroups: toStringList(rawConfig.fullAccessGroups),
+    rules: Array.isArray(rawConfig.rules)
+      ? rawConfig.rules.map(normalizeAccessFieldRule)
       : [],
   };
 };
@@ -162,6 +163,18 @@ export const validateAccessConfigImport = (
     errors.push("rules must be an array");
   }
 
+  // Check operators on the raw input: normalization coerces unknown ones to
+  // "equal", which would silently turn a bad import into an equality rule.
+  for (const fieldRule of Array.isArray(raw.rules) ? raw.rules : []) {
+    if (!isPlainRecord(fieldRule) || !Array.isArray(fieldRule.rules)) continue;
+    for (const rule of fieldRule.rules) {
+      const operator = isPlainRecord(rule) ? rule.operator : undefined;
+      if (operator !== undefined && normalizeOperator(operator) == null) {
+        errors.push(`Invalid operator on ${String(fieldRule.field ?? "")}`);
+      }
+    }
+  }
+
   if (errors.length) {
     return { ok: false, errors };
   }
@@ -192,9 +205,6 @@ export const validateAccessConfigImport = (
     }
 
     for (const rule of fieldRule.rules) {
-      if (normalizeOperator(rule.operator) == null) {
-        errors.push(`Invalid operator on ${fieldRule.field}`);
-      }
       for (const groupId of rule.groups) {
         if (!isSafeGroupId(groupId)) {
           errors.push(`Invalid rule group id: ${groupId}`);
@@ -257,7 +267,7 @@ const quoteValue = (value: string): string => {
     return trimmed;
   }
 
-  return `'${escapeSqlString(trimmed)}'`;
+  return `'${escapeArcGIS(trimmed)}'`;
 };
 
 export const buildAccessRuleWhere = (
@@ -292,15 +302,15 @@ export const buildAccessRuleWhere = (
     const raw = String(rule.value ?? "");
     if (!isSafeAccessToken(raw)) return "1=0";
     const pattern = escapeAccessLikePattern(raw);
-    return `${safeField} LIKE '${escapeSqlString(pattern)}'`;
+    return `${safeField} LIKE '${escapeArcGIS(pattern)}'`;
   }
 
   return "1=0";
 };
 
 const getCurrentUserGroupIds = (): string[] =>
-  Array.from(getAppStore().getState()?.user?.groups ?? []).map((group: any) =>
-    String(group.id),
+  Array.from(getAppStore().getState()?.user?.groups ?? []).map(
+    (group: { id?: unknown }) => String(group?.id),
   );
 
 const isAccessConfigEmpty = (config: AccessConfig): boolean =>
@@ -486,8 +496,12 @@ export const combineAccessWhereIfFieldsExist = (
     Array.from(layerFieldNames, (name) => String(name || "").toLowerCase()),
   );
   if (!available.size) return base;
-  // Identifiers that look like field names in the access clause.
-  const referenced = access.match(/\b[A-Za-z_][A-Za-z0-9_]*\b/g) || [];
+  // Identifiers that look like field names in the access clause. Quoted
+  // values ('Andijon') are blanked first: they are data, not fields, and
+  // counting them made every string-valued rule fall back to the
+  // unrestricted base WHERE.
+  const withoutLiterals = access.replace(/'(?:[^']|'')*'/g, "''");
+  const referenced = withoutLiterals.match(/\b[A-Za-z_][A-Za-z0-9_]*\b/g) || [];
   const sqlKeywords = new Set([
     "and",
     "or",

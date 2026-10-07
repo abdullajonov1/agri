@@ -12,7 +12,21 @@ import {
   resolveInitialLanguage,
   type AgriLanguage,
 } from "../../../shared/agri-language";
+import {
+  panelEventDetail,
+  type PanelFilterDetail,
+} from "../../panel-filter-detail";
 import "../../IndicatorPanel/runtime/KadastrIndicator.css";
+
+/** Detail of the "graffDateIndexSelectionChanged" event Graff broadcasts. */
+interface DateIndexSelectionDetail {
+  date?: unknown;
+  indexKey?: unknown;
+  value?: unknown;
+  language?: string;
+  availableDates?: unknown;
+  navigable?: unknown;
+}
 
 const INDEX_COLORS: Record<string, string> = {
   ndvi: "#00d084",
@@ -37,12 +51,12 @@ interface State {
 }
 
 export default class AgriDateIndexIndicator extends React.PureComponent<
-  AllWidgetProps<any>,
+  AllWidgetProps<Record<string, unknown>>,
   State
 > {
   private _isMounted = false;
 
-  constructor(props: AllWidgetProps<any>) {
+  constructor(props: AllWidgetProps<Record<string, unknown>>) {
     super(props);
     this.state = {
       date: null,
@@ -88,8 +102,8 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
     );
   }
 
-  private handleThemeChange = (event: any): void => {
-    const detail = (event as CustomEvent)?.detail;
+  private handleThemeChange = (event: Event): void => {
+    const detail = (event as CustomEvent<PanelFilterDetail | null>)?.detail;
     if (detail?.theme) {
       this.setState({ isDarkTheme: detail.theme === "dark" });
     } else {
@@ -99,14 +113,15 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
 
   private handleLanguageChange = (event: Event): void => {
     if (!this._isMounted) return;
-    const d: any = (event as CustomEvent)?.detail || {};
+    const d = panelEventDetail(event);
     const next = normalizeLanguage(d.lang ?? d.language ?? d.code);
     if (next !== this.state.language) this.setState({ language: next });
   };
 
   private handleSelectionChanged = (event: Event): void => {
     if (!this._isMounted) return;
-    const d: any = (event as CustomEvent)?.detail || {};
+    const d = ((event as CustomEvent<DateIndexSelectionDetail | null>)?.detail ||
+      {}) as DateIndexSelectionDetail;
 
     const nextDate = d.date ? String(d.date) : null;
     const nextIndexKey = d.indexKey ? String(d.indexKey) : null;

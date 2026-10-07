@@ -1,9 +1,9 @@
-import type { LocalizationHost } from "../host";
+import type { LocalizationHost, LocalizationWidgetProps } from "../host";
+import { debugCatch } from "../localization-log";
 import type { GeoWidgetState } from "../../widget";
 import { isMapImageOwnedLayer } from "../../../../../gis/feature-layer-data";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../../shared/map-connection-service";
 import { subscribeDashboardPack, getDashboardPack } from "../../../../../store/agri-dashboard-store";
-import type { AllWidgetProps } from "jimu-core";
 
 export function componentDidMount(host: LocalizationHost) {
   host._isMounted = true;
@@ -68,7 +68,7 @@ export function componentDidMount(host: LocalizationHost) {
     "agriPolygonMapClickPhase",
     host.handlePolygonMapClickPhase as EventListener,
   );
-  document.addEventListener("resetAllFilters", host._onReset as any);
+  document.addEventListener("resetAllFilters", host._onReset as EventListener);
   document.addEventListener(
     "requestMasterFilterState",
     host.handleRequestMasterFilterState as EventListener,
@@ -146,10 +146,12 @@ export function componentWillUnmount(host: LocalizationHost) {
       !isMapImageOwnedLayer(host.state.featureLayer)
     )
       host.state.featureLayer.definitionExpression = "";
-  } catch {}
+  } catch (err) {
+    debugCatch("componentWillUnmount:reset-definition-failed", err);
+  }
 }
 
-export function componentDidUpdate(host: LocalizationHost, prevProps: AllWidgetProps<any>, prevState: GeoWidgetState) {
+export function componentDidUpdate(host: LocalizationHost, prevProps: LocalizationWidgetProps, prevState: GeoWidgetState) {
   const { connectionStatus, mapConnectionAttempts } = host.state;
 
   const shouldRetry =

@@ -3,6 +3,7 @@
  * Defaults match production (sgm.uzspace.uz). Optional widget config overrides
  * are applied once per render via setAgriServiceUrls() in the dashboard shell.
  */
+import { toPlainRecord } from "./agri-plain-object";
 
 export interface AgriServiceUrls {
   portalOrigin: string;
@@ -60,10 +61,7 @@ const pickOverride = (
 export const normalizeAgriServiceUrls = (
   config?: AgriServiceUrlsConfig | unknown,
 ): AgriServiceUrls => {
-  const raw =
-    config && typeof (config as any).asMutable === "function"
-      ? ((config as any).asMutable({ deep: true }) as Record<string, unknown>)
-      : (config as Record<string, unknown> | null | undefined);
+  const raw = toPlainRecord(config);
 
   const next: AgriServiceUrls = { ...DEFAULT_AGRI_SERVICE_URLS };
   (Object.keys(DEFAULT_AGRI_SERVICE_URLS) as Array<keyof AgriServiceUrls>).forEach(

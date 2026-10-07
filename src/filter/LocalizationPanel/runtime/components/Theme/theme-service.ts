@@ -1,4 +1,4 @@
-import type { LocalizationHost } from "../host";
+import type { LocalizationHost, ValueChangeEvent } from "../host";
 import { applyAppBackgroundTheme } from "../../../../localization/app-theme";
 
 export const resolveThemeState = (host: LocalizationHost) => {
@@ -72,7 +72,7 @@ export const applyThemeToDom = (host: LocalizationHost, isDarkTheme: boolean) =>
   applyAppBackgroundTheme(theme);
 };
 
-export const handleThemeChange = (host: LocalizationHost, event: any) => {
+export const handleThemeChange = (host: LocalizationHost, event: ValueChangeEvent) => {
   if (!host._isMounted) return;
   const value = String(event?.target?.value || "light");
   const isDarkTheme = value === "dark";

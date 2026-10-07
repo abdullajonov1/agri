@@ -10,13 +10,17 @@ import { getAgriDashboardBootstrap } from "../../../../data/agri-bootstrap";
 import { JimuMapView } from "jimu-arcgis";
 import { adjustHexColor as pieAdjustHexColor } from "../pie-colors";
 import { APOSTROPHE_VARIANTS as pieApostropheVariants } from "../pie-colors";
+import { agroV5Log } from "../../../../gis/agri-debug-log";
+import { errorMessage, toPlainRecord } from "../../../../shared/agri-plain-object";
+import { readPanelEventDetail, readThemeIsDark } from "../../../panel-filter-detail";
+import { isRepublicFeatureLayer, pickDefaultFeatureLayer } from "../../../panel-layer-helpers";
 
 export const getSliceBorderColor = (host: PieWidgetHost): string =>
   host.state.isDarkTheme ? "#1f2030" : "#ffffff";
 
 export const getSliceFillStyle = (host: PieWidgetHost, baseColor: string): string | { type: "linear"; x: number; y: number; x2: number; y2: number; colorStops: Array<{ offset: number; color: string }> } => {
   const color = (baseColor || "#3b82f6").toLowerCase();
-  if (color === "#E8E1D1" || color === "#fff") {
+  if (color === "#e8e1d1" || color === "#fff") {
     return {
       type: "linear",
       x: 0,
@@ -57,14 +61,9 @@ export const initializeTheme = (host: PieWidgetHost) => {
 };
 
 export const handleThemeToggled = (host: PieWidgetHost, event: Event) => {
-  const d: any = (event as CustomEvent)?.detail || {};
-  if (typeof d.isDarkTheme === "boolean") {
-    host.setState({ isDarkTheme: d.isDarkTheme });
-    return;
-  }
-
-  if (d.theme === "dark" || d.theme === "light") {
-    host.setState({ isDarkTheme: d.theme === "dark" });
+  const isDarkFromEvent = readThemeIsDark(readPanelEventDetail(event));
+  if (isDarkFromEvent != null) {
+    host.setState({ isDarkTheme: isDarkFromEvent });
     return;
   }
 
@@ -79,10 +78,12 @@ export const handleThemeToggled = (host: PieWidgetHost, event: Event) => {
 };
 
 export const onDataSourceCreated = (host: PieWidgetHost, ds: DataSource) => {
-  const queriableDs = ds as QueriableDataSource;
+  const queriableDs = ds as QueriableDataSource & {
+    setListenSelection?: (listen: boolean) => void;
+  };
 
-  if (typeof (queriableDs as any).setListenSelection === "function") {
-    (queriableDs as any).setListenSelection(false);
+  if (typeof queriableDs.setListenSelection === "function") {
+    queriableDs.setListenSelection(false);
   }
   host.setState({ dataSource: queriableDs, error: null }, async () => {
     if (host.state.connectionStatus === "connected") {
@@ -91,12 +92,13 @@ export const onDataSourceCreated = (host: PieWidgetHost, ds: DataSource) => {
   });
 };
 
-export const onDataSourceInfoChange = (host: PieWidgetHost, info: any) => {
+export const onDataSourceInfoChange = (host: PieWidgetHost, info: unknown) => {
   if (!host._isMounted) return;
   if (host.state.connectionStatus !== "connected") return;
-  if (!info) return;
+  const record = toPlainRecord(info);
+  if (!record) return;
 
-  const sawRecords = Array.isArray(info.records);
+  const sawRecords = Array.isArray(record.records);
   if (!sawRecords) return;
 
   host.fetchCategoryData();
@@ -132,7 +134,7 @@ export function findCategoryField(host: PieWidgetHost, flOverride?: __esri.Featu
   const fields = fl?.fields ?? [];
   if (fields.length) {
     const byLower = new Map(
-      fields.map((f: any) => [String(f.name).toLowerCase(), f.name]),
+      fields.map((f) => [String(f.name).toLowerCase(), f.name]),
     );
     for (const p of possible) {
       const exact = byLower.get(p.toLowerCase());
@@ -294,24 +296,17 @@ export function makeViloyatKey(host: PieWidgetHost, raw: string | null | undefin
     .toLowerCase();
 }
 
-export const isRepublicLayer = (host: PieWidgetHost, layer?: __esri.FeatureLayer): boolean => {
-  if (!layer) return false;
-  const text =
-    `${(layer as any)?.title || ""} ${(layer as any)?.id || ""} ${(layer as any)?.url || ""}`.toLowerCase();
-  return /\brepublic\b|respublika/.test(text);
-};
+export const isRepublicLayer = (host: PieWidgetHost, layer?: __esri.FeatureLayer): boolean =>
+  isRepublicFeatureLayer(layer);
 
 export const getDefaultFeatureLayer = (host: PieWidgetHost, layersOverride?: __esri.FeatureLayer[]): __esri.FeatureLayer | undefined => {
   const layers =
-    (layersOverride && layersOverride.length
+    layersOverride && layersOverride.length
       ? layersOverride
-      : host.state.featureLayers) || [];
-  if (!layers.length) return host.state.activeFeatureLayer;
-
-  const republic = layers.find((l) => host.isRepublicLayer(l));
-  if (republic) return republic;
-
-  return layers[0] || host.state.activeFeatureLayer;
+      : host.state.featureLayers;
+  return pickDefaultFeatureLayer(layers, host.state.activeFeatureLayer, (l) =>
+    host.isRepublicLayer(l),
+  );
 };
 
 export const getFeatureLayerForViloyat = (host: PieWidgetHost, viloyat: string): __esri.FeatureLayer | undefined => {
@@ -354,7 +349,10 @@ export const buildViloyatKeyToLayerIndex = async (host: PieWidgetHost, layers: _
         host._viloyatKeyToLayerIndex[key] = 0;
       }
     }
-  } catch (e) {}
+  } catch (error) {
+    // Index stays partial; getFeatureLayerForViloyat falls back to layers[0].
+    agroV5Log("pie:viloyat-layer-index-failed", { error: errorMessage(error) });
+  }
 };
 
 export const ensureFeatureLayersResolved = async (host: PieWidgetHost): Promise<

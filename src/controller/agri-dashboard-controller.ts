@@ -44,6 +44,11 @@ import {
 import { buildDashboardQueryPlan } from "./agri-query-plan";
 import { getAgriTableDataLayer } from "../gis/agri-table-data-source";
 import { getAgriVegetationIndicesLayer } from "../gis/agri-vegetation-data-source";
+import { ensureLayerLoaded } from "../types/agri-layer";
+import { isPlainRecord } from "../shared/agri-plain-object";
+
+const readErrorMessageField = (e: unknown): unknown =>
+  e instanceof Error ? e.message : isPlainRecord(e) ? e.message : undefined;
 
 const CONTROLLER_DEBOUNCE_MS = 60;
 
@@ -357,12 +362,10 @@ async function runController(
   try {
     const { layer } = await getAgriTableDataLayer();
     if (gen !== generation) return;
-    if (!layer?.loaded && typeof (layer as any)?.load === "function") {
-      try {
-        await (layer as any).load();
-      } catch {
-        /* query may still succeed */
-      }
+    try {
+      await ensureLayerLoaded(layer);
+    } catch {
+      /* load failure is non-fatal: the stats queries below may still succeed */
     }
     if (gen !== generation) return;
 
@@ -402,7 +405,7 @@ async function runController(
       statsDeferredToPanels: plan.deferStatsToPanels,
       error: null,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (gen !== generation) return;
     patchDashboardPack({
       phase: "error",
@@ -414,7 +417,7 @@ async function runController(
       graff: null,
       graffPolygon: null,
       statsDeferredToPanels: true,
-      error: String(e?.message || e || "dashboard controller failed"),
+      error: String(readErrorMessageField(e) || e || "dashboard controller failed"),
     });
   }
 }

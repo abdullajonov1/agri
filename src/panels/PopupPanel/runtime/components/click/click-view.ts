@@ -4,6 +4,8 @@ import { AGRI_TABLE_JOIN_FIELD } from "../../../../../gis/agri-table-data-source
 import { resolveRegionIdFromAttributes, resolveCropIdFromAttributes } from "../../../../../gis/agri-polygon-api-source";
 import { prefetchVegetationOverlayForUniqueid } from "../../../../../gis/agri-vegetation-overlay-prefetch";
 import { getQueryableLayer, getAgriLayerMapKey, isMapImageOwnedLayer, isMapImageGroupSublayer, safeLoadMapLayer } from "../../../../../gis/feature-layer-data";
+import type { PopupAttributes } from "../../popup-types";
+import { messageOr, messageOrString } from "../../popup-type-guards";
 
 export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEvent) => {
   try {
@@ -57,7 +59,6 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
     })),
   });
 
-
   const clickScreenPoint = { x: ev.x, y: ev.y };
   const hitResult = await host.resolveClickFeatureAt(ev, view, layers);
   if (isStale()) return;
@@ -88,7 +89,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
 
   // Kick TIFF ASAP from hitTest attributes — do not wait for FeatureServer
   // OID query (that used to sit hundreds of ms–seconds on the critical path).
-  const hitAttrs = ((g as any).attributes || {}) as Record<string, any>;
+  const hitAttrs: PopupAttributes = g.attributes || {};
   const hitUniqueRaw = host.findAttributeValueCaseInsensitive(
     hitAttrs,
     AGRI_TABLE_JOIN_FIELD,
@@ -111,7 +112,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
         host._extentBeforeSelection = view.extent.clone();
       }
       const target =
-        (g.geometry as any).extent?.expand?.(1.15) || g.geometry;
+        g.geometry.extent?.expand?.(1.15) || g.geometry;
       zoomedFromHit = true;
       agriMapClickDebug("zoom:start-hit", {
         uniqueid: hitCleanKey || null,
@@ -119,17 +120,17 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
         durationMs: 500,
       });
       void view
-        .goTo({ target }, { duration: 500, easing: "ease-in-out" as any })
+        .goTo({ target }, { duration: 500, easing: "ease-in-out" })
         .then(
           () =>
             agriMapClickDebug("zoom:complete-hit", {
               uniqueid: hitCleanKey || null,
-              scale: (view as any).scale,
+              scale: view.scale,
             }),
-          (error: any) =>
+          (error: unknown) =>
             agriMapClickWarn("zoom:failed-hit", {
               uniqueid: hitCleanKey || null,
-              error: error?.message || String(error),
+              error: messageOrString(error),
             }),
         );
     } catch {
@@ -199,7 +200,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
     });
 
     agriMapClickDebug("field polygon hit", {
-      layerId: (g as any).layer?.id,
+      layerId: g.layer?.id,
       geometry: g.geometry?.type || null,
       attrKeys: g.attributes
         ? Object.keys(g.attributes).slice(0, 8)
@@ -212,7 +213,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
       queryHitLayer
         ? host.toLiveMapLayer(queryHitLayer, view.map) || queryHitLayer
         : host.toLiveMapLayer(
-            getQueryableLayer((g as any).layer) || (g as any).layer,
+            getQueryableLayer(g.layer) || g.layer,
             view.map,
           )
     ) as __esri.FeatureLayer;
@@ -231,12 +232,12 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
       url: clickedLayer.url || null,
       layerKey,
       dataSourceId: dsId,
-      definitionExpression: (clickedLayer as any).definitionExpression || null,
+      definitionExpression: clickedLayer.definitionExpression || null,
     });
 
     const oidField =
       clickedLayer.objectIdField ||
-      clickedLayer.fields?.find((f: any) => f.type === "oid")?.name ||
+      clickedLayer.fields?.find((fld) => fld.type === "oid")?.name ||
       null;
 
     if (!oidField) {
@@ -253,7 +254,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
       return;
     }
 
-    const oid = (g as any).attributes?.[oidField];
+    const oid = g.attributes?.[oidField];
     if (oid == null) {
       if (!isStale()) {
         host.setState({
@@ -268,7 +269,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
       return;
     }
 
-    const outFields = host.getOutFields(clickedLayer as any, oidField);
+    const outFields = host.getOutFields(clickedLayer, oidField);
 
     const f = await host.queryFeatureByObjectIdCached(
       clickedLayer,
@@ -293,7 +294,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
 
     const earlyUniqueId =
       host.findAttributeValueCaseInsensitive(
-        f.attributes as Record<string, any>,
+        f.attributes,
         AGRI_TABLE_JOIN_FIELD,
       ) ?? null;
     const earlyCleanKey = String(earlyUniqueId || "")
@@ -338,7 +339,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
       String(earlyUniqueId).trim() !== ""
     ) {
       const earlyNotifyId = String(earlyUniqueId).trim();
-      const attrs = f.attributes as Record<string, any>;
+      const attrs: PopupAttributes = f.attributes;
       const regionFromPoly = resolveRegionIdFromAttributes(attrs);
       host._activeInspectedUniqueid = earlyCleanKey;
       agriMapClickDebug("selection:broadcast-early", {
@@ -389,28 +390,28 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
           host._extentBeforeSelection = view.extent.clone();
         }
         const target =
-          (f.geometry as any).extent?.expand?.(1.15) || f.geometry;
+          f.geometry.extent?.expand?.(1.15) || f.geometry;
         agriMapClickDebug("zoom:start-early", {
           uniqueid: earlyCleanKey || null,
           geometryType: f.geometry.type,
           durationMs: 500,
         });
         void view
-          .goTo({ target }, { duration: 500, easing: "ease-in-out" as any })
+          .goTo({ target }, { duration: 500, easing: "ease-in-out" })
           .then(
             () =>
               agriMapClickDebug("zoom:complete", {
                 uniqueid: earlyCleanKey || null,
-                scale: (view as any).scale,
+                scale: view.scale,
               }),
-            (error: any) =>
+            (error: unknown) =>
               agriMapClickWarn("zoom:failed", {
                 uniqueid: earlyCleanKey || null,
-                error: error?.message || String(error),
+                error: messageOrString(error),
               }),
           );
       } catch {
-        /* ignore */
+        /* zoom is cosmetic — never block opening the popup */
       }
     } else if (zoomedFromHit) {
       agriMapClickDebug("zoom:skip-oid-already-hit", {
@@ -419,8 +420,8 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
     }
 
     try {
-      const loadStatus = String((clickedLayer as any).loadStatus || "").toLowerCase();
-      const isLoaded = Boolean((clickedLayer as any).loaded) || loadStatus === "loaded";
+      const loadStatus = String(clickedLayer.loadStatus || "").toLowerCase();
+      const isLoaded = Boolean(clickedLayer.loaded) || loadStatus === "loaded";
       // Loading a live MapImage-owned sublayer rehydrates it and can clear
       // the runtime tuman definitionExpression (other-district flash). The
       // detached client from queryFeatureByObjectIdCached is already loaded
@@ -434,7 +435,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
           title: clickedLayer.title,
           loadStatus: loadStatus || null,
           definitionExpression:
-            (clickedLayer as any).definitionExpression || null,
+            clickedLayer.definitionExpression || null,
         });
         await safeLoadMapLayer(clickedLayer);
       } else {
@@ -442,7 +443,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
           title: clickedLayer.title,
           loadStatus: loadStatus || "loaded",
           definitionExpression:
-            (clickedLayer as any).definitionExpression || null,
+            clickedLayer.definitionExpression || null,
         });
       }
     } catch {
@@ -516,7 +517,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
         AGRI_TABLE_JOIN_FIELD,
       ) ??
       host.findAttributeValueCaseInsensitive(
-        f.attributes as Record<string, any>,
+        f.attributes,
         AGRI_TABLE_JOIN_FIELD,
       );
     if (clickedUniqueId != null && String(clickedUniqueId).trim() !== "") {
@@ -526,7 +527,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
       // notify again if the table join is the first place we saw it.
       if (!earlyCleanKey || earlyCleanKey !== host._activeInspectedUniqueid) {
         const regionFromPoly = resolveRegionIdFromAttributes(
-          (displayAttrs || f.attributes) as Record<string, any>,
+          displayAttrs || f.attributes,
         );
         agriMapClickDebug("selection:broadcast", {
           uniqueid: cleanUniqueId,
@@ -562,14 +563,14 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
         // Query attachments on the detached client too — queryAttachments
         // on a live MapImage sublayer can rehydrate it (same DE-clearing
         // path as queryFeatures) and it often lacks the API anyway.
-        const clickedUrl = String((clickedLayer as any).url || "").trim();
+        const clickedUrl = String(clickedLayer.url || "").trim();
         const attachmentLayer =
           (clickedUrl && host._queryOnlyLayers.get(clickedUrl)) ||
           clickedLayer;
-        await host.loadAttachmentsForOid(attachmentLayer as any, Number(oid));
-      } catch (attachErr: any) {
+        await host.loadAttachmentsForOid(attachmentLayer, Number(oid));
+      } catch (attachErr: unknown) {
         agriMapClickWarn("attachments failed (popup kept open)", {
-          message: attachErr?.message || String(attachErr),
+          message: messageOrString(attachErr),
         });
         if (!isStale()) {
           host.setState({ loadingAttachments: false, attachments: [] });
@@ -585,7 +586,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
     } else if (host.isDashboardEmbedded()) {
       host.schedulePopupLayoutAfterContent();
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Never let a superseded twin/shared click clear a newer popup.
     if (isStale()) return;
     // If we already opened the popup for THIS click, keep it — surface error only.
@@ -593,7 +594,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
       host.setState({
         loading: false,
         error: host.tr("error.unexpected", {
-          message: e?.message || "Unknown error",
+          message: messageOr(e, "Unknown error"),
         }),
         loadingAttachments: false,
       });
@@ -602,7 +603,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
     host.setState({
       loading: false,
       error: host.tr("error.unexpected", {
-        message: e?.message || "Unknown error",
+        message: messageOr(e, "Unknown error"),
       }),
       showPopup: false,
       loadingAttachments: false,

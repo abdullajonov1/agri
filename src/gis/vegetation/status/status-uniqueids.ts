@@ -1,4 +1,4 @@
-import { type VegetationUniqueIdsForStatusParams, getAgriVegetationIndicesLayer, vegetationAssignedUniqueIdsCache, agriVegetationLog, resolveVegetationUniqueIdPageSize, VEG_UNIQUEID_MAX_PAGES, queryVegFeatures } from "../veg-base";
+import { type VegetationUniqueIdsForStatusParams, getAgriVegetationIndicesLayer, vegetationAssignedUniqueIdsCache, agriVegetationLog, resolveVegetationUniqueIdPageSize, VEG_UNIQUEID_MAX_PAGES, queryVegFeatures, type VegQuery } from "../veg-base";
 import { dateEqualsClause, escapeArcGIS } from "../../../data/agri-sql";
 
 /**
@@ -116,12 +116,12 @@ export async function queryVegetationUniqueIdsForStatus(
       lastOid < 0
         ? baseWhere
         : `(${baseWhere}) AND ${oidField} > ${lastOid}`;
-    const query = layer.createQuery();
+    const query: VegQuery = layer.createQuery();
     query.where = where;
     query.outFields = [uniqueIdField, oidField];
     query.returnGeometry = false;
     query.orderByFields = [`${oidField} ASC`];
-    (query as any).resultRecordCount = pageSize;
+    query.resultRecordCount = pageSize;
     // Do not rely on resultOffset — cursor paging above is the source of truth.
 
     const result = await queryVegFeatures(layer, query);

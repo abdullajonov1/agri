@@ -4,6 +4,8 @@ import { normalizeTurlarListSql } from "../../../../data/agri-turlar";
 import { buildTurlarSqlClause } from "../../../../shared/agri-crop-labels";
 import { expandUniqueIdsForAgriTable } from "../../../../gis/agri-table-data-source";
 import { agriVhIndicatorLog } from "../../../../gis/agri-debug-log";
+import { errorMessage } from "../../../../shared/agri-plain-object";
+import { readPanelEventDetail } from "../../../panel-filter-detail";
 import { normalizeUzbekPlaceForApi } from "./indicator-data/indicator-api-places";
 
 export const labelNoValue = (host: IndicatorWidgetHost): string => {
@@ -60,7 +62,7 @@ export const translateKnownError = (host: IndicatorWidgetHost, msg: string): str
 
 export const handleLanguageChange = (host: IndicatorWidgetHost, event: Event) => {
   if (!host._isMounted || host._isResetting) return;
-  const d: any = (event as CustomEvent)?.detail || {};
+  const d = readPanelEventDetail(event);
   const raw = d.lang ?? d.language ?? d.code;
   const next = normalizeLanguage(raw);
   if (next === host.state.language) return;
@@ -192,13 +194,13 @@ export const prepareVhJoinIds = async (host: IndicatorWidgetHost, ids: string[] 
       inputSample: ids.slice(0, 2),
       expandedSample: expanded.slice(0, 4),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     host._vhJoinSource = ids;
     host._vhJoinExpanded = null;
     agriVhIndicatorLog("2-id-moslash-XATO", {
       widgetId: host.props?.id,
       inputCount: ids.length,
-      error: String(err?.message || err),
+      error: errorMessage(err),
     });
   }
 };

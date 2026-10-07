@@ -4,6 +4,11 @@ import { normalizeApos } from "../../../../data/agri-sql";
 import { FILTER_FIELDS } from "../indicator-constants";
 import { getAgriTableDataLayer } from "../../../../gis/agri-table-data-source";
 import { DataSource, QueriableDataSource, DataSourceStatus } from "jimu-core";
+import { agriVhIndicatorLog } from "../../../../gis/agri-debug-log";
+import { errorMessage, toPlainRecord } from "../../../../shared/agri-plain-object";
+import { isRepublicFeatureLayer, pickDefaultFeatureLayer } from "../../../panel-layer-helpers";
+
+const VILOYAT_INDEX_MAX_ROWS = 5000;
 
 export const ensureInitialization = (host: IndicatorWidgetHost) => {
   const { dataSource, connectionStatus } = host.state;
@@ -85,24 +90,17 @@ export const getFeatureLayerForViloyat = (host: IndicatorWidgetHost, viloyat: st
   return host.state.featureLayer || layers[0];
 };
 
-export const isRepublicLayer = (host: IndicatorWidgetHost, layer?: __esri.FeatureLayer): boolean => {
-  if (!layer) return false;
-  const text =
-    `${(layer as any)?.title || ""} ${(layer as any)?.id || ""} ${(layer as any)?.url || ""}`.toLowerCase();
-  return /\brepublic\b|respublika/.test(text);
-};
+export const isRepublicLayer = (host: IndicatorWidgetHost, layer?: __esri.FeatureLayer): boolean =>
+  isRepublicFeatureLayer(layer);
 
 export const getDefaultFeatureLayer = (host: IndicatorWidgetHost, layersOverride?: __esri.FeatureLayer[]): __esri.FeatureLayer | undefined => {
   const layers =
-    (layersOverride && layersOverride.length
+    layersOverride && layersOverride.length
       ? layersOverride
-      : host.state.featureLayers) || [];
-  if (!layers.length) return host.state.featureLayer;
-
-  const republic = layers.find((l) => host.isRepublicLayer(l));
-  if (republic) return republic;
-
-  return layers[0] || host.state.featureLayer;
+      : host.state.featureLayers;
+  return pickDefaultFeatureLayer(layers, host.state.featureLayer, (l) =>
+    host.isRepublicLayer(l),
+  );
 };
 
 export const buildViloyatLayerIndex = async (host: IndicatorWidgetHost, layers: __esri.FeatureLayer[]): Promise<void> => {
@@ -113,28 +111,32 @@ export const buildViloyatLayerIndex = async (host: IndicatorWidgetHost, layers: 
     const layer = layers[i];
     if (!layer) continue;
     try {
-      if (!layer.loaded && (layer as any).load) await layer.load();
+      if (!layer.loaded && typeof layer.load === "function") await layer.load();
 
       const q = layer.createQuery();
-      (q as any).where = "1=1";
-      (q as any).outFields = [vilField];
-      (q as any).returnGeometry = false;
-      (q as any).returnDistinctValues = true;
+      q.where = "1=1";
+      q.outFields = [vilField];
+      q.returnGeometry = false;
+      q.returnDistinctValues = true;
       // PostgreSQL DISTINCT requires ORDER BY fields to be selected too.
-      (q as any).orderByFields = [`${vilField} ASC`];
-      (q as any).num = 5000;
+      q.orderByFields = [`${vilField} ASC`];
+      q.num = VILOYAT_INDEX_MAX_ROWS;
 
       const res = await layer.queryFeatures(q);
       const feats = res?.features ?? [];
       for (const f of feats) {
-        const v = (f.attributes as any)?.[vilField];
+        const v = toPlainRecord(f.attributes)?.[vilField];
         const key = host.makeViloyatKeyForRouting(String(v ?? ""));
         if (key && host._viloyatKeyToLayerIndex[key] === undefined) {
           host._viloyatKeyToLayerIndex[key] = i;
         }
       }
-    } catch (e) {
-
+    } catch (error) {
+      // Layer stays unindexed; routing falls back to the default layer.
+      agriVhIndicatorLog("viloyat-layer-index-failed", {
+        layerIndex: i,
+        error: errorMessage(error),
+      });
     }
   }
   
@@ -221,12 +223,14 @@ export const onDataSourceCreated = (host: IndicatorWidgetHost, dataSource: DataS
   );
 };
 
-export const onDataSourceInfoChange = (host: IndicatorWidgetHost, info: any) => {
+export const onDataSourceInfoChange = (host: IndicatorWidgetHost, info: unknown) => {
   if (host.props.config?.useApiDataSource) return;
   if (host.state.connectionStatus !== "connected") return;
 
-  if (info && info.status === DataSourceStatus.Loaded) {
-    const isSelectionChange = info.selectIds && info.selectIds.length > 0;
+  const record = toPlainRecord(info);
+  if (record && record.status === DataSourceStatus.Loaded) {
+    const selectIds = record.selectIds;
+    const isSelectionChange = Array.isArray(selectIds) && selectIds.length > 0;
     if (!isSelectionChange) host.throttledFetchData();
   }
 };

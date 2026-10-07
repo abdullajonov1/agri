@@ -10,6 +10,7 @@
  */
 import { scheduleDashboardOrchestrator } from "../controller/agri-dashboard-orchestrator";
 import { agroV5Log } from "../gis/agri-debug-log";
+import { errorMessage } from "../shared/agri-plain-object";
 
 export type MasterFilterSnapshot = Record<string, unknown>;
 
@@ -30,7 +31,7 @@ export function syncMasterFilterSnapshot(
     } catch (error) {
       // Panel handler must not break the store or sibling listeners.
       agroV5Log("masterFilter:listener-error", {
-        error: String((error as any)?.message ?? error),
+        error: errorMessage(error),
       });
     }
   });

@@ -52,4 +52,20 @@ describe("logoutFromAccount", () => {
     warn.mockRestore();
     jest.restoreAllMocks();
   });
+
+  test("clears cached agri stats but keeps unrelated keys", async () => {
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    localStorage.setItem("agri_v5_pc:region:2025", '{"value":1}');
+    localStorage.setItem("agri_v5_pc:veg-recent-days:x", '{"value":2}');
+    localStorage.setItem("unrelated_pref", "keep");
+
+    await logoutFromAccount(jest.fn());
+
+    expect(localStorage.getItem("agri_v5_pc:region:2025")).toBeNull();
+    expect(localStorage.getItem("agri_v5_pc:veg-recent-days:x")).toBeNull();
+    expect(localStorage.getItem("unrelated_pref")).toBe("keep");
+
+    localStorage.clear();
+    jest.restoreAllMocks();
+  });
 });

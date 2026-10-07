@@ -81,8 +81,17 @@ function slantedBarPath(
   ].join(" ");
 }
 
+/** Subset of the props recharts passes to a custom <Bar shape>. */
+export interface StatusBarShapeProps {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  payload?: unknown;
+}
+
 export function renderStatusBarShape(
-  props: any,
+  props: StatusBarShapeProps,
   color: string,
   selected: boolean,
   dimmed: boolean,
@@ -96,7 +105,7 @@ export function renderStatusBarShape(
     props.payload &&
     typeof props.payload === "object" &&
     "fill" in props.payload
-      ? Math.max(0, Math.min(1, Number(props.payload.fill)))
+      ? Math.max(0, Math.min(1, Number((props.payload as { fill?: unknown }).fill)))
       : 0;
   const fullH = fillRatio > 0 ? rawH / fillRatio : Math.max(rawH, MIN_BAR_PX);
   const h = Math.max(rawH, MIN_BAR_PX);

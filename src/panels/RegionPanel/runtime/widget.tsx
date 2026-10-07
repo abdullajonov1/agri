@@ -3,7 +3,6 @@
 
 import { JimuMapView, JimuMapViewComponent } from "jimu-arcgis";
 import {
-  AllWidgetProps,
   DataSource,
   DataSourceComponent,
   DataSourceManager,
@@ -178,13 +177,18 @@ import {
 import {
   render,
 } from "./components/render-panel";
-import type { RegionWidgetHost } from "./region-host";
+import type {
+  RegionFilterUpdates,
+  RegionUseDataSourceRef,
+  RegionWidgetHost,
+  RegionWidgetProps,
+} from "./region-host";
 export default class AgriRegion extends React.PureComponent<
-  AllWidgetProps<any>,
+  RegionWidgetProps,
   AgriRegionState
-> {
+> implements RegionWidgetHost {
   /** Tuman select debug — visible when __AGRO_V5_TUMAN_DEBUG !== false (default ON). */
-  private static regionLog(
+  static regionLog(
     phase: string,
     detail?: Record<string, unknown>,
   ): void {
@@ -192,38 +196,38 @@ export default class AgriRegion extends React.PureComponent<
   }
 
   _isMounted = false;
-  private _unbindMasterFilter: (() => void) | null = null;
-  private   _rootRef = React.createRef<HTMLDivElement>();
-  private _countFilterRef = React.createRef<HTMLDivElement>();
-  private _chartAreaRef = React.createRef<HTMLDivElement>();
-  private _chartContainerRef = React.createRef<HTMLDivElement>();
-  private _cursorTooltipRef = React.createRef<HTMLDivElement>();
-  private _pointerTracking = false;
-  private readonly TOOLTIP_PAD = 10;
-  private readonly TOOLTIP_OFFSET_X = 16;
-  private readonly TOOLTIP_OFFSET_Y = 14;
-  private _resizeObserver: ResizeObserver | null = null;
-  private _chartAreaObserved = false;
-  private _themeObserver: MutationObserver | null = null;
+  _unbindMasterFilter: (() => void) | null = null;
+  _rootRef = React.createRef<HTMLDivElement>();
+  _countFilterRef = React.createRef<HTMLDivElement>();
+  _chartAreaRef = React.createRef<HTMLDivElement>();
+  _chartContainerRef = React.createRef<HTMLDivElement>();
+  _cursorTooltipRef = React.createRef<HTMLDivElement>();
+  _pointerTracking = false;
+  readonly TOOLTIP_PAD = 10;
+  readonly TOOLTIP_OFFSET_X = 16;
+  readonly TOOLTIP_OFFSET_Y = 14;
+  _resizeObserver: ResizeObserver | null = null;
+  _chartAreaObserved = false;
+  _themeObserver: MutationObserver | null = null;
   /**
    * When the user navigates back from a selected tuman, we want to show the VILOYAT list
    * with that viloyat highlighted, while still keeping the map filtered/zoomed to that viloyat.
    * Master filter echoes keep carrying viloyat=<name>; without a sticky highlight mode they
    * would immediately auto-drill back into the tuman list and "Back" would appear broken.
    */
-  private _pendingBackToViloyatHighlight: string | null = null;
+  _pendingBackToViloyatHighlight: string | null = null;
   /**
    * Bumps on every user-driven geography notify so a delayed async
    * callback (fetchRegionalDataDeduped → notifyAgriFilter) cannot
    * overwrite a newer viloyat/tuman selection.
    */
-  private _selectionNotifyGeneration = 0;
+  _selectionNotifyGeneration = 0;
   /** Latest regional aggregation request; prevents stale responses/UI states. */
-  private _regionalRequestId = 0;
+  _regionalRequestId = 0;
 
   REGIONAL_COLOR = "#00D2FF";
 
-  constructor(props: AllWidgetProps<any>) {
+  constructor(props: RegionWidgetProps) {
     super(props);
     const initialLanguage = resolveInitialLanguage();
 
@@ -276,271 +280,271 @@ export default class AgriRegion extends React.PureComponent<
   }
 
   componentDidMount() {
-    return componentDidMount(this as unknown as RegionWidgetHost);
+    return componentDidMount(this);
   }
 
   componentWillUnmount() {
-    return componentWillUnmount(this as unknown as RegionWidgetHost);
+    return componentWillUnmount(this);
   }
 
-  private handleDocumentClickForCountFilter = (event: MouseEvent): void => {
-    return handleDocumentClickForCountFilter(this as unknown as RegionWidgetHost, event);
+  handleDocumentClickForCountFilter = (event: MouseEvent): void => {
+    return handleDocumentClickForCountFilter(this, event);
   };
 
-  private toggleDisplayCountMenu = (): void => {
-    return toggleDisplayCountMenu(this as unknown as RegionWidgetHost);
+  toggleDisplayCountMenu = (): void => {
+    return toggleDisplayCountMenu(this);
   };
 
-  private getCurrentDataLength = (): number => {
-    return getCurrentDataLength(this as unknown as RegionWidgetHost);
+  getCurrentDataLength = (): number => {
+    return getCurrentDataLength(this);
   };
 
-  private getEffectiveDisplayCount = (): number => {
-    return getEffectiveDisplayCount(this as unknown as RegionWidgetHost);
+  getEffectiveDisplayCount = (): number => {
+    return getEffectiveDisplayCount(this);
   };
 
-  private getDisplayCountOptions = (): number[] => {
-    return getDisplayCountOptions(this as unknown as RegionWidgetHost);
+  getDisplayCountOptions = (): number[] => {
+    return getDisplayCountOptions(this);
   };
 
-  private resolveDisplayCountForData = (dataLength: number): number => {
-    return resolveDisplayCountForData(this as unknown as RegionWidgetHost, dataLength);
+  resolveDisplayCountForData = (dataLength: number): number => {
+    return resolveDisplayCountForData(this, dataLength);
   };
 
-  private handleDisplayCountPillClick = (count: number): void => {
-    return handleDisplayCountPillClick(this as unknown as RegionWidgetHost, count);
+  handleDisplayCountPillClick = (count: number): void => {
+    return handleDisplayCountPillClick(this, count);
   };
 
-  private applyDisplayCount = (count: number): void => {
-    return applyDisplayCount(this as unknown as RegionWidgetHost, count);
+  applyDisplayCount = (count: number): void => {
+    return applyDisplayCount(this, count);
   };
 
-  private cycleSortMode = (): void => {
-    return cycleSortMode(this as unknown as RegionWidgetHost);
+  cycleSortMode = (): void => {
+    return cycleSortMode(this);
   };
 
-  private syncThemeState = () => {
-    return syncThemeState(this as unknown as RegionWidgetHost);
+  syncThemeState = () => {
+    return syncThemeState(this);
   };
 
-  private handleAgriV10ThemeChanged = (event: Event): void => {
-    return handleAgriV10ThemeChanged(this as unknown as RegionWidgetHost, event);
+  handleAgriV10ThemeChanged = (event: Event): void => {
+    return handleAgriV10ThemeChanged(this, event);
   };
 
-  private resolveWidgetSize = (width: number): WidgetSize => {
-    return resolveWidgetSize(this as unknown as RegionWidgetHost, width);
+  resolveWidgetSize = (width: number): WidgetSize => {
+    return resolveWidgetSize(this, width);
   };
 
-  private setupResizeObserver = () => {
-    return setupResizeObserver(this as unknown as RegionWidgetHost);
+  setupResizeObserver = () => {
+    return setupResizeObserver(this);
   };
 
   componentDidUpdate(): void {
-    return componentDidUpdate(this as unknown as RegionWidgetHost);
+    return componentDidUpdate(this);
   }
 
   /* ---------------------- Master Filter Listener ---------------------- */
 
-  private handleMasterFilterChange = (event: Event) => {
-    return handleMasterFilterChange(this as unknown as RegionWidgetHost, event);
+  handleMasterFilterChange = (event: Event) => {
+    return handleMasterFilterChange(this, event);
   };
 
   /* ---------------------- Notify AgriFilter ---------------------- */
 
-  private notifyAgriFilter = (
-    updates: Partial<AgriRegionState["currentFilters"]>,
+  notifyAgriFilter = (
+    updates: RegionFilterUpdates,
     generation?: number,
   ) => {
-    return notifyAgriFilter(this as unknown as RegionWidgetHost, updates, generation);
+    return notifyAgriFilter(this, updates, generation);
   };
 
-  private beginSelectionNotify = (): number => {
-    return beginSelectionNotify(this as unknown as RegionWidgetHost);
+  beginSelectionNotify = (): number => {
+    return beginSelectionNotify(this);
   };
 
   /* ---------------------- Map Connection ---------------------- */
 
   onActiveViewChange = async (jimuMapView: JimuMapView) => {
-    return onActiveViewChange(this as unknown as RegionWidgetHost, jimuMapView);
+    return onActiveViewChange(this, jimuMapView);
   };
 
-  private resolveFeatureLayerFromUseDataSource = async (
+  resolveFeatureLayerFromUseDataSource = async (
     jimuMapView: JimuMapView,
   ): Promise<__esri.FeatureLayer | null> => {
-    return resolveFeatureLayerFromUseDataSource(this as unknown as RegionWidgetHost, jimuMapView);
+    return resolveFeatureLayerFromUseDataSource(this, jimuMapView);
   };
 
-  private resolveFeatureLayerFromOneUseDataSource = async (
-    useDs: any,
+  resolveFeatureLayerFromOneUseDataSource = async (
+    useDs: RegionUseDataSourceRef | null | undefined,
     jimuMapView: JimuMapView,
   ): Promise<__esri.FeatureLayer | null> => {
-    return resolveFeatureLayerFromOneUseDataSource(this as unknown as RegionWidgetHost, useDs, jimuMapView);
+    return resolveFeatureLayerFromOneUseDataSource(this, useDs, jimuMapView);
   };
 
-  private splitLabelTwoLines = (label: string): [string, string?] => {
-    return splitLabelTwoLines(this as unknown as RegionWidgetHost, label);
+  splitLabelTwoLines = (label: string): [string, string?] => {
+    return splitLabelTwoLines(this, label);
   };
 
-  private calculateDynamicYAxisWidth = (): number => {
-    return calculateDynamicYAxisWidth(this as unknown as RegionWidgetHost);
+  calculateDynamicYAxisWidth = (): number => {
+    return calculateDynamicYAxisWidth(this);
   };
 
-  private resolveFeatureLayersFromUseDataSources = async (
+  resolveFeatureLayersFromUseDataSources = async (
     jimuMapView: JimuMapView,
   ): Promise<__esri.FeatureLayer[]> => {
-    return resolveFeatureLayersFromUseDataSources(this as unknown as RegionWidgetHost, jimuMapView);
+    return resolveFeatureLayersFromUseDataSources(this, jimuMapView);
   };
 
-  private detectAreaField = (layer: __esri.FeatureLayer): string | null =>
-    detectAreaField(this as unknown as RegionWidgetHost, layer);
+  detectAreaField = (layer: __esri.FeatureLayer): string | null =>
+    detectAreaField(this, layer);
 
   onDataSourceCreated = (ds: DataSource) => {
-    return onDataSourceCreated(this as unknown as RegionWidgetHost, ds);
+    return onDataSourceCreated(this, ds);
   };
 
   /* ---------------------- Data Fetch ---------------------- */
 
-  private normalizeApos = (s: string) =>
-    normalizeApos(this as unknown as RegionWidgetHost, s);
+  normalizeApos = (s: string) =>
+    normalizeApos(this, s);
 
-  private buildWhereForAggregates(
+  buildWhereForAggregates(
     viewOverride?: "viloyat" | "tuman",
     drillViloyatOverride?: string,
   ): string {
-    return buildWhereForAggregates(this as unknown as RegionWidgetHost, viewOverride, drillViloyatOverride);
+    return buildWhereForAggregates(this, viewOverride, drillViloyatOverride);
   }
 
-  private buildVhScopedWheres = async (
+  buildVhScopedWheres = async (
     baseWhere: string,
   ): Promise<string[]> => {
-    return buildVhScopedWheres(this as unknown as RegionWidgetHost, baseWhere);
+    return buildVhScopedWheres(this, baseWhere);
   };
 
-  private queryAggregates = async (
+  queryAggregates = async (
     groupField: string,
     whereOverride?: string,
     /** `region` / `district` — bars are identified by this code, not the name. */
     codeField?: string | null,
   ): Promise<RegionalDataItem[]> => {
-    return queryAggregates(this as unknown as RegionWidgetHost, groupField, whereOverride, codeField);
+    return queryAggregates(this, groupField, whereOverride, codeField);
   };
 
-  private fetchRegionalData = async () => {
-    return fetchRegionalData(this as unknown as RegionWidgetHost);
+  fetchRegionalData = async () => {
+    return fetchRegionalData(this);
   };
 
-  private _lastRegionalFetchKey = "";
+  _lastRegionalFetchKey = "";
 
-  private fetchRegionalDataDeduped = async () => {
-    return fetchRegionalDataDeduped(this as unknown as RegionWidgetHost);
+  fetchRegionalDataDeduped = async () => {
+    return fetchRegionalDataDeduped(this);
   };
 
   /* ---------------------- User Interactions ---------------------- */
 
-  private handleRegionSelectionClick = (
+  handleRegionSelectionClick = (
     data: { name?: string; payload?: RegionalDataItem & { name?: string } },
     _index?: number,
     _e?: React.MouseEvent<SVGPathElement, MouseEvent>,
   ): void => {
-    return handleRegionSelectionClick(this as unknown as RegionWidgetHost, data, _index, _e);
+    return handleRegionSelectionClick(this, data, _index, _e);
   };
 
-  private navigateBack = () => {
-    return navigateBack(this as unknown as RegionWidgetHost);
+  navigateBack = () => {
+    return navigateBack(this);
   };
 
   /* ---------------------- Render ---------------------- */
 
-  private formatNumber = (value: number | null | undefined, decimals = 0) => {
-    return formatNumber(this as unknown as RegionWidgetHost, value, decimals);
+  formatNumber = (value: number | null | undefined, decimals = 0) => {
+    return formatNumber(this, value, decimals);
   };
 
-  private clampCursorPosition = (
+  clampCursorPosition = (
     clientX: number,
     clientY: number,
   ): { x: number; y: number } => {
-    return clampCursorPosition(this as unknown as RegionWidgetHost, clientX, clientY);
+    return clampCursorPosition(this, clientX, clientY);
   };
 
-  private getClientPoint = (
+  getClientPoint = (
     ...args: Array<{ nativeEvent?: MouseEvent } & Partial<MouseEvent> | unknown>
   ): { x: number; y: number } => {
-    return getClientPoint(this as unknown as RegionWidgetHost, args);
+    return getClientPoint(this, ...args);
   };
 
-  private applyTooltipPosition = (x: number, y: number): void => {
-    return applyTooltipPosition(this as unknown as RegionWidgetHost, x, y);
+  applyTooltipPosition = (x: number, y: number): void => {
+    return applyTooltipPosition(this, x, y);
   };
 
-  private bindPointerTracking = (): void => {
-    return bindPointerTracking(this as unknown as RegionWidgetHost);
+  bindPointerTracking = (): void => {
+    return bindPointerTracking(this);
   };
 
-  private unbindPointerTracking = (): void => {
-    return unbindPointerTracking(this as unknown as RegionWidgetHost);
+  unbindPointerTracking = (): void => {
+    return unbindPointerTracking(this);
   };
 
-  private handleGlobalPointerMove = (e: MouseEvent): void => {
-    return handleGlobalPointerMove(this as unknown as RegionWidgetHost, e);
+  handleGlobalPointerMove = (e: MouseEvent): void => {
+    return handleGlobalPointerMove(this, e);
   };
 
-  private hideCursorTooltip = (): void => {
-    return hideCursorTooltip(this as unknown as RegionWidgetHost);
+  hideCursorTooltip = (): void => {
+    return hideCursorTooltip(this);
   };
 
-  private handleWidgetPointerLeave = (): void => {
-    return handleWidgetPointerLeave(this as unknown as RegionWidgetHost);
+  handleWidgetPointerLeave = (): void => {
+    return handleWidgetPointerLeave(this);
   };
 
-  private handleBarRowClick = (
+  handleBarRowClick = (
     item: RegionalDataItem & { displayName?: string },
   ): void => {
-    return handleBarRowClick(this as unknown as RegionWidgetHost, item);
+    return handleBarRowClick(this, item);
   };
 
-  private handleBarRowPointerEnter = (
+  handleBarRowPointerEnter = (
     item: RegionalDataItem & { displayName?: string },
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    return handleBarRowPointerEnter(this as unknown as RegionWidgetHost, item, event);
+    return handleBarRowPointerEnter(this, item, event);
   };
 
-  private handleBarRowPointerMove = (
+  handleBarRowPointerMove = (
     _item: RegionalDataItem & { displayName?: string },
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    return handleBarRowPointerMove(this as unknown as RegionWidgetHost, _item, event);
+    return handleBarRowPointerMove(this, _item, event);
   };
 
-  private handleBarPointerEnter = (
+  handleBarPointerEnter = (
     data: unknown,
     _index: number,
-    e: React.MouseEvent<SVGPathElement, MouseEvent>,
+    e: React.MouseEvent<Element, MouseEvent>,
   ): void => {
-    return handleBarPointerEnter(this as unknown as RegionWidgetHost, data, _index, e);
+    return handleBarPointerEnter(this, data, _index, e);
   };
 
-  private handleBarPointerMove = (
+  handleBarPointerMove = (
     data: unknown,
     _index: number,
-    e: React.MouseEvent<SVGPathElement, MouseEvent>,
+    e: React.MouseEvent<Element, MouseEvent>,
   ): void => {
-    return handleBarPointerMove(this as unknown as RegionWidgetHost, data, _index, e);
+    return handleBarPointerMove(this, data, _index, e);
   };
 
-  private handleChartSurfaceMove = (
+  handleChartSurfaceMove = (
     e: React.MouseEvent<HTMLDivElement>,
   ): void => {
-    return handleChartSurfaceMove(this as unknown as RegionWidgetHost, e);
+    return handleChartSurfaceMove(this, e);
   };
 
-  private renderCursorTooltipContent = (
+  renderCursorTooltipContent = (
     d: RegionalDataItem & { displayName?: string },
   ): React.ReactNode => {
-    return renderCursorTooltipContent(this as unknown as RegionWidgetHost, d);
+    return renderCursorTooltipContent(this, d);
   };
 
   render() {
-    return render(this as unknown as RegionWidgetHost);
+    return render(this);
   }
 }

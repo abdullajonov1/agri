@@ -3,6 +3,7 @@ import { getAgriDashboardBootstrap } from "../../../../../../data/agri-bootstrap
 import { storeScopedRegionDistrictMapping, hasDistrictMappingForSelection, resolveDistrictNumberFromMaps } from "../../../../../localization/resolve-geo-codes";
 import { getTuriCropLookupKey } from "../../../../../../shared/agri-crop-labels";
 import { agriLog } from "../../localization-log";
+import { errorMessage } from "../../../../../../shared/agri-plain-object";
 
 /**
  * Stores viloyat→region / tuman→district / turi→crop_id from Agri_table_data
@@ -61,7 +62,7 @@ export const fetchAndStoreRegionDistrictMappings = async (host: LocalizationHost
     });
   } catch (e) {
     agriLog("regionDistrictMap:FAILED", {
-      error: String((e as any)?.message || e),
+      error: errorMessage(e),
     });
   }
 };
@@ -118,10 +119,10 @@ export const ensureRegionDistrictForSelection = async (host: LocalizationHost): 
     let featureCount = 0;
     for (const layer of layers) {
       const q = layer.createQuery();
-      (q as any).where = where;
-      (q as any).outFields = ["viloyat", "region", "tuman", "district"];
-      (q as any).returnGeometry = false;
-      (q as any).num = 100;
+      q.where = where;
+      q.outFields = ["viloyat", "region", "tuman", "district"];
+      q.returnGeometry = false;
+      q.num = 100;
 
       const res = await layer.queryFeatures(q);
       const features = res?.features ?? [];
@@ -171,7 +172,7 @@ export const ensureRegionDistrictForSelection = async (host: LocalizationHost): 
     });
   } catch (e) {
     agriLog("ensureRegionDistrictForSelection:error", {
-      error: String((e as any)?.message || e),
+      error: errorMessage(e),
     });
   }
 };
@@ -207,10 +208,10 @@ export const ensureCropIdForSelection = async (host: LocalizationHost): Promise<
 
     for (const layer of layers) {
       const q = layer.createQuery();
-      (q as any).where = where;
-      (q as any).outFields = ["turi", "crop_id"];
-      (q as any).returnGeometry = false;
-      (q as any).num = Math.max(20, missingTurlar.length * 4);
+      q.where = where;
+      q.outFields = ["turi", "crop_id"];
+      q.returnGeometry = false;
+      q.num = Math.max(20, missingTurlar.length * 4);
 
       const res = await layer.queryFeatures(q);
       for (const feature of res?.features ?? []) {
@@ -234,7 +235,7 @@ export const ensureCropIdForSelection = async (host: LocalizationHost): Promise<
     }
   } catch (e) {
     agriLog("ensureCropIdForSelection:error", {
-      error: String((e as any)?.message || e),
+      error: errorMessage(e),
     });
   }
 };

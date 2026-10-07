@@ -1,11 +1,13 @@
 import type { JimuMapView } from "jimu-arcgis";
 import type { AllWidgetProps, DataSource, React } from "jimu-core";
-import type { VegetationStatsWidgetState } from "./widget";
+import type { DebouncedFunc } from "lodash";
+import type { IndicatorConfig, VegetationStatsWidgetState } from "./widget";
+import type { IndicatorCustomStyles } from "./components/indicator-data/indicator-style";
 
 export interface IndicatorWidgetHost {
-  props: AllWidgetProps<any>;
+  props: AllWidgetProps<IndicatorConfig>;
   state: VegetationStatsWidgetState;
-  setState: React.Component<any, VegetationStatsWidgetState>["setState"];
+  setState: React.Component<AllWidgetProps<IndicatorConfig>, VegetationStatsWidgetState>["setState"];
   _isMounted: boolean;
   _isResetting: boolean;
   getFieldType: (name: string) => string | null;
@@ -20,21 +22,21 @@ export interface IndicatorWidgetHost {
   readFiltersFromUrl: () => void;
   setupAutoRefresh: () => void;
   initializeTheme: () => void;
-  handleThemeChange: (event: any) => void;
+  handleThemeChange: (event: Event) => void;
   _containerRef: React.RefObject<HTMLDivElement>;
   _resizeObserver: ResizeObserver;
-  initializationTimer: any;
+  initializationTimer: ReturnType<typeof setTimeout> | null;
   ensureInitialization: () => void;
   _lastMasterFilterBroadcastGeneration: number;
   _lastMasterFilterTs: number;
   normalizeTurlar: (raw: unknown, fallback?: string) => string[];
   prepareVhJoinIds: (ids: string[] | null) => Promise<void>;
   _lastFilterEventMs: number;
-  _canonicalFeatureLayer: __esri.FeatureLayer;
+  _canonicalFeatureLayer?: __esri.FeatureLayer;
   getDefaultFeatureLayer: (layersOverride?: __esri.FeatureLayer[]) => __esri.FeatureLayer | undefined;
   refreshData: () => void;
-  throttledFetchData: any;
-  refreshTimer: any;
+  throttledFetchData: DebouncedFunc<(forceRefresh?: boolean) => Promise<void>>;
+  refreshTimer: ReturnType<typeof setInterval> | null;
   _abortController: AbortController;
   MAX_CONNECTION_ATTEMPTS: number;
   shouldFetchForViloyat: () => boolean;
@@ -58,9 +60,9 @@ export interface IndicatorWidgetHost {
   makeRegionSuffixVariants: (raw: string) => string[];
   fetchGroupedStats: () => Promise<void>;
   getFeatureLayerForViloyat: (viloyat: string, layersOverride?: __esri.FeatureLayer[]) => __esri.FeatureLayer | undefined;
-  getCustomStyles: () => { container: any; statLabel: any; statValue: any; iconContainer: any; icon: any; hasBgOverride: boolean; };
+  getCustomStyles: () => IndicatorCustomStyles;
   onDataSourceCreated: (dataSource: DataSource) => void;
-  onDataSourceInfoChange: (info: any) => void;
+  onDataSourceInfoChange: (info: unknown) => void;
   onActiveViewChange: (jimuMapView: JimuMapView) => void;
   translateKnownError: (msg: string) => string;
 }

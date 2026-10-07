@@ -1,4 +1,5 @@
-import type { PieWidgetHost } from "../pie-host";
+import type { PieChartDatum, PieWidgetHost } from "../pie-host";
+import type { CssVarStyle } from "../../../panel-filter-detail";
 import { React } from "jimu-core";
 import { DataSourceComponent } from "jimu-core";
 import { JimuMapViewComponent } from "jimu-arcgis";
@@ -7,7 +8,7 @@ import { Button } from "jimu-ui";
 import { default as AgriChartLoader } from "../../../../shared/AgriChartLoader";
 import { agriNoDataLabel } from "../../../../shared/agriNoDataLabel";
 
-export const renderRadarPieChart = (host: PieWidgetHost, _chartData: any[], _containerWidth: number = 300, _containerHeight: number = 300): JSX.Element => {
+export const renderRadarPieChart = (host: PieWidgetHost, _chartData: PieChartDatum[], _containerWidth: number = 300, _containerHeight: number = 300): JSX.Element => {
   return (
     <div
       ref={host._pieChartRef}
@@ -288,8 +289,8 @@ export function render(host: PieWidgetHost) {
                       {
                         cursor: sliceInteractive ? "pointer" : "default",
                         pointerEvents: sliceInteractive ? "auto" : "none",
-                        ["--legend-accent" as any]: accentColor,
-                      } as any
+                        "--legend-accent": accentColor,
+                      } as React.CSSProperties & CssVarStyle
                     }
                   >
                     <div

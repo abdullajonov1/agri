@@ -1,4 +1,5 @@
 import type { GraffWidgetHost } from "../graff-host";
+import { applyGraffDefinitionExpression, eventDetail } from "../graff-guards";
 import { buildUniqueidUpperEqualsWhere, stripUniqueidBraces } from "../../../../data/agri-uniqueid-sql";
 import { setVegetationOverlayContext, getVegetationOverlayDateForRegion } from "../../../../gis/agri-vegetation-overlay-prefetch";
 import type { VegetationIndiceType } from "../../../../gis/agri-polygon-api-source";
@@ -95,13 +96,25 @@ export const resolveFieldCaseInsensitive = (host: GraffWidgetHost, name: string)
 export const isRegionalInteractionEnabled = (host: GraffWidgetHost): boolean =>
   !!String(host.state.regionalFilters?.viloyat || "").trim();
 
+/** AgriPopup polygon-selection broadcast payload (untrusted). */
+interface PopupPolygonSelectionDetail {
+  source?: unknown;
+  regionId?: unknown;
+  polygonMode?: unknown;
+  uniqueid?: unknown;
+  clickedAt?: unknown;
+}
+
+/** Hit-test result entry; only graphic hits carry attributes. */
+type HitWithGraphic = { graphic?: { attributes?: Record<string, unknown> | null } | null };
+
 /**
  * AgriPopup → Graff direct path (skips Localization setState hop) so TIFF
  * can start in the same event turn as the map click notify.
  */
 export const handlePopupPolygonSelectionFastPath = (host: GraffWidgetHost, event: Event): void => {
   if (!host._isMounted) return;
-  const d: any = (event as CustomEvent).detail || {};
+  const d = eventDetail<PopupPolygonSelectionDetail>(event);
   if (d?.source !== "AgriPopup") return;
   const regionHint =
     d.regionId != null && Number.isFinite(Number(d.regionId))
@@ -338,12 +351,12 @@ export const detachMapHoverPrefetch = (host: GraffWidgetHost): void => {
 export const attachMapHoverPrefetch = (host: GraffWidgetHost, view: __esri.MapView | __esri.SceneView): void => {
   host.detachMapHoverPrefetch();
   if (!view?.on) return;
-  host._mapHoverPrefetchHandle = view.on("pointer-move", (event: any) => {
+  host._mapHoverPrefetchHandle = view.on("pointer-move", (event: __esri.ViewPointerMoveEvent) => {
     if (!host._isMounted) return;
     const regionId = host.resolveCurrentRegionId();
     const year = host.resolveCurrentYear();
     if (regionId === undefined || year === undefined) return;
-    const scale = Number((view as any).scale);
+    const scale = Number(view.scale);
     if (Number.isFinite(scale) && scale > 80000) return;
 
     if (host._hoverPrefetchTimer != null) {
@@ -355,10 +368,10 @@ export const attachMapHoverPrefetch = (host: GraffWidgetHost, view: __esri.MapVi
   });
 };
 
-export const prefetchVegetationForMapPoint = async (host: GraffWidgetHost, view: __esri.MapView | __esri.SceneView, event: any, regionId: number, year: number): Promise<void> => {
+export const prefetchVegetationForMapPoint = async (host: GraffWidgetHost, view: __esri.MapView | __esri.SceneView, event: __esri.ViewPointerMoveEvent, regionId: number, year: number): Promise<void> => {
   try {
     const hit = await view.hitTest(event);
-    const results = (hit as any)?.results || [];
+    const results = (hit?.results || []) as HitWithGraphic[];
     let uniqueid = "";
     for (const r of results) {
       const attrs = r?.graphic?.attributes;
@@ -418,7 +431,7 @@ export const clearPolygonSelectionFromMapClick = (host: GraffWidgetHost): void =
     try {
       void view.goTo(restoreExtent, {
         duration: 700,
-        easing: "ease-in-out" as any,
+        easing: "ease-in-out" as const,
       });
     } catch {
       /* ignore */
@@ -437,12 +450,7 @@ export const clearPolygonSelectionFromMapClick = (host: GraffWidgetHost): void =
     () => {
       try {
         const baseWhere = host.buildWhereClause();
-        if (featureLayer && !isMapImageOwnedLayer(featureLayer)) {
-          (featureLayer as any).definitionExpression = baseWhere || "1=0";
-        }
-        (host.state.dataSource as any)?.setDefinitionExpression?.(
-          baseWhere || "1=0",
-        );
+        applyGraffDefinitionExpression(featureLayer, host.state.dataSource, baseWhere || "1=0");
       } catch {
         /* ignore */
       }

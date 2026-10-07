@@ -179,6 +179,22 @@ export function clearAgriPersistentNamespace(namespace: string): void {
 }
 
 /**
+ * Drops every persisted stat entry. Called on logout so the next user of a
+ * shared PC never sees the previous user's aggregates. Storage errors are
+ * thrown so the caller can record the incomplete cleanup.
+ */
+export function clearAgriPersistentCache(): void {
+  const store = storage();
+  if (!store) return;
+  const keys: string[] = [];
+  for (let i = 0; i < store.length; i++) {
+    const key = store.key(i);
+    if (key && key.startsWith(STORAGE_PREFIX)) keys.push(key);
+  }
+  keys.forEach((key) => store.removeItem(key));
+}
+
+/**
  * Promise-map helper: memory hit → return; else persistent hit → warm memory;
  * else run factory, persist resolved JSON value.
  */

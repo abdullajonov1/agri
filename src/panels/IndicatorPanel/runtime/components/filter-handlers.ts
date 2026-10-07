@@ -3,9 +3,11 @@ import { bindMasterFilter } from "../../../../data/agri-filter-bus";
 import { normalizeLanguage } from "../../../../shared/agri-language";
 import { normalizeApos } from "../../../../data/agri-sql";
 import { AllWidgetProps } from "jimu-core";
-import type { VegetationStatsWidgetState } from "../widget";
+import type { IndicatorConfig, VegetationStatsWidgetState } from "../widget";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../shared/map-connection-service";
 import { agriVhIndicatorLog } from "../../../../gis/agri-debug-log";
+import { errorMessage } from "../../../../shared/agri-plain-object";
+import { readPanelEventDetail } from "../../../panel-filter-detail";
 
 // cross-iframe event bus so widgets inside builder/preview/iframe can talk
 const BUS: Document = window.top?.document ?? document;
@@ -77,8 +79,8 @@ export const handleMasterFilterChanged = (host: IndicatorWidgetHost, event: Even
   if (!host._isMounted) return;
   if (host._isResetting) return;
 
-  const d: any = (event as CustomEvent)?.detail || {};
-  if (!d?.filters) return;
+  const d = readPanelEventDetail(event);
+  if (!d.filters) return;
 
   // ignore self if ever dispatched (defensive)
   if (d?.source === "VegetationStatsWidget") return;
@@ -147,7 +149,7 @@ export const handleMasterFilterChanged = (host: IndicatorWidgetHost, event: Even
   };
   const nextVhUniqueids: string[] | null = !nextVh
     ? null
-    : normalizeIdList((event as CustomEvent).detail?.vhUniqueids);
+    : normalizeIdList(d.vhUniqueids);
   const nextBarField = filters.barCategoryField ?? null;
   const nextBarValue = filters.barCategoryValue ?? null;
   const nextUniqueid = filters.polygonMode
@@ -305,7 +307,7 @@ export function componentWillUnmount(host: IndicatorWidgetHost) {
   }
 }
 
-export function componentDidUpdate(host: IndicatorWidgetHost, prevProps: AllWidgetProps<any>, prevState: VegetationStatsWidgetState) {
+export function componentDidUpdate(host: IndicatorWidgetHost, prevProps: AllWidgetProps<IndicatorConfig>, prevState: VegetationStatsWidgetState) {
   const { connectionStatus, mapConnectionAttempts } = host.state;
   const { useMapWidgetIds, config } = host.props;
 
@@ -345,7 +347,7 @@ export function componentDidUpdate(host: IndicatorWidgetHost, prevProps: AllWidg
 
 export const handleExternalCategory = async (host: IndicatorWidgetHost, event: CustomEvent) => {
   if (!host._isMounted) return;
-  const d = event?.detail || {};
+  const d = readPanelEventDetail(event);
   if (d.source === "VegetationStatsWidget") return;
 
   const nextTuri = normalizeApos(
@@ -381,14 +383,14 @@ export const handleExternalCategory = async (host: IndicatorWidgetHost, event: C
   );
 };
 
-export const handleConstructionYearChanged = (host: IndicatorWidgetHost, event: any) => {
+export const handleConstructionYearChanged = (host: IndicatorWidgetHost, event: Event) => {
   if (host._isResetting) return;
-  const { detail } = event || {};
-  if (detail?.source === "VegetationStatsWidget") return;
+  const detail = readPanelEventDetail(event);
+  if (detail.source === "VegetationStatsWidget") return;
 
   host.setState(
     {
-      selectedYil: detail?.year ? detail.year.toString() : "",
+      selectedYil: detail.year ? detail.year.toString() : "",
       loading: true,
       lastFilterEventTimestamp: Date.now(),
       isHandlingExternalEvent: true,
@@ -405,11 +407,11 @@ export const handleConstructionYearChanged = (host: IndicatorWidgetHost, event: 
   );
 };
 
-export const handleRegionChange = (host: IndicatorWidgetHost, event: any): void => {
+export const handleRegionChange = (host: IndicatorWidgetHost, event: Event): void => {
   if (host._isResetting) return;
-  if (!event?.detail) return;
+  if (!(event as CustomEvent<unknown> | null)?.detail) return;
 
-  const { viloyat, tuman, source } = event.detail;
+  const { viloyat, tuman, source } = readPanelEventDetail(event);
   if (source === "VegetationStatsWidget") return;
 
   host.setState(
@@ -432,11 +434,11 @@ export const handleRegionChange = (host: IndicatorWidgetHost, event: any): void 
   );
 };
 
-export const handleYilChange = (host: IndicatorWidgetHost, event: any): void => {
+export const handleYilChange = (host: IndicatorWidgetHost, event: Event): void => {
   if (host._isResetting) return;
-  if (!event?.detail) return;
+  if (!(event as CustomEvent<unknown> | null)?.detail) return;
 
-  const { yil, source } = event.detail;
+  const { yil, source } = readPanelEventDetail(event);
   if (source === "VegetationStatsWidget") return;
 
   host.setState(
@@ -461,7 +463,7 @@ export const handleYilChange = (host: IndicatorWidgetHost, event: any): void => 
 export const handleWaterSupplyFilterChange = (host: IndicatorWidgetHost, event: CustomEvent) => {
   if (host._isResetting) return;
 
-  const d = event?.detail || {};
+  const d = readPanelEventDetail(event);
   if (d.source === "VegetationStatsWidget") return;
 
   const now = Date.now();
@@ -495,7 +497,7 @@ export const handleWaterSupplyFilterChange = (host: IndicatorWidgetHost, event: 
 export const handleCategorySelection = (host: IndicatorWidgetHost, event: CustomEvent) => {
   if (host._isResetting) return;
 
-  const d = event?.detail || {};
+  const d = readPanelEventDetail(event);
   if (d.source === "VegetationStatsWidget") return;
 
   // ✅ CHANGED: support turi + old tur
@@ -525,10 +527,10 @@ export const handleCategorySelection = (host: IndicatorWidgetHost, event: Custom
   );
 };
 
-export const handleKadastrFiltersChanged = (host: IndicatorWidgetHost, event: any) => {
+export const handleKadastrFiltersChanged = (host: IndicatorWidgetHost, event: Event) => {
   if (host._isResetting) return;
 
-  const d = event?.detail || {};
+  const d = readPanelEventDetail(event);
   if (d.source === "VegetationStatsWidget") return;
 
   // ✅ CHANGED: support turi + old tur
@@ -562,7 +564,7 @@ export const handleKadastrFiltersReset = (host: IndicatorWidgetHost) =>
 export const handleVegetationStatusChange = (host: IndicatorWidgetHost, event: CustomEvent) => {
   if (host._isResetting) return;
 
-  const d = event?.detail || {};
+  const d = readPanelEventDetail(event);
   if (d.source === "VegetationStatsWidget") return;
 
   host.setState(
@@ -587,7 +589,7 @@ export const handleVegetationStatusChange = (host: IndicatorWidgetHost, event: C
 export const handleCropTypeChange = (host: IndicatorWidgetHost, event: CustomEvent) => {
   if (host._isResetting) return;
 
-  const d = event?.detail || {};
+  const d = readPanelEventDetail(event);
   if (d.source === "VegetationStatsWidget") return;
 
   host.setState(
@@ -693,6 +695,7 @@ export function readFiltersFromUrl(host: IndicatorWidgetHost): void {
       },
     );
   } catch (error) {
-
+    // Malformed URL / blocked location access: keep current filters.
+    agriVhIndicatorLog("url-filters-read-failed", { error: errorMessage(error) });
   }
 }

@@ -9,7 +9,29 @@ import { getQueryableLayer } from "../../../../gis/feature-layer-data";
 import { DataSourceManager } from "jimu-core";
 import { getAgriDashboardBootstrap } from "../../../../data/agri-bootstrap";
 import type { AgriLanguage } from "../../../../shared/agri-language";
+import type { ImmutableObject, UseDataSource } from "jimu-core";
+import { toPlainRecord, toPlainValue } from "../../../../shared/agri-plain-object";
+import { describeThrown, type AgriQueryableLayer } from "../graff-guards";
+import { graffLog } from "../graff-log";
 import { translateAgriPlaceForDisplay } from "../../../../shared/agri-place-display";
+
+/** Jimu layer-view fields matched against a use-data-source id. */
+interface JimuLayerViewLike {
+  layerDataSourceId?: string;
+  dataSourceId?: string;
+  layer?: (__esri.Layer & { dataSourceId?: string }) | null;
+}
+
+/** Data source shapes that can hand back their backing ArcGIS layer. */
+interface LayerBackedDataSource {
+  getLayer?: () => Promise<unknown>;
+  layer?: { url?: string } | null;
+  url?: string;
+}
+
+/** True when the data source exposes any of the layer-access members read below. */
+const isLayerBackedDataSource = (ds: object | null | undefined): ds is LayerBackedDataSource =>
+  ds != null && ("getLayer" in ds || "layer" in ds || "url" in ds);
 
 function translateForDisplay(
   text: string,
@@ -65,7 +87,6 @@ const REQUIRED_FIELDS = [
 ];
 
 export function retryMapConnection(host: GraffWidgetHost) {
-
   host.setState({
     connectionStatus: "connecting",
     mapConnectionAttempts: 0,
@@ -74,9 +95,7 @@ export function retryMapConnection(host: GraffWidgetHost) {
 }
 
 export const onActiveViewChange = (host: GraffWidgetHost, jimuMapView: JimuMapView) => {
-
   if (!jimuMapView) {
-    
     host.detachMapHoverPrefetch();
     host.setState({
       activeMapView: null,
@@ -91,13 +110,10 @@ export const onActiveViewChange = (host: GraffWidgetHost, jimuMapView: JimuMapVi
     },
     () => {
       if (jimuMapView.view && jimuMapView.view.ready) {
-        
         host.initializeMapConnection(jimuMapView);
       } else {
-        
         const readyWatch = jimuMapView.view.watch("ready", (isReady) => {
           if (isReady) {
-
             readyWatch.remove();
             host.initializeMapConnection(jimuMapView);
           }
@@ -108,7 +124,7 @@ export const onActiveViewChange = (host: GraffWidgetHost, jimuMapView: JimuMapVi
 };
 
 /** Format a field value for display */
-export function formatFieldValue(host: GraffWidgetHost, fieldName: string, value: any): string {
+export function formatFieldValue(host: GraffWidgetHost, fieldName: string, value: unknown): string {
   if (value === null || value === undefined || value === "") {
     return "N/A";
   }
@@ -116,7 +132,7 @@ export function formatFieldValue(host: GraffWidgetHost, fieldName: string, value
   const lowerFieldName = fieldName.toLowerCase();
 
   if (lowerFieldName.includes("maydon") || lowerFieldName.includes("area")) {
-    const num = parseFloat(value);
+    const num = parseFloat(String(value));
     if (!isNaN(num)) {
       return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
     }
@@ -124,7 +140,7 @@ export function formatFieldValue(host: GraffWidgetHost, fieldName: string, value
 
   if (lowerFieldName.includes("date") || lowerFieldName.includes("sana")) {
     try {
-      const date = new Date(value);
+      const date = new Date(value as string | number | Date);
       if (!isNaN(date.getTime())) {
         return date.toLocaleDateString("en-GB", {
           day: "numeric",
@@ -132,7 +148,10 @@ export function formatFieldValue(host: GraffWidgetHost, fieldName: string, value
           year: "numeric",
         });
       }
-    } catch {}
+    } catch (err) {
+      // Unparseable date — fall through to the plain String(value) display.
+      graffLog("formatFieldValue:date-parse-failed", { fieldName, error: describeThrown(err) });
+    }
   }
 
   // Translate display-only region/district names; selection notifications must use original values.
@@ -148,7 +167,7 @@ export function formatFieldValue(host: GraffWidgetHost, fieldName: string, value
     lowerFieldName === "ekin_turi" ||
     lowerFieldName === "crop_type"
   ) {
-    return getCropDisplayName(value, host.state.language);
+    return getCropDisplayName(String(value), host.state.language);
   }
 
   return String(value);
@@ -159,7 +178,7 @@ export function getStatusValueForRecord(host: GraffWidgetHost, record: RecordDat
   const statusField = host.getStatusFieldNameForCurrentDate();
   if (!statusField) return "N/A";
 
-  const raw = (record as any)[statusField];
+  const raw = record[statusField];
   if (raw === null || raw === undefined || raw === "") return "N/A";
 
   const key = String(raw).trim().toLowerCase().replace(/\s+/g, "_");
@@ -198,24 +217,18 @@ export const initializeMapConnection = async (host: GraffWidgetHost, jimuMapView
     !featureLayer.fields ||
     featureLayer.fields.length === 0
   ) {
-    
     try {
       await featureLayer.load();
-
-      
-      
-    } catch (err: any) {
-      
+    } catch (err) {
       host.setState({
         connectionStatus: "failed",
-        error: `Error loading the configured feature layer: ${err.message || err}`,
+        error: `Error loading the configured feature layer: ${describeThrown(err)}`,
       });
       return;
     }
   }
 
   if (!featureLayer.fields || featureLayer.fields.length === 0) {
-    
     host.setState({
       connectionStatus: "failed",
       error:
@@ -224,13 +237,9 @@ export const initializeMapConnection = async (host: GraffWidgetHost, jimuMapView
     return;
   }
 
-  
-
   const configuredFields = host.getConfiguredFilterFields();
-  
 
   if (configuredFields.length === 0) {
-    
     host.setState({
       connectionStatus: "failed",
       error:
@@ -245,17 +254,12 @@ export const initializeMapConnection = async (host: GraffWidgetHost, jimuMapView
   );
 
   if (missingFields.length > 0) {
-    
-    
-
     host.setState({
       connectionStatus: "failed",
       error: `The layer "${featureLayer.title}" is missing required fields: ${missingFields.join(", ")}. Please select a different layer that contains these fields: ${REQUIRED_FIELDS.join(", ")}`,
     });
     return;
   }
-
-  
 
   host.setState(
     {
@@ -316,9 +320,9 @@ export const initializeMapConnection = async (host: GraffWidgetHost, jimuMapView
 
 export const addSelectionGlow = (host: GraffWidgetHost, view: __esri.MapView | __esri.SceneView, feature: __esri.Graphic) => {
   const geometryType = feature?.geometry?.type;
-  const halo = feature.clone() as any;
+  const halo = feature.clone();
   halo.symbol = buildSelectionSymbol(geometryType, true);
-  const core = feature.clone() as any;
+  const core = feature.clone();
   core.symbol = buildSelectionSymbol(geometryType);
   view.graphics.addMany([halo, core]);
 };
@@ -335,13 +339,14 @@ export const highlightFeature = async (host: GraffWidgetHost, feature: __esri.Gr
         feature.geometry?.extent?.expand(1.35) || feature.geometry,
         {
         duration: 700,
-        easing: "ease-in-out" as any,
+        easing: "ease-in-out" as const,
       });
     } catch (goToErr) {
-      /* ignore */
+      // goTo rejects when interrupted by a newer navigation — harmless.
+      graffLog("highlightFeature:goTo-failed", { error: describeThrown(goToErr) });
     }
   } catch (hErr) {
-    /* ignore */
+    graffLog("highlightFeature:failed", { error: describeThrown(hErr) });
   }
 };
 
@@ -349,24 +354,17 @@ export const highlightFeature = async (host: GraffWidgetHost, feature: __esri.Gr
 export function getConfiguredFilterFields(host: GraffWidgetHost): string[] {
   const cfg = host.props?.config?.filterFields;
   if (!cfg) {
-    
     return REQUIRED_FIELDS;
   }
 
   const dsId =
-    (host.state.dataSource as any)?.id ||
+    host.state.dataSource?.id ||
     host.props.useDataSources?.[0]?.dataSourceId;
 
-  let filterMap: Record<string, string[]>;
-  if (typeof (cfg as any).asMutable === "function") {
-    filterMap = (cfg as any).asMutable({ deep: true });
-  } else {
-    filterMap = cfg as any;
-  }
+  const filterMap = (toPlainRecord(cfg) || {}) as Record<string, string[]>;
 
   const configuredFields = dsId && filterMap[dsId] ? filterMap[dsId] : [];
 
-  
   return configuredFields;
 }
 
@@ -374,7 +372,6 @@ export function refreshFiltersFromConfig(host: GraffWidgetHost) {
   const fields = host.getConfiguredFilterFields();
 
   if (fields.length === 0) {
-    
     host.setState({
       configuredFields: [],
       filterOptions: {},
@@ -383,13 +380,13 @@ export function refreshFiltersFromConfig(host: GraffWidgetHost) {
     return;
   }
 
-  const makeMap = (def: any) =>
+  const makeMap = <T,>(def: T): Record<string, T> =>
     fields.reduce(
       (acc, f) => {
         acc[f] = def;
         return acc;
       },
-      {} as Record<string, any>,
+      {} as Record<string, T>,
     );
 
   host.setState({
@@ -397,36 +394,23 @@ export function refreshFiltersFromConfig(host: GraffWidgetHost) {
     filterOptions: makeMap([]),
     localFilters: makeMap(""),
   });
-
-  
 }
 
-export const resolveFeatureLayerFromDataSource = async (host: GraffWidgetHost, jimuMapView: JimuMapView, useDsOverride?: any): Promise<__esri.FeatureLayer | null> => {
-  
-
+export const resolveFeatureLayerFromDataSource = async (host: GraffWidgetHost, jimuMapView: JimuMapView, useDsOverride?: UseDataSource | ImmutableObject<UseDataSource>): Promise<__esri.FeatureLayer | null> => {
   if (!jimuMapView?.view?.map) {
-    
     return null;
   }
 
   const useDs = useDsOverride ?? host.props.useDataSources?.[0];
-  
-  
 
   if (!useDs?.dataSourceId) {
-    
     return null;
   }
 
   const dsId = useDs.dataSourceId;
-  const rootDsId = (useDs as any).rootDataSourceId;
+  const rootDsId = useDs.rootDataSourceId;
 
-  const jlvList: any[] = jimuMapView.getAllJimuLayerViews?.() || [];
-  
-
-  jlvList.forEach((lv, idx) => {
-    
-  });
+  const jlvList: JimuLayerViewLike[] = jimuMapView.getAllJimuLayerViews?.() || [];
 
   const matchByDsId = (id: string) =>
     jlvList.find(
@@ -448,7 +432,8 @@ export const resolveFeatureLayerFromDataSource = async (host: GraffWidgetHost, j
 
   try {
     const dsManager = DataSourceManager.getInstance();
-    const ds: any = dsManager.getDataSource(dsId);
+    const rawDs = dsManager.getDataSource(dsId);
+    const ds = isLayerBackedDataSource(rawDs) ? rawDs : null;
 
     if (ds?.getLayer) {
       const layer = await ds.getLayer();
@@ -467,31 +452,27 @@ export const resolveFeatureLayerFromDataSource = async (host: GraffWidgetHost, j
     const url: string | undefined = ds?.url || ds?.layer?.url;
 
     if (url) {
-      const layers = jimuMapView.view.map.layers.toArray() as any[];
+      const layers = jimuMapView.view.map.layers.toArray() as AgriQueryableLayer[];
 
       const matchedLayer = layers
-        .filter((ly: any) => ly?.url === url)
-        .map((ly: any) => getQueryableLayer(ly))
-        .find((ly: any) => !!ly);
+        .filter((ly) => ly?.url === url)
+        .map((ly) => getQueryableLayer(ly))
+        .find((ly) => !!ly);
       if (matchedLayer) {
         return matchedLayer as __esri.FeatureLayer;
       }
     }
   } catch (e) {
-
+    // Data source not ready / layer load failed — caller treats null as "no layer".
+    graffLog("resolveFeatureLayerFromDataSource:failed", { dsId, error: describeThrown(e) });
   }
 
-  
-  
   return null;
 };
 
 export const resolveFeatureLayersFromUseDataSources = async (host: GraffWidgetHost, jimuMapView: JimuMapView): Promise<__esri.FeatureLayer[]> => {
-  const raw =
-    (host.props.useDataSources as any)?.asMutable?.() ??
-    host.props.useDataSources ??
-    [];
-  const useDss = Array.isArray(raw) ? raw : [];
+  const raw = toPlainValue(host.props.useDataSources) ?? [];
+  const useDss = (Array.isArray(raw) ? raw : []) as UseDataSource[];
 
   const resolved: __esri.FeatureLayer[] = [];
   for (const useDs of useDss) {
@@ -525,24 +506,24 @@ export const buildViloyatKeyToLayerIndex = async (host: GraffWidgetHost): Promis
           await layer.load();
         }
         const q = layer.createQuery();
-        (q as any).where = "1=1";
-        (q as any).outFields = ["viloyat"];
-        (q as any).returnGeometry = false;
-        (q as any).returnDistinctValues = true;
+        q.where = "1=1";
+        q.outFields = ["viloyat"];
+        q.returnGeometry = false;
+        q.returnDistinctValues = true;
         // PostgreSQL DISTINCT requires ORDER BY fields to be selected too.
-        (q as any).orderByFields = ["viloyat ASC"];
-        (q as any).num = 50000;
+        q.orderByFields = ["viloyat ASC"];
+        q.num = 50000;
 
         const res = await layer.queryFeatures(q);
         const features = res?.features ?? [];
         for (const f of features) {
-          const a: any = f.attributes || {};
-          const v = a?.viloyat;
+          const v: unknown = f.attributes?.viloyat;
           const key = host.makeRegionDistrictKey(v != null ? String(v) : null);
           if (key && idx[key] === undefined) idx[key] = i;
         }
       } catch (e) {
-
+        // One bad layer must not block indexing the others.
+        graffLog("buildViloyatKeyToLayerIndex:layer-failed", { index: i, error: describeThrown(e) });
       }
     }
   } else if (layers.length === 1) {
@@ -553,12 +534,12 @@ export const buildViloyatKeyToLayerIndex = async (host: GraffWidgetHost): Promis
         if (key && idx[key] === undefined) idx[key] = 0;
       }
     } catch (e) {
-
+      // Bootstrap unavailable — every viloyat falls back to the single layer.
+      graffLog("buildViloyatKeyToLayerIndex:bootstrap-failed", { error: describeThrown(e) });
     }
   }
 
   host._viloyatKeyToLayerIndex = idx;
-
 };
 
 export const getFeatureLayerForViloyat = (host: GraffWidgetHost, viloyat: string): __esri.FeatureLayer | undefined => {
@@ -575,27 +556,22 @@ export const getFeatureLayerForViloyat = (host: GraffWidgetHost, viloyat: string
 
 export const ensureInitialization = (host: GraffWidgetHost) => {
   if (!host._isMounted) {
-
     return;
   }
 
   const { featureLayer, connectionStatus, mapConnectionAttempts } = host.state;
-
-  
 
   if (
     featureLayer &&
     connectionStatus === "connected" &&
     !host.state.initialDataLoaded
   ) {
-    
     host.setState({ loading: true });
     host.fetchFilterOptions();
   } else if (
     connectionStatus === "failed" &&
     mapConnectionAttempts === host.MAX_CONNECTION_ATTEMPTS
   ) {
-    
     host.retryMapConnection();
   }
 };

@@ -1,4 +1,4 @@
-import type { LocalizationHost } from "../../host";
+import type { LocalizationConfig, LocalizationHost } from "../../host";
 import { type VHBarData, VH_TO_NDVI_STATUS } from "../../../../../localization/vh-constants";
 import { buildVhBarComputeKey } from "../../../../../localization/vh-bar-aggregate";
 import { executeVhBarCompute } from "../../../../../localization/vh-bar-compute";
@@ -9,6 +9,20 @@ import { queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-ve
 
 /** Max entries kept in `_vhUniqueIdCache` (oldest inserted dropped first). */
 export const VH_UNIQUEID_CACHE_MAX = 96;
+/**
+ * Ascending date order for NDVI labels. Labels that are not dates sort before
+ * every real date, so the last element is always the latest real date.
+ */
+const compareDateLabels = (a: string, b: string): number => {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  const aIsDate = !Number.isNaN(ta);
+  const bIsDate = !Number.isNaN(tb);
+  if (aIsDate && bIsDate) return ta - tb;
+  if (aIsDate !== bIsDate) return aIsDate ? 1 : -1;
+  return a.localeCompare(b);
+};
+
 /** Get latest available NDVI date for bar (selected date, or latest from options/map, or from layer fields). */
 export function getLatestNdviDateForBar(
   host: LocalizationHost,
@@ -20,21 +34,16 @@ export function getLatestNdviDateForBar(
   if (opts?.length) return opts[opts.length - 1];
   const keys = Object.keys(host._ndviDateFieldMap);
   if (keys.length) {
-    const sorted = keys.slice().sort((a, b) => {
-      const ta = Date.parse(a);
-      const tb = Date.parse(b);
-      if (Number.isNaN(ta) || Number.isNaN(tb)) return a.localeCompare(b);
-      return ta - tb;
-    });
+    const sorted = keys.slice().sort(compareDateLabels);
     return sorted[sorted.length - 1];
   }
   if (primaryLayer?.fields?.length) {
-    const cfg = (host.props.config || {}) as any;
+    const cfg = (host.props.config || {}) as LocalizationConfig;
     const prefix =
       (cfg.polygonStatusPrefix || "status_").toString().trim() || "status_";
     const dateLabels: string[] = [];
     for (const f of primaryLayer.fields) {
-      const name = (f as any).name || "";
+      const name = f.name || "";
       if (!String(name).toLowerCase().startsWith(prefix.toLowerCase()))
         continue;
       const rawSuffix = String(name).slice(prefix.length);
@@ -46,12 +55,7 @@ export function getLatestNdviDateForBar(
       dateLabels.push(label);
     }
     if (dateLabels.length) {
-      dateLabels.sort((a, b) => {
-        const ta = Date.parse(a);
-        const tb = Date.parse(b);
-        if (Number.isNaN(ta) || Number.isNaN(tb)) return a.localeCompare(b);
-        return ta - tb;
-      });
+      dateLabels.sort(compareDateLabels);
       return dateLabels[dateLabels.length - 1];
     }
   }
@@ -147,7 +151,7 @@ export const executeComputeVhBarData = async (host: LocalizationHost): Promise<V
       host._vhBarUsedDate = date;
       host._vhBarUsedDateGeo = date ? geoKeyAtStart : null;
     },
-    setState: (patch) => host.setState(patch as any),
+    setState: (patch) => host.setState(patch),
     prefetchVhStatusUniqueIds: (date) => host.prefetchVhStatusUniqueIds(date),
     log: (phase, detail) => agriLog(phase, detail),
     farmerUniqueIds: String(host.state.selectedFarmerInn || "").trim()

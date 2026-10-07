@@ -1,4 +1,5 @@
-import type { LocalizationHost } from "../host";
+import type { CropUniqueValueInfo, LocalizationHost } from "../host";
+import type { AgriMapLayer } from "../../../../localization/agri-map-layer";
 import { findLayerFieldName as findLayerFieldNameShared, buildCropDistinctCacheKey } from "../../../../localization/layer-utils";
 import { buildCropUniqueValueInfosFromValues as buildCropUniqueValueInfosShared } from "../../../../localization/crop-renderer";
 import { buildYearClauseForLayerFields, buildTableDateEqualsWhere } from "../../../../localization/map-where-clauses";
@@ -13,14 +14,14 @@ export function getEffectiveViloyat(host: LocalizationHost): string {
   );
 }
 
-export function findLayerFieldName(host: LocalizationHost, layer: __esri.FeatureLayer, name: string): string | null {
+export function findLayerFieldName(host: LocalizationHost, layer: AgriMapLayer, name: string): string | null {
   return findLayerFieldNameShared(layer, name);
 }
 
-export const cropDistinctCacheKey = (host: LocalizationHost, layer: any, field: string, where: string): string =>
+export const cropDistinctCacheKey = (host: LocalizationHost, layer: AgriMapLayer, field: string, where: string): string =>
   buildCropDistinctCacheKey(layer, field, where);
 
-export const buildCropUniqueValueInfosFromValues = (host: LocalizationHost, field: string, distinctValues: string[]): any[] =>
+export const buildCropUniqueValueInfosFromValues = (host: LocalizationHost, field: string, distinctValues: string[]): CropUniqueValueInfo[] =>
   buildCropUniqueValueInfosShared(
       field,
       distinctValues,
@@ -30,7 +31,7 @@ export const buildCropUniqueValueInfosFromValues = (host: LocalizationHost, fiel
 export function buildYearClauseForLayer(host: LocalizationHost, layer: __esri.FeatureLayer): string {
   return buildYearClauseForLayerFields(
     host.state.yil || "",
-    (layer as any)?.fields || [],
+    layer?.fields || [],
   );
 }
 
@@ -48,11 +49,8 @@ export const handleRequestMasterFilterState = (host: LocalizationHost): void => 
 };
 
 export function getMapWidgetId(host: LocalizationHost): string | null {
-  const ids = host.props.useMapWidgetIds as any;
-  const list = ids?.length
-    ? ids.asMutable?.() || ids.toArray?.() || ids
-    : [];
-  const first = Array.isArray(list) ? list[0] : null;
+  const ids: ArrayLike<string> | null | undefined = host.props.useMapWidgetIds;
+  const first = ids?.length ? ids[0] : null;
   return first ? String(first) : null;
 }
 

@@ -5,7 +5,7 @@
 import { formatArcgisDateToYmd } from "../gis/agri-vegetation-data-source";
 
 export function resolveAgainstAvailableDates(
-  rawDate: any,
+  rawDate: unknown,
   availableDates: string[],
 ): string | null {
   if (!availableDates.length) {
@@ -15,7 +15,8 @@ export function resolveAgainstAvailableDates(
   const utc = formatArcgisDateToYmd(rawDate);
   if (utc && available.has(utc)) return utc;
 
-  const d = rawDate instanceof Date ? rawDate : new Date(rawDate);
+  const d =
+    rawDate instanceof Date ? rawDate : new Date(rawDate as string | number);
   if (!Number.isNaN(d.getTime())) {
     const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     if (available.has(local)) return local;

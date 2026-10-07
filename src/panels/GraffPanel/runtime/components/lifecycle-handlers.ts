@@ -1,4 +1,6 @@
 import type { GraffWidgetHost } from "../graff-host";
+import { describeThrown, eventDetail, setDataSourceDefinitionExpression } from "../graff-guards";
+import { graffLog } from "../graff-log";
 import * as projection from "esri/geometry/projection";
 import { warmPolygonApiConnection } from "../../../../gis/agri-polygon-api-source";
 import { getAgriVegetationIndicesLayer } from "../../../../gis/agri-vegetation-data-source";
@@ -6,6 +8,7 @@ import { bindMasterFilter } from "../../../../data/agri-filter-bus";
 import { isMapImageOwnedLayer } from "../../../../gis/feature-layer-data";
 import { AllWidgetProps, DataSource, QueriableDataSource } from "jimu-core";
 import type { AgriGraffWidgetState } from "../widget";
+import type { GraffWidgetProps } from "../graff-state";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../shared/map-connection-service";
 import type { AgriLanguage } from "../../../../shared/agri-language";
 
@@ -123,7 +126,7 @@ export function componentDidMount(host: GraffWidgetHost) {
     host.state.featureLayer.definitionExpression = "";
   }
   if (host.state.dataSource) {
-    (host.state.dataSource as any).setDefinitionExpression?.("");
+    setDataSourceDefinitionExpression(host.state.dataSource, "");
   }
 
   host.initializationTimer = setTimeout(() => {
@@ -136,7 +139,7 @@ export function componentDidMount(host: GraffWidgetHost) {
   }
 }
 
-export function componentDidUpdate(host: GraffWidgetHost, prevProps: AllWidgetProps<any>, prevState: AgriGraffWidgetState) {
+export function componentDidUpdate(host: GraffWidgetHost, prevProps: GraffWidgetProps, prevState: AgriGraffWidgetState) {
   const { connectionStatus, mapConnectionAttempts } = host.state;
   const { useMapWidgetIds } = host.props;
 
@@ -156,7 +159,6 @@ export function componentDidUpdate(host: GraffWidgetHost, prevProps: AllWidgetPr
     host._retryTimeout = setTimeout(() => {
       if (!host._isMounted) return;
 
-      
       host.setState((prevState) => ({
         mapConnectionAttempts: prevState.mapConnectionAttempts + 1,
       }));
@@ -166,7 +168,6 @@ export function componentDidUpdate(host: GraffWidgetHost, prevProps: AllWidgetPr
     mapConnectionAttempts >= host.MAX_CONNECTION_ATTEMPTS &&
     prevState.mapConnectionAttempts !== mapConnectionAttempts
   ) {
-
     host.setState({
       connectionStatus: "failed",
     });
@@ -194,7 +195,7 @@ export function componentDidUpdate(host: GraffWidgetHost, prevProps: AllWidgetPr
   ) {
     const hasSelectedMonthData = (host.state.vegetationData || []).some(
       (row) =>
-        new Date((row as any).raster_date).getMonth() ===
+        new Date(row.raster_date).getMonth() ===
         host.state.selectedMonth,
     );
     if (!hasSelectedMonthData) {
@@ -222,7 +223,6 @@ export function componentDidUpdate(host: GraffWidgetHost, prevProps: AllWidgetPr
   // Index → Jadval: switchToTable already calls fetchData. Never runAutoSearch
   // here — that used to zoom the map whenever searchText was non-empty (even
   // from typing in the header before a dropdown row was chosen).
-
 
   // Regional timeseries refetch is owned by handleMasterFilterChanged /
   // switchToGraph — avoid a second overlapping fetch in componentDidUpdate.
@@ -306,7 +306,10 @@ export function componentWillUnmount(host: GraffWidgetHost) {
 
   try {
     host._activeController?.abort();
-  } catch {}
+  } catch (err) {
+    // Aborting an already-settled controller during unmount is harmless.
+    graffLog("unmount:abort-failed", { error: describeThrown(err) });
+  }
   if (host._debounceTimer) clearTimeout(host._debounceTimer);
   if (host._searchDebounceTimer) clearTimeout(host._searchDebounceTimer);
 
@@ -338,7 +341,10 @@ export function componentWillUnmount(host: GraffWidgetHost) {
   ) {
     try {
       host.state.featureLayer.definitionExpression = "";
-    } catch {}
+    } catch (err) {
+      // Layer destroyed with the map — nothing left to reset.
+      graffLog("unmount:reset-definition-failed", { error: describeThrown(err) });
+    }
   }
 }
 
@@ -364,7 +370,7 @@ export const initializeTheme = (host: GraffWidgetHost): void => {
 
 export const handleAppLanguageChanged = (host: GraffWidgetHost, event: Event): void => {
   if (!host._isMounted) return;
-  const d: any = (event as CustomEvent)?.detail || {};
+  const d = eventDetail<{ lang?: unknown; language?: unknown; code?: unknown }>(event);
   const raw = d.lang ?? d.language ?? d.code;
   const v = String(raw ?? "")
     .trim()
@@ -415,7 +421,6 @@ export const onDataSourceCreated = (host: GraffWidgetHost, ds: DataSource) => {
   const qds = ds as QueriableDataSource;
   if (typeof qds.setListenSelection === "function") {
     qds.setListenSelection(false);
-    
   }
 
   host.setState({ dataSource: qds, error: null }, () => {
@@ -428,14 +433,13 @@ export const onDataSourceCreated = (host: GraffWidgetHost, ds: DataSource) => {
 };
 
 // 📥 Centralized: DS change => single fetch
-export const onDataSourceInfoChange = (host: GraffWidgetHost, info: any) => {
+export const onDataSourceInfoChange = (host: GraffWidgetHost, info: unknown) => {
   if (!host._isMounted) return;
   if (host.state.connectionStatus !== "connected") return;
-  if (!info) return;
+  if (!info || typeof info !== "object") return;
 
-  if (!Array.isArray(info.records)) return;
+  if (!Array.isArray((info as { records?: unknown }).records)) return;
 
-  
   host.setState(
     {
       records: [],

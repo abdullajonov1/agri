@@ -4,11 +4,19 @@ import {
   SessionManager,
 } from "jimu-core";
 import { getAgriServiceUrls } from "./agri-service-urls";
+import { clearAgriPersistentCache } from "../data/agri-persistent-cache";
 
 function trimPortalRestSuffix(url: string): string {
   return String(url || "")
     .replace(/\/sharing\/rest\/?$/i, "")
     .replace(/\/$/, "");
+}
+
+/** `window.jimuConfig` is typed by jimu-core without `portalUrl`; read it only when present. */
+function readJimuConfigPortalUrl(): unknown {
+  const config: object | undefined = window.jimuConfig;
+  if (!config || !("portalUrl" in config)) return "";
+  return config.portalUrl || "";
 }
 
 function getPortalBaseUrlLogout(): string {
@@ -33,9 +41,7 @@ function getPortalBaseUrlLogout(): string {
     /* ignore */
   }
 
-  const fromConfig =
-    (window as unknown as { jimuConfig?: { portalUrl?: string } }).jimuConfig
-      ?.portalUrl || "";
+  const fromConfig = readJimuConfigPortalUrl();
   if (fromConfig) return trimPortalRestSuffix(String(fromConfig));
 
   return getAgriServiceUrls().portalUrl.replace(/\/$/, "");
@@ -193,6 +199,12 @@ export async function logoutFromAccount(
     extra.forEach((k) => localStorage.removeItem(k));
   } catch {
     failures.push("localStorage.esriSweep");
+  }
+
+  try {
+    clearAgriPersistentCache();
+  } catch {
+    failures.push("localStorage.agriStatsCache");
   }
 
   try {

@@ -1,12 +1,22 @@
 import type { RegionWidgetHost } from "../../region-host";
+
+/** Recharts passes either the row itself or `{ payload: row }`. */
+type ChartRowPayload = { payload?: unknown } | null | undefined;
+
+/** Pointer-like source: a React synthetic event (`nativeEvent`) or a MouseEvent. */
+interface ClientPointSource {
+  nativeEvent?: unknown;
+  clientX?: unknown;
+  clientY?: unknown;
+}
 import type { RegionalDataItem } from "../../widget";
 import { React } from "jimu-core";
 import { regionLog as regionLogFn } from "../../region-log";
 
 export const handleRegionSelectionClick = (host: RegionWidgetHost, data: { name?: string; payload?: RegionalDataItem & { name?: string } }, _index?: number, _e?: React.MouseEvent<SVGPathElement, MouseEvent>): void => {
   const item =
-    (data as any)?.payload && typeof (data as any).payload === "object"
-      ? ((data as any).payload as RegionalDataItem & { name?: string })
+    data?.payload && typeof data.payload === "object"
+      ? data.payload
       : data;
   regionLogFn("barClicked", {
     data: item,
@@ -85,7 +95,7 @@ export const navigateBack = (host: RegionWidgetHost) => {
     const lock = host.state.lockedViloyat;
     const gen = host.beginSelectionNotify();
     host.notifyAgriFilter(
-      { tuman: "", polygonMode: false, uniqueid: "" } as any,
+      { tuman: "", polygonMode: false, uniqueid: "" },
       gen,
     );
 
@@ -120,7 +130,7 @@ export const navigateBack = (host: RegionWidgetHost) => {
         tuman: "",
         polygonMode: false,
         uniqueid: "",
-      } as any,
+      },
       gen,
     );
     host.setState(
@@ -151,7 +161,7 @@ export const navigateBack = (host: RegionWidgetHost) => {
       vh: "",
       polygonMode: false,
       uniqueid: "",
-    } as any,
+    },
     gen,
   );
   host.setState(
@@ -211,7 +221,7 @@ export const clampCursorPosition = (host: RegionWidgetHost, clientX: number, cli
 export const getClientPoint = (host: RegionWidgetHost, ...args: Array<{ nativeEvent?: MouseEvent } & Partial<MouseEvent> | unknown>): { x: number; y: number } => {
   for (const arg of args) {
     if (!arg || typeof arg !== "object") continue;
-    const src: any = (arg as any).nativeEvent || arg;
+    const src = ((arg as ClientPointSource).nativeEvent || arg) as ClientPointSource;
     if (
       typeof src.clientX === "number" &&
       Number.isFinite(src.clientX) &&
@@ -287,13 +297,13 @@ export const handleBarRowClick = (host: RegionWidgetHost, item: RegionalDataItem
   host.handleRegionSelectionClick({ payload: item });
 };
 export const handleBarRowPointerEnter = (host: RegionWidgetHost, item: RegionalDataItem & { displayName?: string }, event: React.MouseEvent<HTMLButtonElement>): void => {
-  host.handleBarPointerEnter(item, 0, event as unknown as React.MouseEvent<SVGPathElement>);
+  host.handleBarPointerEnter(item, 0, event);
 };
 export const handleBarRowPointerMove = (host: RegionWidgetHost, _item: RegionalDataItem & { displayName?: string }, event: React.MouseEvent<HTMLButtonElement>): void => {
-  host.handleBarPointerMove(_item, 0, event as unknown as React.MouseEvent<SVGPathElement>);
+  host.handleBarPointerMove(_item, 0, event);
 };
-export const handleBarPointerEnter = (host: RegionWidgetHost, data: unknown, _index: number, e: React.MouseEvent<SVGPathElement, MouseEvent>): void => {
-  const item = ((data as any)?.payload ?? data) as RegionalDataItem & {
+export const handleBarPointerEnter = (host: RegionWidgetHost, data: unknown, _index: number, e: React.MouseEvent<Element, MouseEvent>): void => {
+  const item = ((data as ChartRowPayload)?.payload ?? data) as RegionalDataItem & {
     displayName?: string;
   };
   const { x: clientX, y: clientY } = host.getClientPoint(e, data);
@@ -315,7 +325,7 @@ export const handleBarPointerEnter = (host: RegionWidgetHost, data: unknown, _in
     showTooltip,
   );
 };
-export const handleBarPointerMove = (host: RegionWidgetHost, data: unknown, _index: number, e: React.MouseEvent<SVGPathElement, MouseEvent>): void => {
+export const handleBarPointerMove = (host: RegionWidgetHost, data: unknown, _index: number, e: React.MouseEvent<Element, MouseEvent>): void => {
   if (!host.state.cursorTooltip.visible) return;
   const { x: clientX, y: clientY } = host.getClientPoint(e, data);
   if (!clientX && !clientY) return;
@@ -349,7 +359,10 @@ export const renderCursorTooltipContent = (host: RegionWidgetHost, d: RegionalDa
         : "Фоиз:";
   const areaUnit = language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
   const tooltipTitle =
-    d?.displayName ?? (d as any)?.displayNameTranslated ?? d?.name ?? "";
+    d?.displayName ??
+    (d as typeof d & { displayNameTranslated?: string })?.displayNameTranslated ??
+    d?.name ??
+    "";
 
   return (
     <>

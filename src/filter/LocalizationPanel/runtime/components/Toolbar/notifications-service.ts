@@ -6,6 +6,8 @@ import {
 import { regionSoatoToDisplayName } from "../../../../../gis/feature-layer-data";
 import { translateAgriPlaceForDisplay } from "../../../../../shared/agri-place-display";
 import type { LocalizationHost } from "../host";
+import { agriLog } from "../localization-log";
+import { errorMessage } from "../../../../../shared/agri-plain-object";
 
 /** localStorage hit only — no layer load and no statistics request. */
 export const hydrateNotificationCache = (host: LocalizationHost): void => {
@@ -105,22 +107,17 @@ export const loadNotificationFeed = async (host: LocalizationHost): Promise<void
     ]);
     const days = await queryVegetationRecentDayRegionCounts(5);
     if (!host._isMounted || token !== host._notificationLoadToken) return;
-    try {
-      // eslint-disable-next-line no-console
-      console.log("[AgriNotify] UI received days", days);
-    } catch {
-      /* ignore */
-    }
+    agriLog("notifications:ui-received-days", { days });
     host.setState({
       notificationDays: days,
       notificationLoading: false,
       notificationError: null,
     });
-  } catch (err: any) {
+  } catch (err) {
     if (!host._isMounted || token !== host._notificationLoadToken) return;
     host.setState({
       notificationLoading: false,
-      notificationError: String(err?.message || err || "Failed to load"),
+      notificationError: (err && errorMessage(err)) || "Failed to load",
     });
   }
 };

@@ -17,6 +17,11 @@ import {
   type AgriLanguage,
 } from "../../../shared/agri-language";
 import { isStaleMasterFilterEvent } from "../../../shared/agri-indicator-common";
+import {
+  finiteMetaNumber,
+  panelEventDetail,
+  type PanelFilterDetail,
+} from "../../panel-filter-detail";
 import "../../IndicatorPanel/runtime/KadastrIndicator.css";
 
 /** Logger disabled — keep call sites without console noise. */
@@ -44,7 +49,7 @@ interface State {
 }
 
 export default class AgriIndicatorYield extends React.PureComponent<
-  AllWidgetProps<any>,
+  AllWidgetProps<Record<string, unknown>>,
   State
 > {
   private _isMounted = false;
@@ -53,7 +58,7 @@ export default class AgriIndicatorYield extends React.PureComponent<
   private _lastMasterFilterTs = 0;
   private _lastMasterFilterBroadcastGeneration = 0;
 
-  constructor(props: AllWidgetProps<any>) {
+  constructor(props: AllWidgetProps<Record<string, unknown>>) {
     super(props);
     this.state = {
       value: null,
@@ -91,7 +96,7 @@ export default class AgriIndicatorYield extends React.PureComponent<
     getAgriTableDataLayer()
       .then(({ layer }) => {
         if (!this._isMounted) return;
-        this.setState({ layer: layer as any, connectionStatus: "connected" }, () =>
+        this.setState({ layer: layer as __esri.FeatureLayer, connectionStatus: "connected" }, () =>
           this.fetchValue(),
         );
       })
@@ -119,8 +124,8 @@ export default class AgriIndicatorYield extends React.PureComponent<
     );
   }
 
-  private handleThemeChange = (event: any): void => {
-    const detail = (event as CustomEvent)?.detail;
+  private handleThemeChange = (event: Event): void => {
+    const detail = (event as CustomEvent<PanelFilterDetail | null>)?.detail;
     if (detail?.theme) {
       this.setState({ isDarkTheme: detail.theme === "dark" });
     } else {
@@ -130,7 +135,7 @@ export default class AgriIndicatorYield extends React.PureComponent<
 
   private handleLanguageChange = (event: Event): void => {
     if (!this._isMounted) return;
-    const d: any = (event as CustomEvent)?.detail || {};
+    const d = panelEventDetail(event);
     const next = normalizeLanguage(d.lang ?? d.language ?? d.code);
     if (next !== this.state.language) this.setState({ language: next });
   };
@@ -140,18 +145,11 @@ export default class AgriIndicatorYield extends React.PureComponent<
 
   private handleMasterFilterChanged = (event: Event): void => {
     if (!this._isMounted) return;
-    const d: any = (event as CustomEvent).detail || {};
+    const d = panelEventDetail(event);
     if (!d?.filters) return;
 
-    const eventTs =
-      typeof d?.meta?.timestamp === "number" && Number.isFinite(d.meta.timestamp)
-        ? d.meta.timestamp
-        : 0;
-    const eventGen =
-      typeof d?.meta?.broadcastGeneration === "number" &&
-      Number.isFinite(d.meta.broadcastGeneration)
-        ? d.meta.broadcastGeneration
-        : 0;
+    const eventTs = finiteMetaNumber(d?.meta, "timestamp");
+    const eventGen = finiteMetaNumber(d?.meta, "broadcastGeneration");
     if (
       isStaleMasterFilterEvent(eventTs, eventGen, {
         lastMasterFilterTs: this._lastMasterFilterTs,
@@ -240,7 +238,7 @@ export default class AgriIndicatorYield extends React.PureComponent<
       const where = this.buildWhere();
 
       agriLog("query:request", {
-        url: (layer as any)?.url,
+        url: layer?.url,
         where,
         outStatistics: [
           {
@@ -275,7 +273,7 @@ export default class AgriIndicatorYield extends React.PureComponent<
         loading: false,
         error: null,
       });
-    } catch (e: any) {
+    } catch {
       if (!this._isMounted || requestId !== this._requestId) return;
       // Soft-empty on query failure — never flash ⚠️ on first paint when
       // year/filter is still settling or yld is sparse.

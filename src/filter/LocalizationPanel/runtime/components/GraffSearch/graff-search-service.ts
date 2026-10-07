@@ -8,6 +8,7 @@ import { React } from "jimu-core";
 import { agriLog } from "../localization-log";
 import type { LocalizationHost } from "../host";
 import type { FilterState, GeoWidgetState, GraffSearchRecord } from "../../widget";
+import { errorMessage } from "../../../../../shared/agri-plain-object";
 
 export const emitGraffTableSearchChanged = (
   host: LocalizationHost,
@@ -184,7 +185,7 @@ export const runGraffAutoComplete = async (host: LocalizationHost, term: string)
       fl = layer;
     } catch (err) {
       agriLog("graffSearch:layer-unavailable", {
-        error: String((err as any)?.message || err),
+        error: errorMessage(err),
       });
       host.setState({
         graffSearchSuggestions: [],
@@ -287,7 +288,7 @@ export const runGraffAutoComplete = async (host: LocalizationHost, term: string)
     }
   } catch (err) {
     agriLog("graffSearch:failed", {
-      error: String((err as any)?.message || err),
+      error: errorMessage(err),
     });
     if (isCurrent()) {
       host.setState({
@@ -513,7 +514,7 @@ export const handleGraffSearchRowClick = (host: LocalizationHost, record: GraffS
   }
 
   host._farmerSearchApplying = true;
-  host.setState(updates as any, () => {
+  host.setState(updates as GeoWidgetState, () => {
     host.emitGraffTableSearchChanged(inn || name);
     if (inn) {
       void host.applyFarmerSearchSelection(inn);
@@ -570,10 +571,10 @@ export const applyFarmerSearchSelection = async (host: LocalizationHost, inn: st
       reason: "ndvi",
     });
     await host.fetchDataWithCurrentState();
-  } catch (error: any) {
+  } catch (error) {
     agriLog("farmerSearch:FAILED", {
       inn: cleanInn,
-      error: String(error?.message || error),
+      error: errorMessage(error),
     });
     host._farmerMapUniqueIds = [];
     host.broadcastFilterState();

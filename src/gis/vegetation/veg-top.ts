@@ -1,4 +1,5 @@
-import { type VegetationAvgNdviUniqueRow, agriVhLog, type VegetationStatusCount, vegetationStatusStatsCache, getAgriVegetationIndicesLayer, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, resolveVegetationUniqueIdPageSize, processedAtTashkentDayWhere, agriNotifyLog, type VegetationRecentDayGroup, vegetationRecentDaysCacheKey, vegetationRecentDaysCache, type VegetationRecentRegionRow } from "./veg-base";
+import { type VegetationAvgNdviUniqueRow, agriVhLog, type VegetationStatusCount, vegetationStatusStatsCache, getAgriVegetationIndicesLayer, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, resolveVegetationUniqueIdPageSize, processedAtTashkentDayWhere, agriNotifyLog, type VegetationRecentDayGroup, vegetationRecentDaysCacheKey, vegetationRecentDaysCache, type VegetationRecentRegionRow, type VegQuery } from "./veg-base";
+import type { AgriQueryableLayer } from "../../types/agri-layer";
 import { queryVegetationAvgNdviByUniqueIdOnce, queryVegetationAvgNdviByUniqueIdPaged } from "./veg-series";
 import { queryVegetationStatusCountsByStatus, listRegionsForProcessedDay, countDistinctUniqueIdsByRegionParallel, countDistinctViaOidCursor, fetchLastProcessedAtCalendarWindow } from "./veg-status";
 import { dateEqualsClause, escapeArcGIS } from "../../data/agri-sql";
@@ -146,7 +147,7 @@ async function queryVegetationStatusCountsForRegionsOnDate(params: {
     factory: async (): Promise<VegetationStatusCount[]> => {
       const { layer } = await getAgriVegetationIndicesLayer();
       const oidField = String(layer.objectIdField || "objectid");
-      const query: any = layer.createQuery();
+      const query: VegQuery = layer.createQuery();
       query.where = where;
       query.groupByFieldsForStatistics = ["ndvi_status"];
       query.orderByFields = ["ndvi_status ASC"];
@@ -217,7 +218,7 @@ async function queryVegetationStatusCountsForRegionsOnDate(params: {
  * Server does not support countDistinct stats — never use those.
  */
 async function countDistinctUniqueIdsForProcessedDay(
-  layer: any,
+  layer: AgriQueryableLayer,
   dateField: string,
   regionField: string,
   uniqueIdField: string,

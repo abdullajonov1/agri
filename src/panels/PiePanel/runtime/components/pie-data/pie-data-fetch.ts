@@ -1,6 +1,8 @@
 import type { PieWidgetHost } from "../../pie-host";
 import { VH_CATEGORY_TO_NDVI_STATUS, type VegetationCropBreakdownRow, queryVegetationCropStatsForStatus, queryVegetationCropBreakdownForStatus } from "../../../../../gis/agri-vegetation-data-source";
 import { agroV5Log } from "../../../../../gis/agri-debug-log";
+import { errorMessage } from "../../../../../shared/agri-plain-object";
+import { messageOf } from "../../../../panel-filter-detail";
 import { queryAgriTuriCropMappings, getAgriTableDataLayer, expandUniqueIdsForAgriTable } from "../../../../../gis/agri-table-data-source";
 import { getTuriCropLookupKey } from "../../../../../shared/agri-crop-labels";
 import { buildPieCategoriesFromMergedRows, syncPieSelectionAgainstCategories, buildPieCategoriesFromPackRows } from "../../../../../data/agri-dashboard-pack-apply";
@@ -53,12 +55,12 @@ export async function fetchPieCategoriesViaVegetation(host: PieWidgetHost, fetch
       region,
       district,
     });
-  } catch (statsError: any) {
+  } catch (statsError: unknown) {
     agroV5Log(
       "pie:fetch-vegetation-stats-failed",
       {
         vh: vhCategory,
-        error: String(statsError?.message || statsError),
+        error: errorMessage(statsError),
         district: district ?? null,
         willTryBreakdown: district != null,
       },
@@ -506,7 +508,7 @@ export async function _doFetchCategoryData(host: PieWidgetHost): Promise<void> {
       selectedCategories: validSelectedCategories,
       debugInfo: `Loaded ${categories.length} categories (WHERE: ${whereClause})`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (!host._isMounted || fetchId !== host._fetchCounter) return;
 
     host._hasCompletedFetch = true;
@@ -514,7 +516,7 @@ export async function _doFetchCategoryData(host: PieWidgetHost): Promise<void> {
     host._pendingVhPieFetchKey = "";
     host.setState({
       loading: false,
-      error: error?.message || "Failed to load data from layer.",
+      error: messageOf(error) || "Failed to load data from layer.",
     });
   }
 }

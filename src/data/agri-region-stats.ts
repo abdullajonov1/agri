@@ -6,6 +6,7 @@
 import { getRegionGroupFeaturesCached } from "./agri-stats-store";
 import type { DashboardRegionRow } from "../types/dashboard-pack";
 import { makeRegionDistrictKey } from "../filter/localization/geo-keys";
+import { ensureLayerLoaded, type AgriAttributes } from "../types/agri-layer";
 
 export type RegionStatMode = "sum" | "count";
 
@@ -43,14 +44,14 @@ export type RegionGroupAccumulator = Record<string, RegionGroupSlot>;
  * that happen to share a name are no longer summed together.
  */
 export function accumulateRegionGroupFeaturesByCode(
-  feats: any[],
+  feats: ReadonlyArray<{ attributes?: AgriAttributes | null } | null | undefined>,
   opts: { groupField: string; codeField?: string | null; outName: string },
   into: RegionGroupAccumulator = {},
 ): RegionGroupAccumulator {
   const { groupField, codeField, outName } = opts;
 
   /** Services return attributes in their own casing (`district` / `District`). */
-  const readAttr = (attrs: any, field: string): any => {
+  const readAttr = (attrs: AgriAttributes, field: string): unknown => {
     if (attrs[field] !== undefined) return attrs[field];
     const wanted = field.toLowerCase();
     for (const key of Object.keys(attrs)) {
@@ -60,7 +61,7 @@ export function accumulateRegionGroupFeaturesByCode(
   };
 
   for (const f of feats || []) {
-    const attrs: any = f?.attributes || {};
+    const attrs: AgriAttributes = f?.attributes || {};
     const rawName = readAttr(attrs, groupField);
     const value = Number(readAttr(attrs, outName) ?? 0);
     if (!rawName || !(value > 0)) continue;
@@ -130,12 +131,10 @@ export async function queryRegionAggregateRows(opts: {
   const statMode: RegionStatMode = areaField ? "sum" : "count";
   const outName = regionOutStatName(statMode);
 
-  if (!layer?.loaded && typeof (layer as any)?.load === "function") {
-    try {
-      await (layer as any).load();
-    } catch {
-      /* query may still succeed */
-    }
+  try {
+    await ensureLayerLoaded(layer);
+  } catch {
+    /* load failure is non-fatal: the REST query below may still succeed */
   }
 
   const feats = await getRegionGroupFeaturesCached({

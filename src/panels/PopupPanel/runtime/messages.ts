@@ -163,7 +163,7 @@ const MESSAGES: Bundle = {
   },
 };
 
-export function normalizeLang(input: any): LangCode {
+export function normalizeLang(input: unknown): LangCode {
   const raw = String(input ?? "")
     .trim()
     .toLowerCase();

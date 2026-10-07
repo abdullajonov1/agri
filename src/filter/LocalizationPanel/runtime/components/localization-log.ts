@@ -1,4 +1,5 @@
 import { agroV5Log } from "../../../../gis/agri-debug-log";
+import { errorMessage } from "../../../../shared/agri-plain-object";
 
 /** Opt-in via window.__AGRO_V5_DEBUG / __AGRO_V5_VH_DEBUG / __AGRO_V5_TUMAN_DEBUG */
 export function agriLog(
@@ -17,5 +18,5 @@ export function agriLog(
 }
 
 export function debugCatch(phase: string, err: unknown): void {
-  agroV5Log(phase, { error: String((err as any)?.message || err) });
+  agroV5Log(phase, { error: errorMessage(err) });
 }

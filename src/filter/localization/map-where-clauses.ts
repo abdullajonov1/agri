@@ -118,7 +118,13 @@ export function resolveNdviStatusFieldName(
   return `${prefix}${suffix}`;
 }
 
-function layerHasFieldName(fields: any[] | undefined, fieldName: string): boolean {
+/** Field metadata the clause builders read (esri Field or plain JSON). */
+export interface LayerFieldLike {
+  name?: string | null;
+  type?: string | null;
+}
+
+function layerHasFieldName(fields: ReadonlyArray<LayerFieldLike | null | undefined> | undefined, fieldName: string): boolean {
   if (!fields?.length) return false;
   const needle = fieldName.toLowerCase();
   return fields.some(
@@ -132,7 +138,7 @@ export function buildNdviStatusEqualsSqlClause(opts: {
   vhCategory: string;
   prefix: string;
   dateFieldMap: Record<string, string>;
-  layerFields: any[] | undefined;
+  layerFields: ReadonlyArray<LayerFieldLike | null | undefined> | undefined;
 }): string {
   const ndviDate = String(opts.ndviDate || "").trim();
   const vhCategory = String(opts.vhCategory || "").trim();
@@ -156,7 +162,7 @@ export function buildNdviDateNotNullSqlClause(opts: {
   ndviDate: string;
   prefix: string;
   dateFieldMap: Record<string, string>;
-  layerFields: any[] | undefined;
+  layerFields: ReadonlyArray<LayerFieldLike | null | undefined> | undefined;
 }): string {
   const ndviDate = String(opts.ndviDate || "").trim();
   if (!ndviDate) return "";
@@ -236,7 +242,7 @@ export function assembleLocalizationWhere(opts: {
  */
 export function buildYearClauseForLayerFields(
   yil: string,
-  layerFields: any[] | undefined,
+  layerFields: ReadonlyArray<LayerFieldLike | null | undefined> | undefined,
 ): string {
   if (!yil) return "1=0";
 
@@ -245,7 +251,7 @@ export function buildYearClauseForLayerFields(
     return `yil LIKE '%${escapeLikeLiteral(String(yil))}%'`;
   }
 
-  const fields: any[] = layerFields || [];
+  const fields = layerFields || [];
   const yilField = fields.find(
     (f) => String(f?.name || "").toLowerCase() === "yil",
   );

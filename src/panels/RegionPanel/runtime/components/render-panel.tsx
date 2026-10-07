@@ -74,7 +74,7 @@ export function render(host: RegionWidgetHost) {
   const chartData = limited.map((r, i) => ({
     ...r, // keep original `name` for selection notifications
     index: i + 1,
-    displayName: (r as any).displayName,
+    displayName: r.displayName,
   }));
 
   const rowCount = Math.max(chartData.length, 1);

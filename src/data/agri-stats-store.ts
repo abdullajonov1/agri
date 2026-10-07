@@ -20,6 +20,18 @@ import {
   getAgriPersistentCache,
   setAgriPersistentCache,
 } from "./agri-persistent-cache";
+import {
+  readLayerUrl,
+  type AgriAttributes,
+  type AgriLayerUrlLike,
+  type AgriLayerWithFields,
+} from "../types/agri-layer";
+
+/**
+ * Aggregate feature as cached. Persisted copies are JSON round-tripped, so only
+ * `attributes` is guaranteed — callers must not rely on Graphic methods.
+ */
+export type AgriStatFeature = { attributes?: AgriAttributes | null };
 
 type CacheEntry<T> = {
   expiresAt: number;
@@ -29,22 +41,22 @@ type CacheEntry<T> = {
 const STATS_CACHE_TTL_MS = AGRI_PERSIST_TTL_MS;
 const PERSIST_NS = "stats";
 
-const cache = new Map<string, CacheEntry<any>>();
-const inFlight = new Map<string, Promise<any>>();
+const cache = new Map<string, CacheEntry<unknown>>();
+const inFlight = new Map<string, Promise<AgriStatFeature[]>>();
 
 function now(): number {
   return Date.now();
 }
 
-function layerUrl(layer: any): string {
-  return String(layer?.url || layer?.layer?.url || "").trim();
+function layerUrl(layer: AgriLayerUrlLike | null | undefined): string {
+  return readLayerUrl(layer);
 }
 
 /** Service field name matching `name` case-insensitively, "" when absent. */
-function findLayerFieldName(layer: any, name: string): string {
+function findLayerFieldName(layer: AgriLayerWithFields | null | undefined, name: string): string {
   const wanted = String(name || "").trim().toLowerCase();
   if (!wanted) return "";
-  const fields: any[] = Array.isArray(layer?.fields) ? layer.fields : [];
+  const fields = Array.isArray(layer?.fields) ? layer.fields : [];
   if (!fields.length) return "";
   for (const field of fields) {
     const fieldName = String(field?.name || "");
@@ -85,22 +97,22 @@ async function getGroupedFeaturesCached(
     returnGeometry?: boolean;
   },
   keyParts: Array<unknown>,
-): Promise<any[]> {
+): Promise<AgriStatFeature[]> {
   const url = layerUrl(layer);
   const key = stableKey([url, ...keyParts]);
 
-  const cached = getCached<any[]>(key);
+  const cached = getCached<AgriStatFeature[]>(key);
   if (cached) return cached;
 
   const existing = inFlight.get(key);
-  if (existing) return existing as Promise<any[]>;
+  if (existing) return existing;
 
   const promise = withStatsQuerySlot(async () => {
     const res = await dedupedQueryFeatures(layer, {
-      ...(spec as any),
+      ...spec,
       returnGeometry: spec.returnGeometry ?? false,
     });
-    const feats = res?.features ?? [];
+    const feats: AgriStatFeature[] = res?.features ?? [];
     setCached(key, feats);
     return feats;
   }).finally(() => {
@@ -160,8 +172,8 @@ export async function getPieCategoryStatsCached(opts: {
   );
 
   return feats
-    .map((f: any) => ({
-      key: f?.attributes?.[categoryField],
+    .map((f: AgriStatFeature) => ({
+      key: f?.attributes?.[categoryField] as string,
       value: Number(f?.attributes?.agg ?? 0),
     }))
     .filter((r: PieCategoryStatRow) => r.key && r.value > 0);
@@ -179,7 +191,7 @@ export async function getRegionGroupFeaturesCached(opts: {
   statMode: "sum" | "count";
   areaField?: string | null;
   objectIdField?: string;
-}): Promise<any[]> {
+}): Promise<AgriStatFeature[]> {
   const { layer, where, groupField, statMode } = opts;
   const objectIdField = opts.objectIdField || layer.objectIdField || "OBJECTID";
   const areaField = opts.areaField ? String(opts.areaField) : "";
