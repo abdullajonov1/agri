@@ -351,11 +351,13 @@ export function getPopupConfig(host: DashboardWidgetHost, baseConfig: Record<str
 }
 
 /**
- * Props for one embedded panel. `P` is the panel's own props type: the
- * dashboard hands every panel a plain config record and the panel's props
- * type describes how it reads that record (cast at this single boundary).
+ * Props for one embedded panel: the dashboard's own props with a per-panel
+ * id, a plain config record and the embedded map / feature data sources.
+ * Every panel's props type is `AllWidgetProps<C>` with an all-optional `C`
+ * (or a `Record<string, unknown>` config), so this structurally satisfies
+ * each of them without a per-panel conversion.
  */
-export function childProps<P = DashboardChildProps>(host: DashboardWidgetHost, suffix: ChildSuffix, config?: Record<string, unknown>): P {
+export function childProps(host: DashboardWidgetHost, suffix: ChildSuffix, config?: Record<string, unknown>): DashboardChildProps {
   const mapWidgetId = host.getActiveMapWidgetId();
   const mapIds = Immutable.from([mapWidgetId]);
   const webMapDataSourceId = String(
@@ -373,7 +375,7 @@ export function childProps<P = DashboardChildProps>(host: DashboardWidgetHost, s
     useMapWidgetIds: mapIds,
     useDataSources: Immutable.from(featureDataSources),
   };
-  return props as unknown as P;
+  return props;
 }
 
 export function getStableIndicatorChildProps(host: DashboardWidgetHost, indicatorConfig: Record<string, unknown>, baseConfig: Record<string, unknown>): IndicatorChildPropsSet {
@@ -406,10 +408,10 @@ export function getStableIndicatorChildProps(host: DashboardWidgetHost, indicato
 
   const next = {
     signature,
-    indicator: host.childProps<IndicatorChildPropsSet["indicator"]>("indicator", indicatorConfig),
-    yield: host.childProps<IndicatorChildPropsSet["yield"]>("indicator-yield", baseConfig),
-    unused: host.childProps<IndicatorChildPropsSet["unused"]>("indicator-unused-land", baseConfig),
-    reserve: host.childProps<IndicatorChildPropsSet["reserve"]>("indicator-reserve-land", baseConfig),
+    indicator: host.childProps("indicator", indicatorConfig),
+    yield: host.childProps("indicator-yield", baseConfig),
+    unused: host.childProps("indicator-unused-land", baseConfig),
+    reserve: host.childProps("indicator-reserve-land", baseConfig),
   };
   host.indicatorChildPropsCache = next;
   return next;

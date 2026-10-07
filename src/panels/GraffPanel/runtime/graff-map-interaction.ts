@@ -1,5 +1,6 @@
 import { React } from "jimu-core";
 import { applyGraffDefinitionExpression, describeThrown, type AgriQueryableLayer } from "./graff-guards";
+import type { TaggedLayer } from "./components/spatial-candidates";
 import type { JimuMapView } from "jimu-arcgis";
 import {
   ensureAgriServerIdentityToken,
@@ -42,7 +43,7 @@ export interface GraffMapInteractionHost {
   _vegetationHoverLeaveHandle: __esri.Handle | null;
   _vegetationRasterSample: GraffVegetationRasterSample | null;
   isRegionalInteractionEnabled: () => boolean;
-  getTableSpatialQueryCandidates: () => __esri.FeatureLayer[];
+  getTableSpatialQueryCandidates: () => TaggedLayer[];
   cancelVegetationImageOverlay: () => void;
   buildWhereClause: () => string;
   fetchRegionalTimeseries: () => Promise<void>;

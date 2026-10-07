@@ -469,7 +469,7 @@ export default class AgriRegion extends React.PureComponent<
   getClientPoint = (
     ...args: Array<{ nativeEvent?: MouseEvent } & Partial<MouseEvent> | unknown>
   ): { x: number; y: number } => {
-    return getClientPoint(this, args);
+    return getClientPoint(this, ...args);
   };
 
   applyTooltipPosition = (x: number, y: number): void => {

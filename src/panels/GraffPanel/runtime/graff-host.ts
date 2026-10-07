@@ -7,6 +7,7 @@ import type { DebouncedFunc } from "lodash";
 import type { PolygonExportImageResult, VegetationIndiceType } from "../../../gis/agri-polygon-api-source";
 import type { AgriGraffWidgetState, ConfiguredFilters, RecordData } from "./widget";
 import type { GraffWidgetProps, TimerHandle } from "./graff-state";
+import type { TaggedLayer } from "./components/spatial-candidates";
 import type { ImmutableObject, UseDataSource } from "jimu-core";
 
 /**
@@ -76,7 +77,7 @@ export interface GraffWidgetHost {
   scheduleRefresh: DebouncedFunc<() => Promise<void>>;
   fetchVegetationData: () => Promise<void>;
   resolveFieldCaseInsensitive: (name: string) => string | null;
-  getTableSpatialQueryCandidates: () => __esri.FeatureLayer[];
+  getTableSpatialQueryCandidates: () => TaggedLayer[];
   _detachedSpatialQueryLayers: Map<string, FeatureLayer>;
   buildSearchWhere: (raw: string) => string;
   buildTumanNameClause: (tuman: string, viloyat?: string) => string;

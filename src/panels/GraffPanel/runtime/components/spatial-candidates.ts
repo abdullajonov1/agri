@@ -21,7 +21,8 @@ import {
 import { graffDebugCatch } from "../graff-log";
 
 /** Layer tagged with the REST URL resolved for it (see add() below). */
-type TaggedLayer = AgriLayerLike & { __agriQueryableUrl?: string };
+/** A queryable layer tagged with its resolved service URL. */
+export type TaggedLayer = AgriLayerLike & { __agriQueryableUrl?: string };
 
 /** Cap: wrong-year republic leaves burn tokens and hide the real miss. */
 const MAX_SPATIAL_CANDIDATES = 8;
@@ -114,7 +115,7 @@ const collectSpatialCandidates = (host: GraffWidgetHost): TaggedLayer[] => {
   return candidates;
 };
 
-export const getTableSpatialQueryCandidates = (host: GraffWidgetHost): __esri.FeatureLayer[] => {
+export const getTableSpatialQueryCandidates = (host: GraffWidgetHost): TaggedLayer[] => {
   const filters = {
     yil: String(host.state.regionalFilters?.yil || "").trim(),
     viloyat: String(host.state.regionalFilters?.viloyat || "").trim(),
@@ -131,9 +132,8 @@ export const getTableSpatialQueryCandidates = (host: GraffWidgetHost): __esri.Fe
   });
 
   scored.sort((a, b) => b.score - a.score);
-  // Candidates are live FeatureLayer / MapImage sublayer instances typed
-  // structurally by the gis helpers; callers query them as FeatureLayers.
+  // Live FeatureLayer / MapImage sublayer instances, typed structurally.
   return scored
     .slice(0, MAX_SPATIAL_CANDIDATES)
-    .map((item) => item.layer as unknown as __esri.FeatureLayer);
+    .map((item) => item.layer);
 };

@@ -17,13 +17,19 @@ export function usePortalGroups(config: AccessConfig): PortalGroupsState {
     const [groupsInfo, setGroupsInfo] = React.useState<Record<string, PortalGroupInfo>>({});
     const [groupsLoading, setGroupsLoading] = React.useState<boolean>(false);
 
+    // Latest config, read inside the effect. The effect itself is keyed on
+    // the group-id signature so unrelated AccessConfig edits (rule values,
+    // titles, operators) do not trigger a Portal re-fetch.
+    const configRef = React.useRef<AccessConfig>(config);
+    configRef.current = config;
+
     const groupIdsSignature = getConfigGroupIds(config).join("|");
 
     React.useEffect(() => {
         let isCancelled = false;
 
         const loadGroupsInfo = async (): Promise<void> => {
-            const groupIds = getConfigGroupIds(config);
+            const groupIds = getConfigGroupIds(configRef.current);
 
             if (groupIds.length === 0) {
                 setGroupsInfo({});
@@ -69,8 +75,6 @@ export function usePortalGroups(config: AccessConfig): PortalGroupsState {
         return () => {
             isCancelled = true;
         };
-        // groupIdsSignature is derived from config group ids — intentional
-        // dependency (avoids re-fetch on unrelated AccessConfig field edits).
     }, [groupIdsSignature]);
 
     return { groupsInfo, groupsLoading };

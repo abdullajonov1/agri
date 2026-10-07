@@ -109,7 +109,8 @@ interface AgriBarExternalFilters {
   tur?: string;
 }
 
-interface AgriBarProps extends AllWidgetProps<Record<string, never>> {
+/** Config is the dashboard's plain record; the Bar panel does not read it. */
+interface AgriBarProps extends AllWidgetProps<Record<string, unknown>> {
   externalFilters?: AgriBarExternalFilters;
 }
 

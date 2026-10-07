@@ -67,7 +67,8 @@ export interface CategoryData {
   percentage?: number;
 }
 
-export interface AgriPieProps extends AllWidgetProps<Record<string, never>> {
+/** Config is the dashboard's plain record; the Pie panel does not read it. */
+export interface AgriPieProps extends AllWidgetProps<Record<string, unknown>> {
   externalFilters?: {
     viloyat?: string;
     tuman?: string;

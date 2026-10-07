@@ -184,7 +184,7 @@ export async function decodeExportImageTiff(
       }
     }
   } else {
-    const bands = (await image.readRasters({ interleave: false })) as unknown as ArrayLike<number>[];
+    const bands: ArrayLike<number>[] = await image.readRasters({ interleave: false });
     const band0 = bands?.[0];
     const values = new Float32Array(pixelCount);
     for (let p = 0; p < pixelCount; p++) {

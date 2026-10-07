@@ -28,6 +28,7 @@ import { createInitialGraffState } from "./components/initial-state";
 import type { AgriGraffWidgetState, ChartVegetationRow, ConfiguredFilters, GraffWidgetProps, RecordData, TimerHandle, VegetationIndex } from "./graff-state";
 import type { DebouncedFunc } from "lodash";
 import type { ImmutableObject, UseDataSource } from "jimu-core";
+import type { TaggedLayer } from "./components/spatial-candidates";
 const WIDGET_ID = "AgriGraffWidget";
 export type { AgriGraffWidgetState, ChartVegetationRow, ConfiguredFilters, RecordData, VegetationIndex };
 export default class AgriGraffWidget extends React.PureComponent<GraffWidgetProps, AgriGraffWidgetState> implements GraffWidgetHost, GraffGraphHost, GraffDataServiceHost, GraffRasterOverlayHost, GraffMapInteractionHost {
@@ -367,7 +368,7 @@ buildSearchWhere = (raw: string): string => {
 findSpatialFeatureByUniqueId = async (uniqueId: string): Promise<__esri.Graphic | null> => {
         return findSpatialFeatureByUniqueId(this, uniqueId);
     };
-getTableSpatialQueryCandidates = (): __esri.FeatureLayer[] => {
+getTableSpatialQueryCandidates = (): TaggedLayer[] => {
         return getTableSpatialQueryCandidates(this);
     };
 runAutoSearch = async (termRaw: string) => {

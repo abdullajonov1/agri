@@ -16,14 +16,6 @@ import { default as GraffPanel } from "../../panels/GraffPanel";
 import { default as BarPanel } from "../../panels/BarPanel";
 import { toMutableUseDataSources } from "./dashboard-config";
 
-type DateIndexPanelProps = React.ComponentProps<typeof DateIndexPanel>;
-type PopupPanelProps = React.ComponentProps<typeof PopupPanel>;
-type LocalizationPanelProps = React.ComponentProps<typeof LocalizationPanel>;
-type RegionPanelProps = React.ComponentProps<typeof RegionPanel>;
-type PiePanelProps = React.ComponentProps<typeof PiePanel>;
-type GraffPanelProps = React.ComponentProps<typeof GraffPanel>;
-type BarPanelProps = React.ComponentProps<typeof BarPanel>;
-
 export function render(host: DashboardWidgetHost) {
   const baseConfig = host.toPlainConfig();
   const indicatorConfig = host.getIndicatorConfig(baseConfig);
@@ -123,7 +115,7 @@ export function render(host: DashboardWidgetHost) {
           aria-label="Selected date and index indicator"
         >
           <DateIndexPanel
-            {...host.childProps<DateIndexPanelProps>("date-index", baseConfig)}
+            {...host.childProps("date-index", baseConfig)}
           />
         </div>,
         mapIndicatorTarget,
@@ -136,7 +128,7 @@ export function render(host: DashboardWidgetHost) {
           className="agri-dashboard-agri-host"
           aria-label="Polygon attribute popup"
         >
-          <PopupPanel {...host.childProps<PopupPanelProps>("popup", popupConfig)} />
+          <PopupPanel {...host.childProps("popup", popupConfig)} />
         </div>,
         portalTarget,
       )
@@ -157,7 +149,7 @@ export function render(host: DashboardWidgetHost) {
       }
     >
       <section className="agri-dashboard-header" aria-label="Localization">
-        <LocalizationPanel {...host.childProps<LocalizationPanelProps>("localization", baseConfig)} />
+        <LocalizationPanel {...host.childProps("localization", baseConfig)} />
       </section>
 
       <div
@@ -172,7 +164,7 @@ export function render(host: DashboardWidgetHost) {
             aria-label="Regional statistics"
           >
             <div className="agri-dashboard-widget-slot">
-              <RegionPanel {...host.childProps<RegionPanelProps>("region", baseConfig)} />
+              <RegionPanel {...host.childProps("region", baseConfig)} />
             </div>
           </aside>
 
@@ -253,13 +245,13 @@ export function render(host: DashboardWidgetHost) {
 
         <div className="agri-dashboard-bottom-row" aria-label="Charts">
           <div className="agri-dashboard-widget-slot">
-            <PiePanel {...host.childProps<PiePanelProps>("pie", baseConfig)} />
+            <PiePanel {...host.childProps("pie", baseConfig)} />
           </div>
           <div className="agri-dashboard-widget-slot">
-            <GraffPanel {...host.childProps<GraffPanelProps>("graff", baseConfig)} />
+            <GraffPanel {...host.childProps("graff", baseConfig)} />
           </div>
           <div className="agri-dashboard-widget-slot">
-            <BarPanel {...host.childProps<BarPanelProps>("bar", baseConfig)} />
+            <BarPanel {...host.childProps("bar", baseConfig)} />
           </div>
         </div>
       </div>

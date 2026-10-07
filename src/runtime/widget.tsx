@@ -258,11 +258,11 @@ getPopupConfig(
     return getPopupConfig(this, baseConfig);
   }
 
-childProps<P = DashboardChildProps>(
+childProps(
     suffix: ChildSuffix,
     config?: Record<string, unknown>,
-  ): P {
-    return childProps<P>(this, suffix, config);
+  ): DashboardChildProps {
+    return childProps(this, suffix, config);
   }
 
 getStableIndicatorChildProps(

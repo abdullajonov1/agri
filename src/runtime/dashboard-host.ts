@@ -42,7 +42,7 @@ export interface DashboardWidgetHost {
   toPlainPopup: (value: unknown) => AgriPopupConfig;
   toPlainConfig: () => Record<string, unknown>;
   indicatorChildPropsCache: IndicatorChildPropsSet & { signature: string };
-  childProps: <P = DashboardChildProps>(suffix: ChildSuffix, config?: Record<string, unknown>) => P;
+  childProps: (suffix: ChildSuffix, config?: Record<string, unknown>) => DashboardChildProps;
   mapReadyWatchHandle: { remove?: () => void; };
   mapUpdatingWatchHandle: { remove?: () => void; };
   watchedMapView: unknown;
