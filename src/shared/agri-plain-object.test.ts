@@ -1,5 +1,6 @@
 import {
   errorMessage,
+  errorName,
   isPlainRecord,
   toPlainRecord,
   toPlainValue,
@@ -37,5 +38,13 @@ describe("agri-plain-object", () => {
     expect(errorMessage({ message: "shaped" })).toBe("shaped");
     expect(errorMessage("plain")).toBe("plain");
     expect(errorMessage(undefined)).toBe("undefined");
+  });
+
+  test("errorName reads Error.name and name-bearing objects", () => {
+    const abort = new Error("stopped");
+    abort.name = "AbortError";
+    expect(errorName(abort)).toBe("AbortError");
+    expect(errorName({ name: "AbortError" })).toBe("AbortError");
+    expect(errorName("plain")).toBe("");
   });
 });

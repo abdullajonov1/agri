@@ -44,11 +44,15 @@ jest.mock("jimu-core", () => ({
 
 const mockStore = getAppStore as unknown as jest.Mock<{ getState: () => { appRuntimeInfo?: { appMode?: string } } }, []>;
 
+function immutable<T>(value: T): T {
+  return (Immutable as unknown as (input: T) => T)(value);
+}
+
 const makeProps = (config: Record<string, unknown> = {}): AllWidgetProps<IMConfig> =>
   ({
     id: "dash",
-    config: Immutable(config),
-    useDataSources: Immutable([]),
+    config: immutable(config),
+    useDataSources: immutable([]),
     manifest: { label: "Dash" },
   }) as unknown as AllWidgetProps<IMConfig>;
 

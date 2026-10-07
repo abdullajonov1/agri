@@ -1,3 +1,4 @@
+import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 import { type VegetationCropBreakdownParams, type VegetationCropBreakdownRow, getAgriVegetationIndicesLayer, buildVegetationCropScopeWhere, vegetationCropStatsCache, VEG_CROP_STATS_MAX_ROWS, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, type VegQuery } from "../veg-base";
 
 /**
@@ -36,7 +37,7 @@ export async function queryVegetationCropStatsForStatus(
     query.groupByFieldsForStatistics = [cropIdField];
     query.orderByFields = [`${cropIdField} ASC`];
     query.outFields = [cropIdField];
-    query.outStatistics = [
+    query.outStatistics = asStatisticDefinitions([
       {
         statisticType: "count",
         onStatisticField: oidField,
@@ -47,7 +48,7 @@ export async function queryVegetationCropStatsForStatus(
         onStatisticField: "px_all",
         outStatisticFieldName: "sum_px_all",
       },
-    ];
+    ]);
     query.returnGeometry = false;
     query.num = VEG_CROP_STATS_MAX_ROWS;
     query.resultRecordCount = VEG_CROP_STATS_MAX_ROWS;

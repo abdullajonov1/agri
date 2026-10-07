@@ -212,7 +212,7 @@ describe("reassertPolygonGeographyFilter", () => {
   });
 
   it("does nothing outside polygon mode, when unmounted or without a map", () => {
-    const sync = jest.fn(() => []);
+    const sync = jest.fn((): never[] => []);
     reassertPolygonGeographyFilter(makeFakeHost({ syncShownRegionYearLayers: sync, state: { polygonMode: false } }), "p");
     reassertPolygonGeographyFilter(makeFakeHost({ _isMounted: false, syncShownRegionYearLayers: sync, state: { polygonMode: true } }), "p");
     reassertPolygonGeographyFilter(makeFakeHost({ syncShownRegionYearLayers: sync, state: { polygonMode: true, activeMapView: null } }), "p");
@@ -338,7 +338,7 @@ describe("finalizeConnection", () => {
   const mk = (init: FakeHostInit = {}): FakeHost =>
     makeFakeHost({
       getPortalSelf: jest.fn(() => Promise.resolve({ username: "bob", groups: [{ id: "g1", title: "G" }], portalUrl: "p" })),
-      resolveAllowedViloyats: jest.fn(() => []),
+      resolveAllowedViloyats: jest.fn((): never[] => []),
       runInitialDataLoad: jest.fn(() => Promise.resolve()),
       normalizeApos: (s: string) => s.toUpperCase(),
       ...init,

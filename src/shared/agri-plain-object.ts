@@ -62,3 +62,24 @@ export const errorMessage = (error: unknown): string => {
   if (isPlainRecord(error) && error.message != null) return String(error.message);
   return String(error);
 };
+
+/** `name` from an unknown thrown value (`AbortError` and similar). */
+export const errorName = (error: unknown): string => {
+  if (error instanceof Error) return error.name;
+  if (isPlainRecord(error) && error.name != null) return String(error.name);
+  return "";
+};
+
+/**
+ * ArcGIS `goTo` typings intersect two easing enums. `"ease-in-out"` is the
+ * runtime value; only `"linear"` is in both unions.
+ */
+type ArcgisGoToEasing = (__esri.GoToOptions2D & __esri.GoToOptions3D)["easing"];
+export const arcgisEaseInOut: ArcgisGoToEasing =
+  "ease-in-out" as unknown as ArcgisGoToEasing;
+
+/** Query `outStatistics` accepts property bags; the class type does not. */
+export const asStatisticDefinitions = (
+  stats: __esri.StatisticDefinitionProperties[],
+): __esri.StatisticDefinition[] =>
+  stats as unknown as __esri.StatisticDefinition[];

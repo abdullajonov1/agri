@@ -104,7 +104,7 @@ describe("popup-data-sources lifecycle", () => {
 
   test("createDataSources reuses existing sources and skips failures", async () => {
     const { host, mgr } = makeHost();
-    const existing = { id: "e", getSchema: () => null } as unknown as DataSource;
+    const existing = { id: "e", getSchema: (): null => null } as unknown as DataSource;
     mgr.getDataSource.mockImplementation((id: string) => (id === "e" ? existing : null));
     mgr.createDataSourceByUseDataSource.mockRejectedValue(new Error("nope"));
     await ds.createDataSources(host, [
@@ -142,7 +142,7 @@ describe("popup-data-sources field discovery", () => {
     expect(layer?.fields).toHaveLength(1);
 
     const child = { layer: { fields: [{ name: "c" }] } };
-    const parent = { layer: { fields: [] }, getChildDataSources: () => [child] };
+    const parent = { layer: { fields: [] as Array<{ name: string }> }, getChildDataSources: () => [child] };
     expect((await ds.resolveLayerFromDataSource(host, parent))?.fields).toEqual([{ name: "c" }]);
 
     const broken = { getMainLayer: () => ({ load: async () => Promise.reject(new Error("x")) }) };
@@ -178,7 +178,7 @@ describe("popup-data-sources field discovery", () => {
         new Promise((resolve) => {
           release = () => resolve({ fields: { a: { name: "a" } } });
         }),
-      getSchema: () => null,
+      getSchema: (): null => null,
     } as unknown as DataSource;
     const { host, setState } = makeHost({ state: { dss: [source] } });
     const pending = ds.extractFieldsFromDs(host);

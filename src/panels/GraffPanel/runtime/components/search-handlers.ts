@@ -7,6 +7,7 @@ import { escapeArcGIS } from "../../../../gis/feature-layer-data";
 import { buildYearLikeClause } from "../../../../controller/agri-where-builder";
 import type { RecordData } from "../widget";
 import { graffDebugCatch } from "../graff-log";
+import { arcgisEaseInOut } from "../../../../shared/agri-plain-object";
 
 export { handleMasterFilterChanged } from "./master-filter-handler";
 export { findSpatialFeatureByUniqueId, getTableSpatialQueryCandidates } from "./spatial-candidates";
@@ -181,7 +182,7 @@ export const runAutoSearch = async (host: GraffWidgetHost, termRaw: string) => {
       try {
         await activeMapView.view.goTo(
           spatialFeat.geometry?.extent?.expand(1.35) || spatialFeat.geometry,
-          { duration: 700, easing: "ease-in-out" as const },
+          { duration: 700, easing: arcgisEaseInOut },
         );
       } catch (err) {
         // navigation interruption is harmless
@@ -227,7 +228,7 @@ export const clearSelectionAfterSearchClear = async (host: GraffWidgetHost) => {
     try {
       await activeMapView.view.goTo(restoreExtent, {
         duration: 700,
-        easing: "ease-in-out" as const,
+        easing: arcgisEaseInOut,
       });
     } catch {
       /* navigation interruption is harmless */

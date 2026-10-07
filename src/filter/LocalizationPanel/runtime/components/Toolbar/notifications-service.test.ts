@@ -1,6 +1,6 @@
 jest.mock("../../../../../gis/agri-vegetation-data-source", () => ({
   getAgriVegetationIndicesLayer: jest.fn(() => Promise.resolve({})),
-  peekVegetationRecentDayRegionCounts: jest.fn(() => null),
+  peekVegetationRecentDayRegionCounts: jest.fn((): null => null),
   queryVegetationRecentDayRegionCounts: jest.fn(() => Promise.resolve([])),
 }));
 jest.mock("../../../../../gis/feature-layer-data", () => ({
@@ -85,7 +85,7 @@ describe("notifications-service", () => {
 
     test("starts prefetch after two frames once ready", () => {
       const begin = jest.fn();
-      const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+      const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation((): void => undefined);
       const host = makeFakeHost({
         beginNotificationPrefetch: begin,
         _notificationPaintFrame: 3,

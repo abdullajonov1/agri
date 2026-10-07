@@ -8,15 +8,15 @@ jest.mock("jimu-arcgis", () => ({
     jest.requireActual<typeof import("react")>("react").createElement("div", { "data-testid": "map", "data-id": props.useMapWidgetId }),
 }));
 jest.mock("../../../assets/uzcosmos logo white.svg", () => "logo.svg", { virtual: true });
-jest.mock("../GraffSearch/GraffSearchDropdown", () => ({ GraffSearchDropdown: () => null }));
-jest.mock("../GraffSearch/GraffSearchInput", () => ({ GraffSearchInput: () => null }));
-jest.mock("../Toolbar/IndexInfoMenu", () => ({ IndexInfoMenu: () => null }));
-jest.mock("../Toolbar/LanguageMenu", () => ({ LanguageMenu: () => null }));
-jest.mock("../Toolbar/NotificationsMenu", () => ({ NotificationsMenu: () => null }));
+jest.mock("../GraffSearch/GraffSearchDropdown", () => ({ GraffSearchDropdown: (): null => null }));
+jest.mock("../GraffSearch/GraffSearchInput", () => ({ GraffSearchInput: (): null => null }));
+jest.mock("../Toolbar/IndexInfoMenu", () => ({ IndexInfoMenu: (): null => null }));
+jest.mock("../Toolbar/LanguageMenu", () => ({ LanguageMenu: (): null => null }));
+jest.mock("../Toolbar/NotificationsMenu", () => ({ NotificationsMenu: (): null => null }));
 jest.mock("../Toolbar/ToolbarGroup", () => ({
   ToolbarGroup: () => jest.requireActual<typeof import("react")>("react").createElement("div", { "data-testid": "toolbar" }),
 }));
-jest.mock("../Toolbar/YilMenu", () => ({ YilMenu: () => null }));
+jest.mock("../Toolbar/YilMenu", () => ({ YilMenu: (): null => null }));
 
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import type { IMUseDataSource } from "jimu-core";

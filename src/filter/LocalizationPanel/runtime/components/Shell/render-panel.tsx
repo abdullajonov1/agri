@@ -103,6 +103,8 @@ export function render(host: LocalizationHost) {
                     src={logoImage}
                     alt="UZCOSMOS"
                     className="agri-v20-brand-logo"
+                    width={110}
+                    height={80}
                   />
                   <div className="agri-v20-brand-text">
                     <h1 className="agri-v20-brand-title">Space Agro Monitoring</h1>

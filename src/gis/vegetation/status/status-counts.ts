@@ -2,6 +2,7 @@ import { type VegetationStatusCountsParams, type VegetationStatusCount, getAgriV
 import { errorMessage } from "../../agri-layer-types";
 import { dateEqualsClause, escapeArcGIS } from "../../../data/agri-sql";
 import { buildSpatialJoinWhere } from "../../agri-table-data-source";
+import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 
 /**
  * Row counts grouped by ndvi_status for one date + region/district scope —
@@ -102,7 +103,7 @@ export async function queryVegetationStatusCounts(
       query.groupByFieldsForStatistics = [uniqueIdField, "ndvi_status"];
       query.orderByFields = [`${uniqueIdField} ASC`, "ndvi_status ASC"];
       query.outFields = [uniqueIdField, "ndvi_status"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "count",
           onStatisticField: oidField,
@@ -113,7 +114,7 @@ export async function queryVegetationStatusCounts(
           onStatisticField: "px_all",
           outStatisticFieldName: "max_px_all",
         },
-      ];
+      ]);
       query.returnGeometry = false;
       query.start = offset;
       query.resultOffset = offset;

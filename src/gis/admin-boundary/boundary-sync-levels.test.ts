@@ -55,7 +55,7 @@ function makeCtx(overrides: Partial<BoundarySyncContext> = {}): BoundarySyncCont
   } as unknown as EsriMap;
   const outline = (): GraphicsLayer => ({ removeAll: jest.fn(), visible: true }) as unknown as GraphicsLayer;
   return {
-    view: { map, graphics: { toArray: () => [], remove: jest.fn() } } as unknown as AdminBoundaryView,
+    view: { map, graphics: { toArray: (): never[] => [], remove: jest.fn() } } as unknown as AdminBoundaryView,
     map,
     modules: { FeatureLayer: "FL", Graphic: "G" } as unknown as BoundaryModules,
     regionOutline: outline(),

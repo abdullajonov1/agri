@@ -103,7 +103,7 @@ export function makeFakeHost(init: FakeHostInit = {}): FakeHost {
     normalizeApos: (s: string) => trimString(s),
     makeRegionDistrictKey: (raw: string | null | undefined) =>
       trimString(raw).toLowerCase(),
-    getSelectedTurlar: () => [],
+    getSelectedTurlar: (): string[] => [],
     getEffectiveViloyat: () => "",
     setMapNoData: jest.fn(),
     setMapSurfaceLoading: jest.fn(),

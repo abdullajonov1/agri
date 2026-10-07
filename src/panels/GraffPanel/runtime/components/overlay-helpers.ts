@@ -7,6 +7,7 @@ import { getExportImageSeasonMonths, isRegionDateWithoutImagery, isRegionDateWit
 import { clearMapSelectionGraphics } from "../graff-map-utils";
 import { isMapImageOwnedLayer } from "../../../../gis/feature-layer-data";
 import { graffLog } from "../graff-log";
+import { arcgisEaseInOut } from "../../../../shared/agri-plain-object";
 
 export const updateGraphViewportSize = (host: GraffWidgetHost) => {
   const wrap = host.graphSvgWrapRef.current;
@@ -431,7 +432,7 @@ export const clearPolygonSelectionFromMapClick = (host: GraffWidgetHost): void =
     try {
       void view.goTo(restoreExtent, {
         duration: 700,
-        easing: "ease-in-out" as const,
+        easing: arcgisEaseInOut,
       });
     } catch {
       /* ignore */

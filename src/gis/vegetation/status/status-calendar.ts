@@ -1,5 +1,6 @@
 import { queryVegFeatures, readVegAttr, formatEpochToTashkentYmd, agriNotifyLog, formatArcgisDateToYmd, shiftYmd } from "../veg-base";
 import type { AgriQueryableLayer } from "../../../types/agri-layer";
+import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 
 /**
  * Exactly `dayCount` consecutive Tashkent calendar days ending at MAX(processed_at).
@@ -13,13 +14,13 @@ export async function fetchLastProcessedAtCalendarWindow(
   const maxQuery = layer.createQuery();
   maxQuery.where = `${dateField} IS NOT NULL`;
   maxQuery.returnGeometry = false;
-  maxQuery.outStatistics = [
+  maxQuery.outStatistics = asStatisticDefinitions([
     {
       statisticType: "max",
       onStatisticField: dateField,
       outStatisticFieldName: "max_processed_at",
     },
-  ];
+  ]);
 
   const maxResult = await queryVegFeatures(layer, maxQuery);
   const maxRaw = readVegAttr(

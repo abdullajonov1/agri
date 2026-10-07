@@ -1,5 +1,6 @@
 import type { PopupWidgetHost } from "../../popup-host";
 import { agriMapClickDebug, agriMapClickWarn } from "../../../../../gis/agri-map-click-debug";
+import { arcgisEaseInOut } from "../../../../../shared/agri-plain-object";
 import { AGRI_TABLE_JOIN_FIELD } from "../../../../../gis/agri-table-data-source";
 import { resolveRegionIdFromAttributes, resolveCropIdFromAttributes } from "../../../../../gis/agri-polygon-api-source";
 import { prefetchVegetationOverlayForUniqueid } from "../../../../../gis/agri-vegetation-overlay-prefetch";
@@ -120,7 +121,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
         durationMs: 500,
       });
       void view
-        .goTo({ target }, { duration: 500, easing: "ease-in-out" })
+        .goTo({ target }, { duration: 500, easing: arcgisEaseInOut })
         .then(
           () =>
             agriMapClickDebug("zoom:complete-hit", {
@@ -397,7 +398,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
           durationMs: 500,
         });
         void view
-          .goTo({ target }, { duration: 500, easing: "ease-in-out" })
+          .goTo({ target }, { duration: 500, easing: arcgisEaseInOut })
           .then(
             () =>
               agriMapClickDebug("zoom:complete", {

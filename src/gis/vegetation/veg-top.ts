@@ -4,6 +4,7 @@ import { queryVegetationAvgNdviByUniqueIdOnce, queryVegetationAvgNdviByUniqueIdP
 import { queryVegetationStatusCountsByStatus, listRegionsForProcessedDay, countDistinctUniqueIdsByRegionParallel, countDistinctViaOidCursor, fetchLastProcessedAtCalendarWindow } from "./veg-status";
 import { dateEqualsClause, escapeArcGIS } from "../../data/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
+import { asStatisticDefinitions } from "../../shared/agri-plain-object";
 
 /**
  * Per-uniqueid AVG(ndvi) + MAX(px_all) inside an inclusive raster_date window.
@@ -152,7 +153,7 @@ async function queryVegetationStatusCountsForRegionsOnDate(params: {
       query.groupByFieldsForStatistics = ["ndvi_status"];
       query.orderByFields = ["ndvi_status ASC"];
       query.outFields = ["ndvi_status"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "count",
           onStatisticField: oidField,
@@ -163,7 +164,7 @@ async function queryVegetationStatusCountsForRegionsOnDate(params: {
           onStatisticField: "px_all",
           outStatisticFieldName: "sum_px_all",
         },
-      ];
+      ]);
       query.returnGeometry = false;
       query.num = 50;
       query.resultRecordCount = 50;

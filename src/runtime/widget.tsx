@@ -35,6 +35,7 @@ import "../panels/PiePanel/runtime/AgriPie.css";
 import "../panels/BarPanel/runtime/AgriBar.css";
 import "../panels/PopupPanel/runtime/AgriPolygon.css";
 import "../panels/GraffPanel/runtime/AgriGraff.css";
+import "../filter/LocalizationPanel/runtime/AgriFilter.css";
 import "./agri-dashboard.css";
 import { setAccessConfig } from "../shared/agri-access-config";
 import { setAgriServiceUrls } from "../shared/agri-service-urls";

@@ -86,8 +86,8 @@ const makeHost = (state: StatePatch = {}, overrides: Partial<PieWidgetHost> = {}
     MAX_CONNECTION_ATTEMPTS: 3,
     normalizeName: (s: string): string => String(s || "").trim().toLowerCase(),
     turiNamesToCropIds: (names: string[]): string[] => names,
-    getFeatureLayerForViloyat: jest.fn(() => undefined),
-    getDefaultFeatureLayer: jest.fn(() => undefined),
+    getFeatureLayerForViloyat: jest.fn((): undefined => undefined),
+    getDefaultFeatureLayer: jest.fn((): undefined => undefined),
     fetchCategoryData: jest.fn(),
     ensureCropIdMaps: jest.fn(() => Promise.resolve()),
     initializeTheme: jest.fn(),
@@ -347,7 +347,7 @@ describe("area field + stats query", () => {
 
   it("queryCategoryStatsJSON defaults object id field", async () => {
     mockStatsCached.mockResolvedValue([]);
-    const host = makeHost({}, { findAreaStatisticField: jest.fn(() => null) });
+    const host = makeHost({}, { findAreaStatisticField: jest.fn((): null => null) });
     await queryCategoryStatsJSON(host, {} as unknown as __esri.FeatureLayer, "w=1", "c");
     expect(mockStatsCached).toHaveBeenLastCalledWith(
       expect.objectContaining({ where: "w=1", objectIdField: "OBJECTID" }),
@@ -427,11 +427,11 @@ describe("selectCategoryByName", () => {
 describe("resize handling", () => {
   it("schedulePieChartResize debounces via rAF and resizes chart", () => {
     const callbacks: FrameRequestCallback[] = [];
-    const raf = jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+    const raf = jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb: FrameRequestCallback) => {
       callbacks.push(cb);
       return callbacks.length;
     });
-    const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation((): void => undefined);
     const resize = jest.fn();
     const host = makeHost();
     host._pieChart = { resize } as unknown as PieWidgetHost["_pieChart"];
@@ -446,7 +446,7 @@ describe("resize handling", () => {
   });
 
   it("handleResize forces update only when layout class flips", () => {
-    const raf = jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+    const raf = jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb: FrameRequestCallback) => {
       cb(0);
       return 1;
     });
@@ -518,7 +518,7 @@ describe("resize observer", () => {
   });
 
   it("detach disconnects and cancels pending frame", () => {
-    const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation((): void => undefined);
     const host = makeHost();
     const disconnect = jest.fn();
     host._pieResizeObserver = { disconnect } as unknown as ResizeObserver;

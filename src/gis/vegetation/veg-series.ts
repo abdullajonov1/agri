@@ -2,6 +2,7 @@ import { vegetationSeriesByUniqueIdCache, getAgriVegetationIndicesLayer, queryVe
 import { escapeArcGIS } from "../../data/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import type { AgriAttributes, AgriStatisticJson } from "../agri-layer-types";
+import { asStatisticDefinitions } from "../../shared/agri-plain-object";
 
 /*
  * Vegetation index series + date lookups. Distinct-value / max-date scans
@@ -133,7 +134,7 @@ export async function queryVegetationRegionalTimeseries(
       query.where = where;
       query.groupByFieldsForStatistics = ["raster_date"];
       query.orderByFields = ["raster_date ASC"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         ...fieldsForStats.map((field): AgriStatisticJson => ({
           statisticType: "avg",
           onStatisticField: field,
@@ -144,7 +145,7 @@ export async function queryVegetationRegionalTimeseries(
           onStatisticField: "objectid",
           outStatisticFieldName: "polygon_count",
         },
-      ];
+      ]);
       query.returnGeometry = false;
 
       const result = await queryVegFeatures(layer, query);
@@ -197,13 +198,13 @@ export async function queryVegetationAvailableDates(
       query.where = where;
       query.groupByFieldsForStatistics = ["raster_date"];
       query.orderByFields = ["raster_date ASC"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "count",
           onStatisticField: "objectid",
           outStatisticFieldName: "cnt",
         },
-      ];
+      ]);
       query.returnGeometry = false;
 
       const result = await queryVegFeatures(layer, query);
@@ -259,13 +260,13 @@ export async function queryVegetationLatestDatesByRegion(
       query.where = clauses.join(" AND ");
       query.groupByFieldsForStatistics = ["region"];
       query.orderByFields = ["region ASC"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "max",
           onStatisticField: "raster_date",
           outStatisticFieldName: "max_raster_date",
         },
-      ];
+      ]);
       query.returnGeometry = false;
       query.num = 100;
 

@@ -200,7 +200,7 @@ describe("componentWillUnmount", () => {
     const unbind = jest.fn();
     const unbindPopup = jest.fn();
     const layer = { definitionExpression: "x" } as unknown as __esri.FeatureLayer;
-    const raf = jest.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    const raf = jest.spyOn(window, "cancelAnimationFrame").mockImplementation((): void => undefined);
     const host = wired(
       { featureLayer: layer },
       {

@@ -8,6 +8,7 @@ import {
   buildSingleDistrictAttempts,
   featureBelongsToViloyat,
   filterDistrictFeaturesToViloyat,
+  type ViloyatDistrictFilter,
   maxDistrictsForViloyat,
   resolveDistrictCode,
   resolveDistrictWhere,
@@ -173,7 +174,7 @@ describe("client-side viloyat guard", () => {
 
   test("filterDistrictFeaturesToViloyat keeps all when nothing to match on", () => {
     const features = [{ attributes: { foo: "bar" } }];
-    const open = { parentCod: null, viloyat: "", districtNames: [], districtCodes: [] };
+    const open: ViloyatDistrictFilter = { parentCod: null, viloyat: "", districtNames: [], districtCodes: [] };
     expect(filterDistrictFeaturesToViloyat(features, open)).toBe(features);
   });
 

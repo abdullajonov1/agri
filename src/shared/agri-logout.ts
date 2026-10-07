@@ -14,7 +14,7 @@ function trimPortalRestSuffix(url: string): string {
 
 /** `window.jimuConfig` is typed by jimu-core without `portalUrl`; read it only when present. */
 function readJimuConfigPortalUrl(): unknown {
-  const config: object | undefined = window.jimuConfig;
+  const config: object | undefined = (window as Window & { jimuConfig?: object }).jimuConfig;
   if (!config || !("portalUrl" in config)) return "";
   return config.portalUrl || "";
 }

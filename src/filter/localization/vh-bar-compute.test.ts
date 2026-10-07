@@ -189,7 +189,7 @@ describe("executeVhBarCompute republic path", () => {
 });
 
 describe("executeVhBarCompute region path", () => {
-  const regionState = { viloyat: "Buxoro", lockedViloyat: null, tuman: "Olot", yil: "2025" };
+  const regionState = { viloyat: "Buxoro", lockedViloyat: null as string | null, tuman: "Olot", yil: "2025" };
 
   test("walks dates newest-first until non-empty and publishes used date", async () => {
     mockQueryMaxDate.mockResolvedValue("2025-09-10");

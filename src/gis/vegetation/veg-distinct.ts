@@ -4,6 +4,7 @@
  */
 import { getAgriVegetationIndicesLayer, queryVegFeatures, formatArcgisDateToYmd, agriVhLog, buildVegetationScopeClauses, vegetationDistinctCropIdsCache, vegetationDistinctRegionsCache, vegetationDistinctDistrictsCache, vegetationMaxRasterDateCache, vegetationMaxDateByRegionCache } from "./veg-base";
 import { rememberAsync } from "../../data/agri-persistent-cache";
+import { asStatisticDefinitions } from "../../shared/agri-plain-object";
 
 /**
  * Distinct crop_id values in scope (year + optional region/district).
@@ -39,13 +40,13 @@ export async function queryVegetationDistinctCropIds(params: {
       query.where = where;
       query.groupByFieldsForStatistics = ["crop_id"];
       query.orderByFields = ["crop_id ASC"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "count",
           onStatisticField: oidField,
           outStatisticFieldName: "cnt",
         },
-      ];
+      ]);
       query.returnGeometry = false;
       query.num = 500;
       const result = await queryVegFeatures(layer, query);
@@ -84,13 +85,13 @@ export async function queryVegetationDistinctRegions(params: {
       query.where = clauses.join(" AND ");
       query.groupByFieldsForStatistics = ["region"];
       query.orderByFields = ["region ASC"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "count",
           onStatisticField: oidField,
           outStatisticFieldName: "cnt",
         },
-      ];
+      ]);
       query.returnGeometry = false;
       query.num = 100;
       const result = await queryVegFeatures(layer, query);
@@ -135,13 +136,13 @@ export async function queryVegetationDistinctDistricts(params: {
       query.where = where;
       query.groupByFieldsForStatistics = ["district"];
       query.orderByFields = ["district ASC"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "count",
           onStatisticField: oidField,
           outStatisticFieldName: "cnt",
         },
-      ];
+      ]);
       query.returnGeometry = false;
       query.num = 200;
       const result = await queryVegFeatures(layer, query);
@@ -195,13 +196,13 @@ export async function queryVegetationMaxRasterDate(params: {
       const query = layer.createQuery();
       query.where = where;
       query.returnGeometry = false;
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "max",
           onStatisticField: "raster_date",
           outStatisticFieldName: "max_raster_date",
         },
-      ];
+      ]);
       const result = await queryVegFeatures(layer, query);
       const raw =
         result?.features?.[0]?.attributes?.max_raster_date ??
@@ -246,13 +247,13 @@ export async function queryVegetationMaxRasterDateByRegion(params: {
       query.where = clauses.join(" AND ");
       query.groupByFieldsForStatistics = ["region"];
       query.orderByFields = ["region ASC"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "max",
           onStatisticField: "raster_date",
           outStatisticFieldName: "max_raster_date",
         },
-      ];
+      ]);
       query.returnGeometry = false;
       query.num = 100;
       const result = await queryVegFeatures(layer, query);

@@ -80,7 +80,7 @@ const makeHost = (state: Partial<AgriGraffWidgetState> = {}, extra: Record<strin
       resolveCurrentRegionId: jest.fn(() => 5),
       resolveCurrentYear: jest.fn(() => 2024),
       resolveCropIdForUniqueid: jest.fn(() => 3),
-      resolveAgainstAvailableDates: jest.fn(() => null),
+      resolveAgainstAvailableDates: jest.fn((): null => null),
       resolveHoverIndexRange: jest.fn(() => ({ indexMin: 0, indexMax: 1 })),
       awaitPendingOverlayWalk: jest.fn(() => Promise.resolve(undefined)),
       ...extra,
@@ -119,7 +119,7 @@ describe("applyGraffVegetationImageOverlay early exits", () => {
     expect(mockFetchTiff).not.toHaveBeenCalled();
   });
   test("missing region cancels the overlay and reports an error", async () => {
-    const host = makeHost({}, { resolveCurrentRegionId: jest.fn(() => undefined) });
+    const host = makeHost({}, { resolveCurrentRegionId: jest.fn((): undefined => undefined) });
     await applyGraffVegetationImageOverlay(host, "U", "2024-06-10");
     expect(asMock(host.cancelVegetationImageOverlay)).toHaveBeenCalled();
     expect(host.state.polygonImageError).toContain("Viloyat");

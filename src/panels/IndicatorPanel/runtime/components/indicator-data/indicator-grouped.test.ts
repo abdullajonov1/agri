@@ -46,7 +46,7 @@ describe("fetchGroupedStats", () => {
 
   test("delegates to fetchGroupedFirst for the 'first' operation", async () => {
     const { layer } = fakeLayer([]);
-    const fetchGroupedFirstMock = jest.fn(async () => undefined);
+    const fetchGroupedFirstMock = jest.fn(async (): Promise<void> => undefined);
     const { host } = makeIndicatorHost(
       connectedState(layer),
       { groupByField: "g", statOperation: "first", attributeField: "v" },

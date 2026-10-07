@@ -6,6 +6,7 @@ import { getAgriVegetationIndicesLayer, queryVegFeatures, agriVhLog, buildVegeta
 import { escapeArcGIS } from "../../data/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import type { AgriLayerWithMaxRecordCount } from "../agri-layer-types";
+import { asStatisticDefinitions } from "../../shared/agri-plain-object";
 
 /**
  * Continue groupBy stats after the first truncated page.
@@ -91,7 +92,7 @@ export async function queryVegetationAvgNdviByUniqueIdPaged(params: {
           query.where = where;
           query.groupByFieldsForStatistics = [uniqueIdField];
           query.orderByFields = [`${uniqueIdField} ASC`];
-          query.outStatistics = [
+          query.outStatistics = asStatisticDefinitions([
             {
               statisticType: "avg",
               onStatisticField: ndviField,
@@ -102,7 +103,7 @@ export async function queryVegetationAvgNdviByUniqueIdPaged(params: {
               onStatisticField: pxField,
               outStatisticFieldName: "max_px_all",
             },
-          ];
+          ]);
           query.returnGeometry = false;
           query.num = pageSize;
 
@@ -219,7 +220,7 @@ export async function queryVegetationAvgNdviByUniqueIdOnce(params: {
       query.where = where;
       query.groupByFieldsForStatistics = [uniqueIdField];
       query.orderByFields = [`${uniqueIdField} ASC`];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "avg",
           onStatisticField: ndviField,
@@ -230,7 +231,7 @@ export async function queryVegetationAvgNdviByUniqueIdOnce(params: {
           onStatisticField: pxField,
           outStatisticFieldName: "max_px_all",
         },
-      ];
+      ]);
       query.returnGeometry = false;
       query.num = maxRecordCount;
 

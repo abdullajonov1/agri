@@ -177,7 +177,7 @@ describe("assembleLocalizationWhere", () => {
     cropClause: "",
     includeVh: false,
     vhCategory: "",
-    vhUniqueIds: null,
+    vhUniqueIds: null as string[] | null,
     uniqueIdClause: "",
     buildSpatialJoinWhere: (ids: string[]): string =>
       ids.length ? `uniqueid IN (${ids.join(",")})` : "1=0",
@@ -232,7 +232,7 @@ describe("assembleLocalizationWhere", () => {
         ...base,
         includeVh: true,
         vhCategory: "2-Yaxshi",
-        vhUniqueIds: null,
+        vhUniqueIds: null as string[] | null,
       }),
     ).toBe("yil = 2025");
   });
@@ -288,7 +288,7 @@ describe("buildNdviTableWhereWithRegion", () => {
     yil: "2025",
     viloyat: "",
     tuman: "",
-    lockedViloyat: null,
+    lockedViloyat: null as string | null,
     viloyatToRegion: { Buxoro: 3 },
     tumanToDistrict: { Olot: 301 },
     normalizeApos: (s: string): string => s.trim(),

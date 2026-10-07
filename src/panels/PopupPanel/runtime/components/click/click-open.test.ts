@@ -29,8 +29,8 @@ const asLayer = (o: Obj): __esri.FeatureLayer => o as unknown as __esri.FeatureL
 const asGraphic = (o: Obj): __esri.Graphic => o as unknown as __esri.Graphic;
 
 describe("click-open: resolveDisplayAttrs", () => {
-  const host = makePopupHost({}, {}, {
-    findAttributeValueCaseInsensitive: jest.fn((a, n) => findAttributeValueCaseInsensitive(host, a, n)),
+  const host: PopupWidgetHost = makePopupHost({}, {}, {
+    findAttributeValueCaseInsensitive: jest.fn((a: PopupAttributes | null | undefined, n: string): unknown => findAttributeValueCaseInsensitive(host, a, n)),
   }).host;
   beforeEach(() => mockQueryRecord.mockReset());
 

@@ -281,7 +281,7 @@ describe("map layer helpers", () => {
 
   test("publishDistrictLabelFeatureLayer returns 0 when hidden, empty or add fails", () => {
     const map = fakeMap();
-    const base = { map: asMap(map), FeatureLayer: FeatureLayerCls, Graphic: GraphicCls, labelFields: [] };
+    const base = { map: asMap(map), FeatureLayer: FeatureLayerCls, Graphic: GraphicCls, labelFields: [] as string[] };
     expect(publishDistrictLabelFeatureLayer({ ...base, features: [feature({})], bordersVisible: false })).toBe(0);
     expect(publishDistrictLabelFeatureLayer({ ...base, features: [feature({}, null)], bordersVisible: true })).toBe(0);
     map.add.mockImplementation(() => {

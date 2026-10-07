@@ -7,6 +7,7 @@ import {
   makeGroupKey,
   normalizeLoadedConfig,
   normalizeOperator,
+  type AccessConfig,
   type RuleFormValues,
 } from "./access-model";
 
@@ -61,7 +62,7 @@ describe("access-model", () => {
   });
 
   test("cloneAccessConfig returns a deep copy", () => {
-    const original = { fullAccessGroups: ["a"], rules: [] };
+    const original: AccessConfig = { fullAccessGroups: ["a"], rules: [] };
     const copy = cloneAccessConfig(original);
     expect(copy).toEqual(original);
     expect(copy.fullAccessGroups).not.toBe(original.fullAccessGroups);
@@ -69,9 +70,9 @@ describe("access-model", () => {
 
   test("getInitialAccessConfig reads immutable or plain stored config", () => {
     expect(getInitialAccessConfig(undefined)).toEqual({ fullAccessGroups: [], rules: [] });
-    const stored = { fullAccessGroups: ["x"], rules: [] };
+    const stored: AccessConfig = { fullAccessGroups: ["x"], rules: [] };
     expect(getInitialAccessConfig({ accessConfig: stored })).toEqual(stored);
-    const immutable = { asMutable: () => ({ fullAccessGroups: ["y"], rules: [] }) };
+    const immutable = { asMutable: (): AccessConfig => ({ fullAccessGroups: ["y"], rules: [] }) };
     expect(getInitialAccessConfig({ accessConfig: immutable }).fullAccessGroups).toEqual(["y"]);
   });
 

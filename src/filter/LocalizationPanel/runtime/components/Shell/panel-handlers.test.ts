@@ -98,7 +98,7 @@ describe("handlePolygonMapClickPhase", () => {
     expect(h._lastShownRegionYearLayers).toBe(shown);
   });
   it("does nothing when unmounted or no map", () => {
-    const sync = jest.fn(() => []);
+    const sync = jest.fn((): never[] => []);
     handlePolygonMapClickPhase(mk({ _isMounted: false, syncShownRegionYearLayers: sync }), ev(null));
     handlePolygonMapClickPhase(mk({ syncShownRegionYearLayers: sync }), ev(null));
     expect(sync).not.toHaveBeenCalled();

@@ -16,6 +16,7 @@ import {
   type AgriSingletonLayerHandle,
 } from "../shared/agri-singleton-layer-loader";
 import { type AgriAttributes, featureAttributeBag } from "./agri-layer-types";
+import { asStatisticDefinitions } from "../shared/agri-plain-object";
 
 /** esri Query plus the REST paging props the JS API typings omit. */
 type AgriTableQuery = __esri.Query & {
@@ -338,13 +339,13 @@ export async function queryAgriRegionDistrictMappings(): Promise<
         "tuman",
         "district",
       ];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "count",
           onStatisticField: layer.objectIdField || "objectid",
           outStatisticFieldName: "cnt",
         },
-      ];
+      ]);
       query.returnGeometry = false;
 
       const result = await layer.queryFeatures(query);
@@ -392,13 +393,13 @@ export async function queryAgriTuriCropMappings(): Promise<
       const query = layer.createQuery();
       query.where = combineAccessWhere("1=1");
       query.groupByFieldsForStatistics = ["turi", "crop_id"];
-      query.outStatistics = [
+      query.outStatistics = asStatisticDefinitions([
         {
           statisticType: "count",
           onStatisticField: layer.objectIdField || "objectid",
           outStatisticFieldName: "cnt",
         },
-      ];
+      ]);
       query.returnGeometry = false;
 
       const result = await layer.queryFeatures(query);

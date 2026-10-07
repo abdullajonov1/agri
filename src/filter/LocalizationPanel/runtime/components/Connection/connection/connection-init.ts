@@ -8,6 +8,7 @@ import { MAX_DS_ONLY_RETRIES, DS_ONLY_RETRY_DELAY_MS } from "../../../../../../s
 import { getAppStore, type IMUseDataSource } from "jimu-core";
 import { isAccessConfigured, isAccessDenied, resolveAllowedViloyatsForGroups, lockedViloyat as accessLockedViloyat } from "../../../../../../shared/agri-access-config";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../../../../../shared/agri-http";
+import { errorMessage } from "../../../../../../shared/agri-plain-object";
 
 const FAIL_OPEN_IF_NO_MATCH = false;
 /* ---------------------- Map / DataSource ---------------------- */
@@ -218,12 +219,12 @@ export const initializeMapConnectionOnce = async (host: LocalizationHost, jimuMa
       if (host._isMounted) host.setState({ spatialMapLayers });
     }).catch((e) => {
       agriLog("spatialMapLayers:resolve-FAILED", {
-        error: String(e?.message || e),
+        error: errorMessage(e),
       });
     });
   } catch (e) {
     agriLog("spatialMapLayers:resolve-FAILED", {
-      error: String(e?.message || e),
+      error: errorMessage(e),
     });
   }
 

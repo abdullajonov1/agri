@@ -7,7 +7,7 @@ import { getAgriTableDataUrl, buildSpatialJoinWhere, queryAgriUniqueIdsForWhere 
 import { buildDefinitionExpressionDigest, isEmptyMapExtent } from "../../../../../localization/map-zoom-policy";
 import { agriLog, debugCatch } from "../../localization-log";
 import { collectShownRegionYearQueryTargets, readQueryableDefinitionExpression, unionMapExtents } from "../../../../../localization/map-shown-extent";
-import { errorMessage } from "../../../../../../shared/agri-plain-object";
+import { arcgisEaseInOut, errorMessage, errorName } from "../../../../../../shared/agri-plain-object";
 
 /** Tell the dashboard shell to show/hide the "no data found" map overlay. */
 export const setMapNoData = (host: LocalizationHost, noData: boolean, reason: string): void => {
@@ -472,14 +472,14 @@ export const zoomToSelectedDistrict = async (
 
     await view.goTo(mergedExtent.expand(1.03), {
       duration: 700,
-      easing: "ease-in-out",
+      easing: arcgisEaseInOut,
     });
     if (!isCurrent()) return false;
 
     agriLog("zoom:district:goTo", { district });
     return true;
   } catch (error) {
-    if (error?.name !== "AbortError") {
+    if (errorName(error) !== "AbortError") {
       agriLog("zoom:district:failed", {
         district,
         message: errorMessage(error),
