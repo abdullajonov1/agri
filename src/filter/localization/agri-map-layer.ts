@@ -7,11 +7,13 @@
  * gis AgriLayerLike so both modules agree on one layer shape.
  */
 import type { AgriLayerLike } from "../../gis/agri-layer-types";
+import type { CropRendererJson } from "./crop-renderer";
 
 export interface AgriMapLayer extends AgriLayerLike {
   name?: string;
   geometryType?: string | null;
-  renderer?: __esri.Renderer | null;
+  /** Live renderer, or crop-palette JSON awaiting ArcGIS autocast. */
+  renderer?: __esri.Renderer | CropRendererJson | null;
 }
 
 /** Attribute bag on a returned feature. */

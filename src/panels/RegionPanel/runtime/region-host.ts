@@ -65,8 +65,8 @@ export interface RegionWidgetHost {
   clampCursorPosition: (clientX: number, clientY: number) => { x: number; y: number; };
   applyTooltipPosition: (x: number, y: number) => void;
   handleRegionSelectionClick: (data: { name?: string; payload?: RegionalDataItem & { name?: string; }; }, _index?: number, _e?: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
-  handleBarPointerEnter: (data: unknown, _index: number, e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
-  handleBarPointerMove: (data: unknown, _index: number, e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
+  handleBarPointerEnter: (data: unknown, _index: number, e: React.MouseEvent<Element, MouseEvent>) => void;
+  handleBarPointerMove: (data: unknown, _index: number, e: React.MouseEvent<Element, MouseEvent>) => void;
   getClientPoint: (...args: Array<({ nativeEvent?: MouseEvent; } & Partial<MouseEvent>) | unknown>) => { x: number; y: number; };
   bindPointerTracking: () => void;
   resolveWidgetSize: (width: number) => WidgetSize;

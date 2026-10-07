@@ -73,24 +73,24 @@ import {
  */
 export abstract class LocalizationMapBase extends LocalizationWidgetFields {
   // Canonicalize keys used for viloyat/tuman → region/district dictionaries
-  protected makeRegionDistrictKey(raw: string | null | undefined): string {
+  makeRegionDistrictKey(raw: string | null | undefined): string {
     return makeRegionDistrictKeyShared(raw);
   }
 
-  protected resolveCropIdForTuri = (turi: string): string | undefined => {
+  resolveCropIdForTuri = (turi: string): string | undefined => {
     const key = getTuriCropLookupKey(turi);
     return key ? this._turiToCropId[key] : undefined;
   };
 
-  protected getLayerKey(layer: AgriMapLayer | null | undefined): string {
+  getLayerKey(layer: AgriMapLayer | null | undefined): string {
     return getFeatureLayerKey(layer);
   }
 
-  protected getEffectiveViloyat(): string {
+  getEffectiveViloyat(): string {
     return getEffectiveViloyat(this.host);
   }
 
-  protected getAdminBoundarySelection(): {
+  getAdminBoundarySelection(): {
     viloyat: string;
     tuman: string;
     regionCode?: number;
@@ -101,81 +101,81 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
     return getAdminBoundarySelection(this.host);
   }
 
-  protected findLayerFieldName(
+  findLayerFieldName(
     layer: AgriMapLayer | __esri.FeatureLayer,
     name: string,
   ): string | null {
     return findLayerFieldName(this.host, layer, name);
   }
 
-  protected getCropRendererTargetLayers = (): AgriMapLayer[] =>
+  getCropRendererTargetLayers = (): AgriMapLayer[] =>
     getCropRendererTargetLayers(this.host);
 
-  protected cropDistinctCacheKey = (
+  cropDistinctCacheKey = (
     layer: AgriMapLayer,
     field: string,
     where: string,
   ): string =>
     cropDistinctCacheKey(this.host, layer, field, where);
 
-  protected queryDistinctCropValues = (layer: AgriMapLayer, field: string, where: string): Promise<string[]> =>
+  queryDistinctCropValues = (layer: AgriMapLayer, field: string, where: string): Promise<string[]> =>
     queryDistinctCropValues(this.host, layer, field, where);
 
-  protected buildCropUniqueValueInfosFromValues = (
+  buildCropUniqueValueInfosFromValues = (
     field: string,
     distinctValues: string[],
   ): CropUniqueValueInfo[] =>
     buildCropUniqueValueInfosFromValues(this.host, field, distinctValues);
 
-  protected refreshCropLayer = (layer: AgriMapLayer): void =>
+  refreshCropLayer = (layer: AgriMapLayer): void =>
     refreshCropLayer(this.host, layer);
 
-  protected resetCropRenderer = (): void =>
+  resetCropRenderer = (): void =>
     resetCropRenderer(this.host);
 
-  protected applyCropRenderer = (requestId: number): Promise<void> =>
+  applyCropRenderer = (requestId: number): Promise<void> =>
     applyCropRenderer(this.host, requestId);
 
-  protected syncCropRenderer = (): Promise<void> =>
+  syncCropRenderer = (): Promise<void> =>
     syncCropRenderer(this.host);
 
-  protected applyInstantCropPaletteNoRefresh = (): void =>
+  applyInstantCropPaletteNoRefresh = (): void =>
     applyInstantCropPaletteNoRefresh(this.host);
 
-  protected warmYearRegionMapImages = (): void =>
+  warmYearRegionMapImages = (): void =>
     warmYearRegionMapImages(this.host);
 
-  protected setShownRegionYearOpacity = (opacity: number): void =>
+  setShownRegionYearOpacity = (opacity: number): void =>
     setShownRegionYearOpacity(this.host, opacity);
 
 
-  protected setMapSurfaceLoading = (loading: boolean, reason: string): void => {
+  setMapSurfaceLoading = (loading: boolean, reason: string): void => {
     return setMapSurfaceLoading(this.host, loading, reason);
   };
 
-  protected setMapNoData = (noData: boolean, reason: string): void =>
+  setMapNoData = (noData: boolean, reason: string): void =>
     setMapNoData(this.host, noData, reason);
 
-  protected clearRegionYearSettleRepaintTimers = (): void =>
+  clearRegionYearSettleRepaintTimers = (): void =>
     clearRegionYearSettleRepaintTimers(this.host);
 
-  protected repaintShownRegionYearLayers = (phase: string): void =>
+  repaintShownRegionYearLayers = (phase: string): void =>
     repaintShownRegionYearLayers(this.host, phase);
 
-  protected scheduleShownRegionYearSettleRepaint = (requestId: number, delayMs: number, phase: string): void =>
+  scheduleShownRegionYearSettleRepaint = (requestId: number, delayMs: number, phase: string): void =>
     scheduleShownRegionYearSettleRepaint(this.host, requestId, delayMs, phase);
 
-  protected waitForShownRegionYearRedraw = (refresh = true): Promise<void> =>
+  waitForShownRegionYearRedraw = (refresh = true): Promise<void> =>
     waitForShownRegionYearRedraw(this.host, refresh);
 
-  protected getLayerMatchStateForViloyat(
+  getLayerMatchStateForViloyat(
     layer: __esri.FeatureLayer,
     effectiveViloyat: string,
   ): "match" | "mismatch" | "unknown" {
     return getLayerMatchStateForViloyat(this.host, layer, effectiveViloyat);
   }
 
-  protected buildWhereForLayer(
+  buildWhereForLayer(
     layer: __esri.FeatureLayer,
     includeVh = false,
     includeTuri = true,
@@ -190,52 +190,52 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
     );
   }
 
-  protected buildYearClauseForLayer(layer: __esri.FeatureLayer): string {
+  buildYearClauseForLayer(layer: __esri.FeatureLayer): string {
     return buildYearClauseForLayer(this.host, layer);
   }
 
-  protected _normId = (s?: string) => normalizeConnectionId(s);
+  _normId = (s?: string) => normalizeConnectionId(s);
 
-  protected normalizeApos = (s: string) => normalizeLocalizationApos(s);
+  normalizeApos = (s: string) => normalizeLocalizationApos(s);
 
   MAX_CONNECTION_ATTEMPTS = MAX_MAP_CONNECTION_ATTEMPTS;
 
 
-  protected getPortalSelf = (jimuMapView: JimuMapView): Promise<{
+  getPortalSelf = (jimuMapView: JimuMapView): Promise<{
     username: string | null;
     groups: Array<{ id: string; title: string }>;
     portalUrl: string;
   }> =>
     getPortalSelf(this.host, jimuMapView);
 
-  protected resolveGroupScope = (
+  resolveGroupScope = (
     groups: Array<{ id: string; title: string }>,
   ): { viewItemId: string; viloyat: string } | null => {
     return resolveGroupScope(this.host, groups);
   };
 
-  protected resolveAllowedViloyats = (
+  resolveAllowedViloyats = (
     groups: Array<{ id: string; title: string }>,
   ): string[] => {
     return resolveAllowedViloyats(this.host, groups);
   };
 
-  protected getEffectiveUseDataSources(): IMUseDataSource[] {
+  getEffectiveUseDataSources(): IMUseDataSource[] {
     return getEffectiveUseDataSources(this.host);
   }
 
-  protected getMapWidgetId(): string | null {
+  getMapWidgetId(): string | null {
     return getMapWidgetId(this.host);
   }
 
-  protected attachMapClickDispatcher = (jimuMapView: JimuMapView): void =>
+  attachMapClickDispatcher = (jimuMapView: JimuMapView): void =>
     attachMapClickDispatcher(this.host, jimuMapView);
 
   onActiveViewChange = (jimuMapView: JimuMapView) =>
     onActiveViewChange(this.host, jimuMapView);
 
 
-  protected initializeMapConnection = (jimuMapView: JimuMapView): Promise<void> =>
+  initializeMapConnection = (jimuMapView: JimuMapView): Promise<void> =>
     initializeMapConnection(this.host, jimuMapView);
 
   /**
@@ -245,44 +245,44 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
    * sync helper does not reassign an identical definitionExpression, so the
    * normal path causes no extra export; it only repairs a layer that drifted.
    */
-  protected clearPolygonFilterGuards = (): void => {
+  clearPolygonFilterGuards = (): void => {
     this._polygonFilterGuardTimers.forEach((timer) => clearTimeout(timer));
     this._polygonFilterGuardTimers = [];
   };
 
-  protected reassertPolygonGeographyFilter = (phase: string): void =>
+  reassertPolygonGeographyFilter = (phase: string): void =>
     reassertPolygonGeographyFilter(this.host, phase);
 
-  protected handlePolygonMapClickPhase = (event: Event): void => {
+  handlePolygonMapClickPhase = (event: Event): void => {
     return handlePolygonMapClickPhase(this.host, event);
   };
 
-  protected schedulePolygonFilterGuards = (): void => {
+  schedulePolygonFilterGuards = (): void => {
     return schedulePolygonFilterGuards(this.host);
   };
 
-  protected initializeMapConnectionOnce = (jimuMapView: JimuMapView) =>
+  initializeMapConnectionOnce = (jimuMapView: JimuMapView) =>
     initializeMapConnectionOnce(this.host, jimuMapView);
 
-  protected initializeDataSourceOnlyConnection = (failureMessage = "Could not resolve a queryable layer for the selected data source(s)."): Promise<void> =>
+  initializeDataSourceOnlyConnection = (failureMessage = "Could not resolve a queryable layer for the selected data source(s)."): Promise<void> =>
     initializeDataSourceOnlyConnection(this.host, failureMessage);
 
-  protected finalizeConnection = (featureLayers: __esri.FeatureLayer[], jimuMapView: JimuMapView | null): Promise<void> =>
+  finalizeConnection = (featureLayers: __esri.FeatureLayer[], jimuMapView: JimuMapView | null): Promise<void> =>
     finalizeConnection(this.host, featureLayers, jimuMapView);
 
-  protected resolveFeatureLayerFromOneUseDataSource = (useDs: IMUseDataSource, jimuMapView: JimuMapView | null): Promise<__esri.FeatureLayer | null> =>
+  resolveFeatureLayerFromOneUseDataSource = (useDs: IMUseDataSource, jimuMapView: JimuMapView | null): Promise<__esri.FeatureLayer | null> =>
     resolveFeatureLayerFromOneUseDataSource(this.host, useDs, jimuMapView);
 
-  protected resolveSpatialMapLayers = (jimuMapView: JimuMapView | null): Promise<__esri.FeatureLayer[]> =>
+  resolveSpatialMapLayers = (jimuMapView: JimuMapView | null): Promise<__esri.FeatureLayer[]> =>
     resolveSpatialMapLayers(this.host, jimuMapView);
 
-  protected resolveFeatureLayersFromUseDataSources = (jimuMapView: JimuMapView | null): Promise<__esri.FeatureLayer[]> =>
+  resolveFeatureLayersFromUseDataSources = (jimuMapView: JimuMapView | null): Promise<__esri.FeatureLayer[]> =>
     resolveFeatureLayersFromUseDataSources(this.host, jimuMapView);
 
-  protected buildLayerViloyatIndex = (): Promise<void> =>
+  buildLayerViloyatIndex = (): Promise<void> =>
     buildLayerViloyatIndex(this.host);
 
-  protected detectNdviStatusDateFieldsFromLayer = (): void =>
+  detectNdviStatusDateFieldsFromLayer = (): void =>
     detectNdviStatusDateFieldsFromLayer(this.host);
 
   onDataSourceCreated = (ds: DataSource) =>
@@ -294,6 +294,6 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
   retryMapConnection = () =>
     retryMapConnection(this.host);
 
-  protected runInitialDataLoad = (): Promise<void> =>
+  runInitialDataLoad = (): Promise<void> =>
     runInitialDataLoad(this.host);
 }

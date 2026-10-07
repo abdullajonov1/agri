@@ -68,16 +68,16 @@ import type { PopupSettingHost } from "./popup-setting-host";
 export default class AgriPopupSettingPanel extends React.PureComponent<
   AllWidgetSettingProps<IMConfig>,
   State
-> {
+> implements PopupSettingHost {
   dsMgr = DataSourceManager.getInstance();
-  private fieldsExtractToken = 0;
-  private ownedDataSourceIds: string[] = [];
-  private lastUseDataSourceKey = "";
-  private popupFieldDragFrom: number | null = null;
-  private popupFieldMenuRef = React.createRef<HTMLDivElement>();
-  private popupFieldButtonRef = React.createRef<HTMLButtonElement>();
-  private popupFieldListRef = React.createRef<HTMLUListElement>();
-  private popupMenuFrame: PopupMenuFrame | null = null;
+fieldsExtractToken = 0;
+ownedDataSourceIds: string[] = [];
+lastUseDataSourceKey = "";
+popupFieldDragFrom: number | null = null;
+popupFieldMenuRef = React.createRef<HTMLDivElement>();
+popupFieldButtonRef = React.createRef<HTMLButtonElement>();
+popupFieldListRef = React.createRef<HTMLUListElement>();
+popupMenuFrame: PopupMenuFrame | null = null;
 
   constructor(props: AllWidgetSettingProps<IMConfig>) {
     super(props);
@@ -96,151 +96,151 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
   }
 
   componentDidMount(): void {
-    return componentDidMount(this as unknown as PopupSettingHost);
+    return componentDidMount(this);
   }
 
   componentDidUpdate(
     prev: Readonly<AllWidgetSettingProps<IMConfig>>,
     prevState: State,
   ): void {
-    return componentDidUpdate(this as unknown as PopupSettingHost, prev, prevState);
+    return componentDidUpdate(this, prev, prevState);
   }
 
   componentWillUnmount(): void {
-    return componentWillUnmount(this as unknown as PopupSettingHost);
+    return componentWillUnmount(this);
   }
 
-  private detachPopupFieldMenuListeners = () => {
-    return detachPopupFieldMenuListeners(this as unknown as PopupSettingHost);
+detachPopupFieldMenuListeners = () => {
+    return detachPopupFieldMenuListeners(this);
   };
 
-  private placePopupFieldMenu = () => {
-    return placePopupFieldMenu(this as unknown as PopupSettingHost);
+placePopupFieldMenu = () => {
+    return placePopupFieldMenu(this);
   };
 
-  private onPopupFieldMenuOutside = (event: MouseEvent) => {
-    return onPopupFieldMenuOutside(this as unknown as PopupSettingHost, event);
+onPopupFieldMenuOutside = (event: MouseEvent) => {
+    return onPopupFieldMenuOutside(this, event);
   };
 
-  private toPlainAgri(value: unknown): AgriPopupConfig {
-    return toPlainAgri(this as unknown as PopupSettingHost, value);
+toPlainAgri(value: unknown): AgriPopupConfig {
+    return toPlainAgri(this, value);
   }
 
-  private getAgriConfig(): AgriPopupConfig {
-    return getAgriConfig(this as unknown as PopupSettingHost);
+getAgriConfig(): AgriPopupConfig {
+    return getAgriConfig(this);
   }
 
-  private ensureDashboardConfig(): IMConfig {
-    return ensureDashboardConfig(this as unknown as PopupSettingHost);
+ensureDashboardConfig(): IMConfig {
+    return ensureDashboardConfig(this);
   }
 
-  private updateAgriConfig = (patch: Partial<AgriPopupConfig>) => {
-    return updateAgriConfig(this as unknown as PopupSettingHost, patch);
+updateAgriConfig = (patch: Partial<AgriPopupConfig>) => {
+    return updateAgriConfig(this, patch);
   };
 
-  private commitPopupFields = (fieldsToShow: string[], fieldOrder: string[]) => {
-    return commitPopupFields(this as unknown as PopupSettingHost, fieldsToShow, fieldOrder);
+commitPopupFields = (fieldsToShow: string[], fieldOrder: string[]) => {
+    return commitPopupFields(this, fieldsToShow, fieldOrder);
   };
 
-  private orderedPopupFieldNames = (): string[] => {
-    return orderedPopupFieldNames(this as unknown as PopupSettingHost);
+orderedPopupFieldNames = (): string[] => {
+    return orderedPopupFieldNames(this);
   };
 
-  private togglePopupField = (name: string) => {
-    return togglePopupField(this as unknown as PopupSettingHost, name);
+togglePopupField = (name: string) => {
+    return togglePopupField(this, name);
   };
 
-  private reorderPopupOptions = (from: number, to: number) => {
-    return reorderPopupOptions(this as unknown as PopupSettingHost, from, to);
+reorderPopupOptions = (from: number, to: number) => {
+    return reorderPopupOptions(this, from, to);
   };
 
-  private renderPopupFieldSelect = (fieldsToShow: string[]) => {
-    return renderPopupFieldSelect(this as unknown as PopupSettingHost, fieldsToShow);
+renderPopupFieldSelect = (fieldsToShow: string[]) => {
+    return renderPopupFieldSelect(this, fieldsToShow);
   };
 
-  private onChartFieldsMultiSelect = (
+onChartFieldsMultiSelect = (
     _evt: React.MouseEvent,
     _value: string | number,
     selectedValues: Array<string | number>,
   ) => {
-    return onChartFieldsMultiSelect(this as unknown as PopupSettingHost, _evt, _value, selectedValues);
+    return onChartFieldsMultiSelect(this, _evt, _value, selectedValues);
   };
 
-  private onAttachmentsToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    return onAttachmentsToggle(this as unknown as PopupSettingHost, e);
+onAttachmentsToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    return onAttachmentsToggle(this, e);
   };
 
-  private initializeDataSources = async () => {
-    return initializeDataSources(this as unknown as PopupSettingHost);
+initializeDataSources = async () => {
+    return initializeDataSources(this);
   };
 
-  private getUseDataSourceKey(value: unknown): string {
-    return getUseDataSourceKey(this as unknown as PopupSettingHost, value);
+getUseDataSourceKey(value: unknown): string {
+    return getUseDataSourceKey(this, value);
   }
 
-  private releaseOwnedDataSources = () => {
-    return releaseOwnedDataSources(this as unknown as PopupSettingHost);
+releaseOwnedDataSources = () => {
+    return releaseOwnedDataSources(this);
   };
 
-  private cleanupDataSources = () => {
-    return cleanupDataSources(this as unknown as PopupSettingHost);
+cleanupDataSources = () => {
+    return cleanupDataSources(this);
   };
 
-  private createDataSources = async (useList: IMUseDataSource[]) => {
-    return createDataSources(this as unknown as PopupSettingHost, useList);
+createDataSources = async (useList: IMUseDataSource[]) => {
+    return createDataSources(this, useList);
   };
 
-  private fieldsFromSchemaObject = (
+fieldsFromSchemaObject = (
     fieldsObj: Record<string, SchemaFieldLike | undefined>,
   ): FieldInfo[] => {
-    return fieldsFromSchemaObject(this as unknown as PopupSettingHost, fieldsObj);
+    return fieldsFromSchemaObject(this, fieldsObj);
   };
 
-  private fieldsFromLayer = (layer: unknown): FieldInfo[] => {
-    return fieldsFromLayer(this as unknown as PopupSettingHost, layer);
+fieldsFromLayer = (layer: unknown): FieldInfo[] => {
+    return fieldsFromLayer(this, layer);
   };
 
-  private resolveLayerFromDataSource = async (ds: unknown): Promise<FieldBearingLayer | null> => {
-    return resolveLayerFromDataSource(this as unknown as PopupSettingHost, ds);
+resolveLayerFromDataSource = async (ds: unknown): Promise<FieldBearingLayer | null> => {
+    return resolveLayerFromDataSource(this, ds);
   };
 
-  private extractFieldsFromDs = async () => {
-    return extractFieldsFromDs(this as unknown as PopupSettingHost);
+extractFieldsFromDs = async () => {
+    return extractFieldsFromDs(this);
   };
 
-  private mergeFieldOrder(fields: FieldInfo[], saved: string[]): string[] {
-    return mergeFieldOrder(this as unknown as PopupSettingHost, fields, saved);
+mergeFieldOrder(fields: FieldInfo[], saved: string[]): string[] {
+    return mergeFieldOrder(this, fields, saved);
   }
 
-  private onChartEnabledToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    return onChartEnabledToggle(this as unknown as PopupSettingHost, e);
+onChartEnabledToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    return onChartEnabledToggle(this, e);
   };
 
-  private onChartTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    return onChartTypeChange(this as unknown as PopupSettingHost, e);
+onChartTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    return onChartTypeChange(this, e);
   };
 
-  private onChartTitleChange = (val: string) => {
-    return onChartTitleChange(this as unknown as PopupSettingHost, val);
+onChartTitleChange = (val: string) => {
+    return onChartTitleChange(this, val);
   };
 
-  private onChartColorChange = (color: string) => {
-    return onChartColorChange(this as unknown as PopupSettingHost, color);
+onChartColorChange = (color: string) => {
+    return onChartColorChange(this, color);
   };
 
-  private onZoomToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    return onZoomToggle(this as unknown as PopupSettingHost, e);
+onZoomToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    return onZoomToggle(this, e);
   };
 
-  private onPopupToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    return onPopupToggle(this as unknown as PopupSettingHost, e);
+onPopupToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    return onPopupToggle(this, e);
   };
 
-  private formatFieldLabel = (f: FieldInfo): string => {
-    return formatFieldLabel(this as unknown as PopupSettingHost, f);
+formatFieldLabel = (f: FieldInfo): string => {
+    return formatFieldLabel(this, f);
   };
 
-  private renderFieldsMultiSelect = (
+renderFieldsMultiSelect = (
     selectedItems: string[],
     onItemClick: (
       evt: React.MouseEvent,
@@ -250,10 +250,10 @@ export default class AgriPopupSettingPanel extends React.PureComponent<
     placeholder: string,
     options?: { menuZIndex?: number; selectKey?: string },
   ) => {
-    return renderFieldsMultiSelect(this as unknown as PopupSettingHost, selectedItems, onItemClick, placeholder, options);
+    return renderFieldsMultiSelect(this, selectedItems, onItemClick, placeholder, options);
   };
 
   render() {
-    return render(this as unknown as PopupSettingHost);
+    return render(this);
   }
 }

@@ -219,9 +219,9 @@ import type { PieChartDatum, PieWidgetHost } from "./pie-host";
 export default class AgriPie extends React.PureComponent<
   AgriPieProps,
   AgriPieState
-> {
+> implements PieWidgetHost {
   _isMounted = false;
-  private _unbindMasterFilter: (() => void) | null = null;
+  _unbindMasterFilter: (() => void) | null = null;
 
   // Crop palette (matches AgriLocalization renderer)
   private static readonly CROP_COLOR_MAP: Record<string, string> = pieCropColorMap;
@@ -230,13 +230,13 @@ export default class AgriPie extends React.PureComponent<
   private static adjustHexColor(hex: string, amount: number): string {
     return pieAdjustHexColor(hex, amount);
   }
-  private getSliceBorderColor = (): string =>
-    getSliceBorderColor(this as unknown as PieWidgetHost);
+  getSliceBorderColor = (): string =>
+    getSliceBorderColor(this);
 
-  private getSliceFillStyle = (
+  getSliceFillStyle = (
     baseColor: string,
   ): string | { type: "linear"; x: number; y: number; x2: number; y2: number; colorStops: Array<{ offset: number; color: string }> } => {
-    return getSliceFillStyle(this as unknown as PieWidgetHost, baseColor);
+    return getSliceFillStyle(this, baseColor);
   };
 
   // Timing/connection — shared with dashboard / Localization / Indicator / Graff
@@ -244,37 +244,37 @@ export default class AgriPie extends React.PureComponent<
   CONNECTION_TIMEOUT_MS = 15000;
 
   private static readonly APOSTROPHE_VARIANTS = pieApostropheVariants;
-  private _latestKey = "";
-  private _didInitOnce = false;
+  _latestKey = "";
+  _didInitOnce = false;
 
   // Viloyat normalized key -> index into `state.featureLayers`
-  private _viloyatKeyToLayerIndex: Record<string, number> = {};
-  private _featureLayersInitPromise: Promise<void> | null = null;
+  _viloyatKeyToLayerIndex: Record<string, number> = {};
+  _featureLayersInitPromise: Promise<void> | null = null;
 
   // ✅ NEW: De-duplication for fetch
-  private _fetchCounter = 0;
-  private _lastFetchKey = "";
+  _fetchCounter = 0;
+  _lastFetchKey = "";
   /** Key of an in-flight VH pie wait (bridge pending) — must not clear loader. */
-  private _pendingVhPieFetchKey = "";
-  private _fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private _pieChartRef = React.createRef<HTMLDivElement>();
-  private _pieChart: PieECharts | null = null;
-  private _pieChartHostEl: HTMLDivElement | null = null;
-  private _pieResizeObserver: ResizeObserver | null = null;
-  private _pieObservedStage: Element | null = null;
-  private _pieResizeRaf = 0;
+  _pendingVhPieFetchKey = "";
+  _fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  _pieChartRef = React.createRef<HTMLDivElement>();
+  _pieChart: PieECharts | null = null;
+  _pieChartHostEl: HTMLDivElement | null = null;
+  _pieResizeObserver: ResizeObserver | null = null;
+  _pieObservedStage: Element | null = null;
+  _pieResizeRaf = 0;
   /** After first paint, subsequent option updates morph like Agrobank. */
-  private _pieHasRendered = false;
+  _pieHasRendered = false;
   /** Stable slice key order so region changes morph arcs in place. */
-  private _pieStableKeys: string[] = [];
-  private _pieStableRawKeys: Record<string, string> = {};
+  _pieStableKeys: string[] = [];
+  _pieStableRawKeys: Record<string, string> = {};
   /** True only after at least one category fetch finished (success or empty). */
-  private _hasCompletedFetch = false;
+  _hasCompletedFetch = false;
   /** crop_id → display turi (first spelling seen in Agri_table_data). */
-  private _cropIdToTuri: Record<string, string> = {};
+  _cropIdToTuri: Record<string, string> = {};
   /** Canonical turi key → crop_id for master-filter selection sync. */
-  private _turiToCropId: Record<string, string> = {};
-  private _cropMapsReady = false;
+  _turiToCropId: Record<string, string> = {};
+  _cropMapsReady = false;
 
   constructor(props: AgriPieProps) {
     super(props);
@@ -334,159 +334,159 @@ export default class AgriPie extends React.PureComponent<
     };
   }
 
-  private initializeTheme = () => {
-    return initializeTheme(this as unknown as PieWidgetHost);
+  initializeTheme = () => {
+    return initializeTheme(this);
   };
 
-  private handleThemeToggled = (event: Event) => {
-    return handleThemeToggled(this as unknown as PieWidgetHost, event);
+  handleThemeToggled = (event: Event) => {
+    return handleThemeToggled(this, event);
   };
 
   /* ---------- DS helpers ---------- */
 
   onDataSourceCreated = (ds: DataSource) => {
-    return onDataSourceCreated(this as unknown as PieWidgetHost, ds);
+    return onDataSourceCreated(this, ds);
   };
 
   onDataSourceInfoChange = (info: unknown) => {
-    return onDataSourceInfoChange(this as unknown as PieWidgetHost, info);
+    return onDataSourceInfoChange(this, info);
   };
 
   findFieldByPossibleNames(possibleNames: string[]): string | null {
-    return findFieldByPossibleNames(this as unknown as PieWidgetHost, possibleNames);
+    return findFieldByPossibleNames(this, possibleNames);
   }
 
   findCategoryField(flOverride?: __esri.FeatureLayer | null): string | null {
-    return findCategoryField(this as unknown as PieWidgetHost, flOverride);
+    return findCategoryField(this, flOverride);
   }
 
-  private buildWhereClauseForDS(
+  buildWhereClauseForDS(
     opts: {
       includeCategory?: boolean;
       includeViloyat?: boolean;
       districtCode?: number | null;
     } = {},
   ): string {
-    return buildWhereClauseForDS(this as unknown as PieWidgetHost, opts);
+    return buildWhereClauseForDS(this, opts);
   }
 
-  private buildPieVhWhereChunks(
+  buildPieVhWhereChunks(
     idsOverride?: string[] | null,
   ): string[] | null {
-    return buildPieVhWhereChunks(this as unknown as PieWidgetHost, idsOverride);
+    return buildPieVhWhereChunks(this, idsOverride);
   }
 
   /* ---------- Normalize / Escape ---------- */
 
-  private normalizeName(s: string): string {
-    return normalizeName(this as unknown as PieWidgetHost, s);
+  normalizeName(s: string): string {
+    return normalizeName(this, s);
   }
 
-  private async ensureCropIdMaps(): Promise<void> {
-    return ensureCropIdMaps(this as unknown as PieWidgetHost);
+  async ensureCropIdMaps(): Promise<void> {
+    return ensureCropIdMaps(this);
   }
 
-  private resolveCropIdToTuri(cropId: string): string {
-    return resolveCropIdToTuri(this as unknown as PieWidgetHost, cropId);
+  resolveCropIdToTuri(cropId: string): string {
+    return resolveCropIdToTuri(this, cropId);
   }
 
-  private resolveTuriToCropId(turi: string): string {
-    return resolveTuriToCropId(this as unknown as PieWidgetHost, turi);
+  resolveTuriToCropId(turi: string): string {
+    return resolveTuriToCropId(this, turi);
   }
 
-  private cropIdsToTuriNames(ids: string[]): string[] {
-    return cropIdsToTuriNames(this as unknown as PieWidgetHost, ids);
+  cropIdsToTuriNames(ids: string[]): string[] {
+    return cropIdsToTuriNames(this, ids);
   }
 
-  private turiNamesToCropIds(names: string[]): string[] {
-    return turiNamesToCropIds(this as unknown as PieWidgetHost, names);
+  turiNamesToCropIds(names: string[]): string[] {
+    return turiNamesToCropIds(this, names);
   }
 
-  private getCropColor(rawKey: string, index: number): string {
-    return pieGetCropColor(this as unknown as PieWidgetHost, rawKey, index);
+  getCropColor(rawKey: string, index: number): string {
+    return pieGetCropColor(this, rawKey, index);
   }
 
-  private getCategoryDisplayName(
+  getCategoryDisplayName(
     rawKey: string,
     language: AgriCropLanguage,
   ): string {
-    return getCategoryDisplayName(this as unknown as PieWidgetHost, rawKey, language);
+    return getCategoryDisplayName(this, rawKey, language);
   }
 
-  private makeAposVariants(s: string): string[] {
-    return makeAposVariants(this as unknown as PieWidgetHost, s);
+  makeAposVariants(s: string): string[] {
+    return makeAposVariants(this, s);
   }
 
-  private eqAposSmart(field: string, raw: string): string {
-    return eqAposSmart(this as unknown as PieWidgetHost, field, raw);
+  eqAposSmart(field: string, raw: string): string {
+    return eqAposSmart(this, field, raw);
   }
-  private makeViloyatKey(raw: string | null | undefined): string {
-    return makeViloyatKey(this as unknown as PieWidgetHost, raw);
+  makeViloyatKey(raw: string | null | undefined): string {
+    return makeViloyatKey(this, raw);
   }
 
-  private isRepublicLayer = (layer?: __esri.FeatureLayer): boolean => {
-    return isRepublicLayer(this as unknown as PieWidgetHost, layer);
+  isRepublicLayer = (layer?: __esri.FeatureLayer): boolean => {
+    return isRepublicLayer(this, layer);
   };
 
-  private getDefaultFeatureLayer = (
+  getDefaultFeatureLayer = (
     layersOverride?: __esri.FeatureLayer[],
   ): __esri.FeatureLayer | undefined => {
-    return getDefaultFeatureLayer(this as unknown as PieWidgetHost, layersOverride);
+    return getDefaultFeatureLayer(this, layersOverride);
   };
 
-  private getFeatureLayerForViloyat = (
+  getFeatureLayerForViloyat = (
     viloyat: string,
   ): __esri.FeatureLayer | undefined => {
-    return getFeatureLayerForViloyat(this as unknown as PieWidgetHost, viloyat);
+    return getFeatureLayerForViloyat(this, viloyat);
   };
 
-  private resolveFeatureLayersFromUseDataSources = async (): Promise<
+  resolveFeatureLayersFromUseDataSources = async (): Promise<
     __esri.FeatureLayer[]
   > => {
-    return resolveFeatureLayersFromUseDataSources(this as unknown as PieWidgetHost);
+    return resolveFeatureLayersFromUseDataSources(this);
   };
 
-  private buildViloyatKeyToLayerIndex = async (
+  buildViloyatKeyToLayerIndex = async (
     layers: __esri.FeatureLayer[],
   ): Promise<void> => {
-    return buildViloyatKeyToLayerIndex(this as unknown as PieWidgetHost, layers);
+    return buildViloyatKeyToLayerIndex(this, layers);
   };
 
-  private ensureFeatureLayersResolved = async (): Promise<
+  ensureFeatureLayersResolved = async (): Promise<
     __esri.FeatureLayer | undefined
   > => {
-    return ensureFeatureLayersResolved(this as unknown as PieWidgetHost);
+    return ensureFeatureLayersResolved(this);
   };
 
   /* ---------- Map connection ---------- */
 
   waitForMapToLoad = (jimuMapView: JimuMapView): Promise<void> => {
-    return waitForMapToLoad(this as unknown as PieWidgetHost, jimuMapView);
+    return waitForMapToLoad(this, jimuMapView);
   };
 
   connectToMap = async (jimuMapView: JimuMapView): Promise<void> => {
-    return connectToMap(this as unknown as PieWidgetHost, jimuMapView);
+    return connectToMap(this, jimuMapView);
   };
 
-  private initializeAfterConnection = (): void => {
-    return initializeAfterConnection(this as unknown as PieWidgetHost);
+  initializeAfterConnection = (): void => {
+    return initializeAfterConnection(this);
   };
 
   onActiveViewChange = async (jimuMapView: JimuMapView) => {
-    return onActiveViewChange(this as unknown as PieWidgetHost, jimuMapView);
+    return onActiveViewChange(this, jimuMapView);
   };
 
   retryMapConnection = () => {
-    return retryMapConnection(this as unknown as PieWidgetHost);
+    return retryMapConnection(this);
   };
 
   /* ---------- Lifecycle ---------- */
-  private handleMasterFilterChange = (event: Event) => {
-    return handleMasterFilterChange(this as unknown as PieWidgetHost, event);
+  handleMasterFilterChange = (event: Event) => {
+    return handleMasterFilterChange(this, event);
   };
 
   componentDidMount() {
-    return componentDidMount(this as unknown as PieWidgetHost);
+    return componentDidMount(this);
   }
 
   updateFiltersFromProps = (filters: {
@@ -495,77 +495,77 @@ export default class AgriPie extends React.PureComponent<
     tuman?: string;
     turi?: string;
   }): void => {
-    return updateFiltersFromProps(this as unknown as PieWidgetHost, filters);
+    return updateFiltersFromProps(this, filters);
   };
-  private findAreaStatisticField(fl: __esri.FeatureLayer): string | null {
-    return findAreaStatisticField(this as unknown as PieWidgetHost, fl);
+  findAreaStatisticField(fl: __esri.FeatureLayer): string | null {
+    return findAreaStatisticField(this, fl);
   }
 
-  private async queryCategoryStatsJSON(
+  async queryCategoryStatsJSON(
     fl: __esri.FeatureLayer,
     where: string,
     categoryField: string,
   ): Promise<Array<{ key: string; value: number }>> {
-    return queryCategoryStatsJSON(this as unknown as PieWidgetHost, fl, where, categoryField);
+    return queryCategoryStatsJSON(this, fl, where, categoryField);
   }
 
   componentDidUpdate(prevProps: AgriPieProps, prevState: AgriPieState) {
-    return componentDidUpdate(this as unknown as PieWidgetHost, prevProps, prevState);
+    return componentDidUpdate(this, prevProps, prevState);
   }
 
   componentWillUnmount() {
-    return componentWillUnmount(this as unknown as PieWidgetHost);
+    return componentWillUnmount(this);
   }
 
   /* ---------- Local UI helpers ---------- */
 
-  private selectCategoryByName = (name: string | null) => {
-    return selectCategoryByName(this as unknown as PieWidgetHost, name);
+  selectCategoryByName = (name: string | null) => {
+    return selectCategoryByName(this, name);
   };
 
-  private _lastIpadLayout: boolean | null = null;
+  _lastIpadLayout: boolean | null = null;
 
-  private schedulePieChartResize = (): void => {
-    return schedulePieChartResize(this as unknown as PieWidgetHost);
+  schedulePieChartResize = (): void => {
+    return schedulePieChartResize(this);
   };
 
-  private attachPieResizeObserver = (host: HTMLDivElement): void => {
-    return attachPieResizeObserver(this as unknown as PieWidgetHost, host);
+  attachPieResizeObserver = (host: HTMLDivElement): void => {
+    return attachPieResizeObserver(this, host);
   };
 
-  private detachPieResizeObserver = (): void => {
-    return detachPieResizeObserver(this as unknown as PieWidgetHost);
+  detachPieResizeObserver = (): void => {
+    return detachPieResizeObserver(this);
   };
 
-  private handleResize = () => {
-    return handleResize(this as unknown as PieWidgetHost);
+  handleResize = () => {
+    return handleResize(this);
   };
 
-  private getChartDataForPie = () => {
-    return getChartDataForPie(this as unknown as PieWidgetHost);
+  getChartDataForPie = () => {
+    return getChartDataForPie(this);
   };
 
-  private ensurePieChart = () => {
-    return ensurePieChart(this as unknown as PieWidgetHost);
+  ensurePieChart = () => {
+    return ensurePieChart(this);
   };
 
-  private formatCenterArea = (value: number): string => {
-    return formatCenterArea(this as unknown as PieWidgetHost, value);
+  formatCenterArea = (value: number): string => {
+    return formatCenterArea(this, value);
   };
 
-  private formatCenterPercent = (value: number): string => {
-    return formatCenterPercent(this as unknown as PieWidgetHost, value);
+  formatCenterPercent = (value: number): string => {
+    return formatCenterPercent(this, value);
   };
 
-  private getCenterAllLabel = (): string => {
-    return getCenterAllLabel(this as unknown as PieWidgetHost);
+  getCenterAllLabel = (): string => {
+    return getCenterAllLabel(this);
   };
 
-  private isIpadLayout = (): boolean => {
-    return isIpadLayout(this as unknown as PieWidgetHost);
+  isIpadLayout = (): boolean => {
+    return isIpadLayout(this);
   };
 
-  private getPieCenterContent = (
+  getPieCenterContent = (
     chartData: Array<{
       name: string;
       rawKey?: string;
@@ -578,11 +578,11 @@ export default class AgriPie extends React.PureComponent<
     area: number;
     label: string;
   } => {
-    return getPieCenterContent(this as unknown as PieWidgetHost, chartData);
+    return getPieCenterContent(this, chartData);
   };
 
-  private updatePieChart = (reason: "data" | "selection" = "data") => {
-    return updatePieChart(this as unknown as PieWidgetHost, reason);
+  updatePieChart = (reason: "data" | "selection" = "data") => {
+    return updatePieChart(this, reason);
   };
 
   /* ---------- Interactions ---------- */
@@ -591,31 +591,31 @@ export default class AgriPie extends React.PureComponent<
     data: { rawKey?: string; name?: string },
     index: number,
   ): void => {
-    return handleSliceClick(this as unknown as PieWidgetHost, data, index);
+    return handleSliceClick(this, data, index);
   };
   applyCategoryFilter = async (): Promise<void> => {
-    return applyCategoryFilter(this as unknown as PieWidgetHost);
+    return applyCategoryFilter(this);
   };
 
   /* ---------- Data fetch ---------- */
-  private resolveNdviDateForVhPie(): string {
-    return resolveNdviDateForVhPie(this as unknown as PieWidgetHost);
+  resolveNdviDateForVhPie(): string {
+    return resolveNdviDateForVhPie(this);
   }
 
-  private async resolveRegionDistrictForPie(): Promise<{
+  async resolveRegionDistrictForPie(): Promise<{
     region?: number;
     district?: number;
   }> {
-    return resolveRegionDistrictForPie(this as unknown as PieWidgetHost);
+    return resolveRegionDistrictForPie(this);
   }
 
-  private async fetchPieCategoriesViaVegetation(
+  async fetchPieCategoriesViaVegetation(
     fetchId: number,
   ): Promise<boolean> {
-    return fetchPieCategoriesViaVegetation(this as unknown as PieWidgetHost, fetchId);
+    return fetchPieCategoriesViaVegetation(this, fetchId);
   }
 
-  private makeQueryKey(
+  makeQueryKey(
     yil: string,
     viloyat: string,
     tuman: string,
@@ -626,29 +626,29 @@ export default class AgriPie extends React.PureComponent<
     pieVhSig?: string,
     ndviDate?: string,
   ) {
-    return makeQueryKey(this as unknown as PieWidgetHost, yil, viloyat, tuman, vh, barField, barValue, filterPieByVh, pieVhSig, ndviDate);
+    return makeQueryKey(this, yil, viloyat, tuman, vh, barField, barValue, filterPieByVh, pieVhSig, ndviDate);
   }
 
-  private fetchCategoryData = (): void => {
-    return fetchCategoryData(this as unknown as PieWidgetHost);
+  fetchCategoryData = (): void => {
+    return fetchCategoryData(this);
   };
-  private async _doFetchCategoryData(): Promise<void> {
-    return _doFetchCategoryData(this as unknown as PieWidgetHost);
+  async _doFetchCategoryData(): Promise<void> {
+    return _doFetchCategoryData(this);
   }
 
   /* ---------- Chart ---------- */
 
-  private renderRadarPieChart = (
+  renderRadarPieChart = (
     _chartData: PieChartDatum[],
     _containerWidth: number = 300,
     _containerHeight: number = 300,
   ): JSX.Element => {
-    return renderRadarPieChart(this as unknown as PieWidgetHost, _chartData, _containerWidth, _containerHeight);
+    return renderRadarPieChart(this, _chartData, _containerWidth, _containerHeight);
   };
 
   /* ---------- Render ---------- */
 
   render() {
-    return render(this as unknown as PieWidgetHost);
+    return render(this);
   }
 }

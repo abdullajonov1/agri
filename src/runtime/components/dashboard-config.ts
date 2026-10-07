@@ -5,6 +5,7 @@
  */
 import type { UseDataSource } from "jimu-core";
 import type { AgriPopupConfig, IndicatorChildConfig } from "../../config";
+import { hasAsMutable } from "../../shared/agri-plain-object";
 
 export const DEFAULT_LEFT_PANEL_WIDTH_PERCENT = 26;
 const MIN_LEFT_PANEL_WIDTH_PERCENT = 18;
@@ -19,13 +20,7 @@ const VEGETATION_SURFACE_LOADING_SAFETY_MS = 28000;
 const MAP_SURFACE_LOADING_SAFETY_MS = 12000;
 
 /** seamless-immutable values expose `asMutable`; plain objects do not. */
-interface MutableConvertible {
-  asMutable: (opts?: { deep?: boolean }) => unknown;
-}
-
-export const hasAsMutableFn = (value: unknown): value is MutableConvertible =>
-  !!value &&
-  typeof (value as Partial<MutableConvertible>).asMutable === "function";
+export const hasAsMutableFn = hasAsMutable;
 
 /** Deep-unwrap an immutable config, or shallow-copy a plain one. */
 export function toPlainConfigRecord(cfg: unknown): Record<string, unknown> {
@@ -46,12 +41,8 @@ export function toPlainPopupConfig(value: unknown): AgriPopupConfig {
 
 /** `props.useDataSources` (immutable array, plain array or missing) as a plain array. */
 export function toMutableUseDataSources(value: unknown): UseDataSource[] {
-  const candidate = value as
-    | { asMutable?: (opts: { deep: boolean }) => unknown }
-    | null
-    | undefined;
-  if (candidate?.asMutable) {
-    return candidate.asMutable({ deep: true }) as UseDataSource[];
+  if (hasAsMutable<UseDataSource[]>(value)) {
+    return value.asMutable({ deep: true });
   }
   return Array.from((value as ArrayLike<UseDataSource>) || []);
 }

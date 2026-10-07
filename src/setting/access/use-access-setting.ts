@@ -90,14 +90,15 @@ export function useAccessSetting(
     const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState<boolean>(false);
     const { notice, showNotice } = useAccessNotice();
 
+    // Only accessConfig — full props.config would reset drafts on unrelated
+    // setting patches (layout, serviceUrls) and discard unsaved edits.
+    const storedAccessConfig = props.config?.accessConfig;
     React.useEffect(() => {
-        const next = getInitialAccessConfig(props.config);
+        const next = getInitialAccessConfig({ accessConfig: storedAccessConfig });
         setConfig(next);
         setSavedConfig(next);
         setHasUnsavedChanges(false);
-        // Only accessConfig — full props.config would reset drafts on unrelated
-        // setting patches (layout, serviceUrls) and discard unsaved edits.
-    }, [props.config?.accessConfig]);
+    }, [storedAccessConfig]);
 
     const setDraftConfig = (
         update: (previous: AccessConfig) => AccessConfig

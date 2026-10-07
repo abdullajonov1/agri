@@ -7,6 +7,7 @@ import { VEGETATION_IMAGE_LAYER_ID } from "../../graff-raster-overlay";
 import { INDEX_COLORS } from "./graph-view";
 import type { ChartVegetationRow } from "../../graff-state";
 import { describeThrown, eventDetail } from "../../graff-guards";
+import { isPlainRecord } from "../../../../../shared/agri-plain-object";
 
 /** Chart rows read by dynamic key (`ndvi`, `ndvi_min`, …). */
 type ChartRowRecord = Record<string, unknown>;
@@ -21,7 +22,7 @@ const chartRowYmd = (
   row: ChartVegetationRow | null | undefined,
   advertised: string[],
 ): string | null => {
-  const rec = row as unknown as ChartRowRecord | null | undefined;
+  const rec: ChartRowRecord | undefined = isPlainRecord(row) ? row : undefined;
   const rawDate = rec?.raster_date ?? rec?.date;
   if (!rawDate) return null;
   return (
@@ -36,10 +37,10 @@ const findChartRowByYmd = (
   rows: ChartVegetationRow[] | null | undefined,
   advertised: string[],
   ymd: string,
-): ChartRowRecord | undefined =>
-  (rows || []).find((r) => chartRowYmd(host, r, advertised) === ymd) as unknown as
-    | ChartRowRecord
-    | undefined;
+): ChartRowRecord | undefined => {
+  const found = (rows || []).find((r) => chartRowYmd(host, r, advertised) === ymd);
+  return isPlainRecord(found) ? found : undefined;
+};
 
 /**
  * Tells the bottom-left map indicator (AgriDateIndexIndicator) which

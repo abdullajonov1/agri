@@ -183,7 +183,7 @@ export const handleYilChange = (host: LocalizationHost, event: ValueChangeEvent)
       try {
         const w =
           typeof window !== "undefined"
-            ? (window as Window & { __AGRI3_DEBUG_YEAR__?: string })
+            ? window
             : null;
         if (w)
           w.__AGRI3_DEBUG_YEAR__ = /\b2024\b/.test(selectedYil)

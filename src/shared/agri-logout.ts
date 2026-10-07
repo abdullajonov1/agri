@@ -12,6 +12,13 @@ function trimPortalRestSuffix(url: string): string {
     .replace(/\/$/, "");
 }
 
+/** `window.jimuConfig` is typed by jimu-core without `portalUrl`; read it only when present. */
+function readJimuConfigPortalUrl(): unknown {
+  const config: object | undefined = window.jimuConfig;
+  if (!config || !("portalUrl" in config)) return "";
+  return config.portalUrl || "";
+}
+
 function getPortalBaseUrlLogout(): string {
   try {
     const mainSession = SessionManager.getInstance().getMainSession() as {
@@ -34,9 +41,7 @@ function getPortalBaseUrlLogout(): string {
     /* ignore */
   }
 
-  const fromConfig =
-    (window as unknown as { jimuConfig?: { portalUrl?: string } }).jimuConfig
-      ?.portalUrl || "";
+  const fromConfig = readJimuConfigPortalUrl();
   if (fromConfig) return trimPortalRestSuffix(String(fromConfig));
 
   return getAgriServiceUrls().portalUrl.replace(/\/$/, "");

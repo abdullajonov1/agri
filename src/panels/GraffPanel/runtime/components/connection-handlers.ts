@@ -29,6 +29,10 @@ interface LayerBackedDataSource {
   url?: string;
 }
 
+/** True when the data source exposes any of the layer-access members read below. */
+const isLayerBackedDataSource = (ds: object | null | undefined): ds is LayerBackedDataSource =>
+  ds != null && ("getLayer" in ds || "layer" in ds || "url" in ds);
+
 function translateForDisplay(
   text: string,
   language: AgriLanguage,
@@ -406,7 +410,7 @@ export const resolveFeatureLayerFromDataSource = async (host: GraffWidgetHost, j
   const dsId = useDs.dataSourceId;
   const rootDsId = useDs.rootDataSourceId;
 
-  const jlvList = (jimuMapView.getAllJimuLayerViews?.() || []) as unknown as JimuLayerViewLike[];
+  const jlvList: JimuLayerViewLike[] = jimuMapView.getAllJimuLayerViews?.() || [];
 
   const matchByDsId = (id: string) =>
     jlvList.find(
@@ -428,7 +432,8 @@ export const resolveFeatureLayerFromDataSource = async (host: GraffWidgetHost, j
 
   try {
     const dsManager = DataSourceManager.getInstance();
-    const ds = dsManager.getDataSource(dsId) as unknown as LayerBackedDataSource | null;
+    const rawDs = dsManager.getDataSource(dsId);
+    const ds = isLayerBackedDataSource(rawDs) ? rawDs : null;
 
     if (ds?.getLayer) {
       const layer = await ds.getLayer();

@@ -233,7 +233,7 @@ export const applyCropRenderer = async (host: LocalizationHost, requestId: numbe
           symbol: createCropFillSymbol(
             resolveCropRendererColor(selectedTuriKey),
           ),
-        } as unknown as __esri.Renderer;
+        };
         host._cropRenderedLayers.add(layer);
         host.refreshCropLayer(layer);
         continue;
@@ -265,7 +265,7 @@ export const applyCropRenderer = async (host: LocalizationHost, requestId: numbe
         field,
         defaultSymbol: createCropFillSymbol("#78909C"),
         uniqueValueInfos,
-      } as unknown as __esri.Renderer;
+      };
       host._cropRenderedLayers.add(layer);
       host.refreshCropLayer(layer);
 
@@ -329,7 +329,7 @@ export const applyInstantCropPaletteNoRefresh = (host: LocalizationHost): void =
         field,
         defaultSymbol: createCropFillSymbol("#78909C"),
         uniqueValueInfos,
-      } as unknown as __esri.Renderer;
+      };
       host._cropRenderedLayers.add(layer);
     } catch {
       /* ignore */

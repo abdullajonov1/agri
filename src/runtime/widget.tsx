@@ -129,35 +129,35 @@ import type { DashboardChildProps, DashboardWidgetHost } from "./dashboard-host"
 export default class AgriDashboard extends React.PureComponent<
   AllWidgetProps<IMConfig>,
   AgriDashboardState
-> {
-  private dashboardRootRef = React.createRef<HTMLDivElement>();
-  private mapSlotRef = React.createRef<HTMLElement>();
-  private indicatorOverlayRef = React.createRef<HTMLDivElement>();
-  private indicatorPanelRef = React.createRef<HTMLDivElement>();
-  private dateIndexOverlayRef = React.createRef<HTMLDivElement>();
-  private portalHost: HTMLElement | null = null;
-  private portalReady = false;
-  private dashboardResizeObserver: ResizeObserver | null = null;
-  private mapLayoutRaf = 0;
-  private layoutObserversReady = false;
-  private resizeListenerAttached = false;
-  private lastIndicatorToggleAt = 0;
-  private indicatorAnimTimer: ReturnType<typeof setTimeout> | null = null;
-  private mapIndicatorHost: HTMLElement | null = null;
-  private indicatorChildPropsCache:
+> implements DashboardWidgetHost {
+dashboardRootRef = React.createRef<HTMLDivElement>();
+mapSlotRef = React.createRef<HTMLElement>();
+indicatorOverlayRef = React.createRef<HTMLDivElement>();
+indicatorPanelRef = React.createRef<HTMLDivElement>();
+dateIndexOverlayRef = React.createRef<HTMLDivElement>();
+portalHost: HTMLElement | null = null;
+portalReady = false;
+dashboardResizeObserver: ResizeObserver | null = null;
+mapLayoutRaf = 0;
+layoutObserversReady = false;
+resizeListenerAttached = false;
+lastIndicatorToggleAt = 0;
+indicatorAnimTimer: ReturnType<typeof setTimeout> | null = null;
+mapIndicatorHost: HTMLElement | null = null;
+indicatorChildPropsCache:
     | (IndicatorChildPropsSet & { signature: string })
     | null = null;
   /** Last map-slot CSS size that triggered view.resize — skip no-op resizes. */
-  private lastMapSlotSize = { w: -1, h: -1 };
-  private mapReadyWatchHandle: { remove?: () => void } | null = null;
-  private mapUpdatingWatchHandle: { remove?: () => void } | null = null;
-  private mapLoadingRetryTimer: ReturnType<typeof setTimeout> | null = null;
-  private mapSurfaceLoadingSafetyTimer: ReturnType<typeof setTimeout> | null =
+lastMapSlotSize = { w: -1, h: -1 };
+mapReadyWatchHandle: { remove?: () => void } | null = null;
+mapUpdatingWatchHandle: { remove?: () => void } | null = null;
+mapLoadingRetryTimer: ReturnType<typeof setTimeout> | null = null;
+mapSurfaceLoadingSafetyTimer: ReturnType<typeof setTimeout> | null =
     null;
-  private watchedMapView: unknown = null;
-  private embeddedMapReady = false;
-  private mapViewWatchAttempts = 0;
-  private lastMapWatchWidgetId = "";
+watchedMapView: unknown = null;
+embeddedMapReady = false;
+mapViewWatchAttempts = 0;
+lastMapWatchWidgetId = "";
 
   state: AgriDashboardState = {
     indicatorsOpen: true,
@@ -177,200 +177,200 @@ export default class AgriDashboard extends React.PureComponent<
     this.syncConfigSideEffects();
   }
 
-  private syncConfigSideEffects = (): void => {
-    return syncConfigSideEffects(this as unknown as DashboardWidgetHost);
+syncConfigSideEffects = (): void => {
+    return syncConfigSideEffects(this);
   };
 
-  private isBuilderDesignMode(): boolean {
-    return isBuilderDesignMode(this as unknown as DashboardWidgetHost);
+isBuilderDesignMode(): boolean {
+    return isBuilderDesignMode(this);
   }
 
-  private getUiLanguage(): string {
-    return getUiLanguage(this as unknown as DashboardWidgetHost);
+getUiLanguage(): string {
+    return getUiLanguage(this);
   }
 
   componentDidMount(): void {
-    return componentDidMount(this as unknown as DashboardWidgetHost);
+    return componentDidMount(this);
   }
 
   componentDidUpdate(
     prevProps: AllWidgetProps<IMConfig>,
     prevState: AgriDashboardState,
   ): void {
-    return componentDidUpdate(this as unknown as DashboardWidgetHost, prevProps, prevState);
+    return componentDidUpdate(this, prevProps, prevState);
   }
 
-  private toggleIndicatorsDrawer = (
+toggleIndicatorsDrawer = (
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    return toggleIndicatorsDrawer(this as unknown as DashboardWidgetHost, event);
+    return toggleIndicatorsDrawer(this, event);
   };
 
   componentWillUnmount(): void {
-    return componentWillUnmount(this as unknown as DashboardWidgetHost);
+    return componentWillUnmount(this);
   }
 
-  private handleMapSurfaceLoading = (event: Event): void => {
-    return handleMapSurfaceLoading(this as unknown as DashboardWidgetHost, event);
+handleMapSurfaceLoading = (event: Event): void => {
+    return handleMapSurfaceLoading(this, event);
   };
 
-  private handleMapNoData = (event: Event): void => {
-    return handleMapNoData(this as unknown as DashboardWidgetHost, event);
+handleMapNoData = (event: Event): void => {
+    return handleMapNoData(this, event);
   };
 
-  private handleMapPopupVisibility = (event: Event): void => {
-    return handleMapPopupVisibility(this as unknown as DashboardWidgetHost, event);
+handleMapPopupVisibility = (event: Event): void => {
+    return handleMapPopupVisibility(this, event);
   };
 
-  private createPortalHost(): HTMLElement {
-    return createPortalHost(this as unknown as DashboardWidgetHost);
+createPortalHost(): HTMLElement {
+    return createPortalHost(this);
   }
 
-  private ensurePortalHost(): HTMLElement {
-    return ensurePortalHost(this as unknown as DashboardWidgetHost);
+ensurePortalHost(): HTMLElement {
+    return ensurePortalHost(this);
   }
 
-  private removePortalHost(): void {
-    return removePortalHost(this as unknown as DashboardWidgetHost);
+removePortalHost(): void {
+    return removePortalHost(this);
   }
 
-  private bringPortalHostToFront(): void {
-    return bringPortalHostToFront(this as unknown as DashboardWidgetHost);
+bringPortalHostToFront(): void {
+    return bringPortalHostToFront(this);
   }
 
-  private toPlainConfig(): Record<string, unknown> {
-    return toPlainConfig(this as unknown as DashboardWidgetHost);
+toPlainConfig(): Record<string, unknown> {
+    return toPlainConfig(this);
   }
 
-  private toPlainPopup(value: unknown): AgriPopupConfig {
-    return toPlainPopup(this as unknown as DashboardWidgetHost, value);
+toPlainPopup(value: unknown): AgriPopupConfig {
+    return toPlainPopup(this, value);
   }
 
-  private getIndicatorConfig(
+getIndicatorConfig(
     baseConfig: Record<string, unknown>,
   ): Record<string, unknown> {
-    return getIndicatorConfig(this as unknown as DashboardWidgetHost, baseConfig);
+    return getIndicatorConfig(this, baseConfig);
   }
 
-  private getPopupConfig(
+getPopupConfig(
     baseConfig: Record<string, unknown>,
   ): Record<string, unknown> {
-    return getPopupConfig(this as unknown as DashboardWidgetHost, baseConfig);
+    return getPopupConfig(this, baseConfig);
   }
 
-  private childProps<P = DashboardChildProps>(
+childProps<P = DashboardChildProps>(
     suffix: ChildSuffix,
     config?: Record<string, unknown>,
   ): P {
-    return childProps<P>(this as unknown as DashboardWidgetHost, suffix, config);
+    return childProps<P>(this, suffix, config);
   }
 
-  private getStableIndicatorChildProps(
+getStableIndicatorChildProps(
     indicatorConfig: Record<string, unknown>,
     baseConfig: Record<string, unknown>,
   ): IndicatorChildPropsSet {
-    return getStableIndicatorChildProps(this as unknown as DashboardWidgetHost, indicatorConfig, baseConfig);
+    return getStableIndicatorChildProps(this, indicatorConfig, baseConfig);
   }
 
-  private getLeftPanelWidth(): string {
-    return getLeftPanelWidth(this as unknown as DashboardWidgetHost);
+getLeftPanelWidth(): string {
+    return getLeftPanelWidth(this);
   }
 
-  private getRowFrValues(): { top: number; bottom: number } {
-    return getRowFrValues(this as unknown as DashboardWidgetHost);
+getRowFrValues(): { top: number; bottom: number } {
+    return getRowFrValues(this);
   }
 
-  private getActiveMapWidgetId(): string {
-    return getActiveMapWidgetId(this as unknown as DashboardWidgetHost);
+getActiveMapWidgetId(): string {
+    return getActiveMapWidgetId(this);
   }
 
-  private getActiveJimuMapView(): JimuMapView | null {
-    return getActiveJimuMapView(this as unknown as DashboardWidgetHost);
+getActiveJimuMapView(): JimuMapView | null {
+    return getActiveJimuMapView(this);
   }
 
-  private detachMapLoadingWatchers(): void {
-    return detachMapLoadingWatchers(this as unknown as DashboardWidgetHost);
+detachMapLoadingWatchers(): void {
+    return detachMapLoadingWatchers(this);
   }
 
-  private setMapLoading(mapLoading: boolean): void {
-    return setMapLoading(this as unknown as DashboardWidgetHost, mapLoading);
+setMapLoading(mapLoading: boolean): void {
+    return setMapLoading(this, mapLoading);
   }
 
-  private getMapLoadingState(jimuMapView: JimuMapView | null): boolean {
-    return getMapLoadingState(this as unknown as DashboardWidgetHost, jimuMapView);
+getMapLoadingState(jimuMapView: JimuMapView | null): boolean {
+    return getMapLoadingState(this, jimuMapView);
   }
 
-  private updateMapLoadingState = (): void => {
-    return updateMapLoadingState(this as unknown as DashboardWidgetHost);
+updateMapLoadingState = (): void => {
+    return updateMapLoadingState(this);
   };
 
-  private attachMapLoadingWatchers(): void {
-    return attachMapLoadingWatchers(this as unknown as DashboardWidgetHost);
+attachMapLoadingWatchers(): void {
+    return attachMapLoadingWatchers(this);
   }
 
-  private scheduleMapLoadingWatchers = (delay = 0): void => {
-    return scheduleMapLoadingWatchers(this as unknown as DashboardWidgetHost, delay);
+scheduleMapLoadingWatchers = (delay = 0): void => {
+    return scheduleMapLoadingWatchers(this, delay);
   };
 
-  private getDashboardLoadingState(): boolean {
-    return getDashboardLoadingState(this as unknown as DashboardWidgetHost);
+getDashboardLoadingState(): boolean {
+    return getDashboardLoadingState(this);
   }
 
-  private updateDashboardLoadingState(): void {
-    return updateDashboardLoadingState(this as unknown as DashboardWidgetHost);
+updateDashboardLoadingState(): void {
+    return updateDashboardLoadingState(this);
   }
 
-  private onWindowResize = (): void => {
-    return onWindowResize(this as unknown as DashboardWidgetHost);
+onWindowResize = (): void => {
+    return onWindowResize(this);
   };
 
-  private ensureLayoutObservers(): void {
-    return ensureLayoutObservers(this as unknown as DashboardWidgetHost);
+ensureLayoutObservers(): void {
+    return ensureLayoutObservers(this);
   }
 
-  private setupMapSlotObserver(): void {
-    return setupMapSlotObserver(this as unknown as DashboardWidgetHost);
+setupMapSlotObserver(): void {
+    return setupMapSlotObserver(this);
   }
 
-  private scheduleMapSlotLayout = (force = false): void => {
-    return scheduleMapSlotLayout(this as unknown as DashboardWidgetHost, force);
+scheduleMapSlotLayout = (force = false): void => {
+    return scheduleMapSlotLayout(this, force);
   };
 
-  private findSharedLayoutSurface(): HTMLElement | null {
-    return findSharedLayoutSurface(this as unknown as DashboardWidgetHost);
+findSharedLayoutSurface(): HTMLElement | null {
+    return findSharedLayoutSurface(this);
   }
 
-  private readDashboardCssPx(variable: string, fallback: number): number {
-    return readDashboardCssPx(this as unknown as DashboardWidgetHost, variable, fallback);
+readDashboardCssPx(variable: string, fallback: number): number {
+    return readDashboardCssPx(this, variable, fallback);
   }
 
-  private applyIndicatorOverlayBounds(
+applyIndicatorOverlayBounds(
     slotEl: HTMLElement,
     overlayEl: HTMLElement,
   ): void {
-    return applyIndicatorOverlayBounds(this as unknown as DashboardWidgetHost, slotEl, overlayEl);
+    return applyIndicatorOverlayBounds(this, slotEl, overlayEl);
   }
 
-  private applyDateIndexOverlayBounds(
+applyDateIndexOverlayBounds(
     slotEl: HTMLElement,
     overlayEl: HTMLElement,
   ): void {
-    return applyDateIndexOverlayBounds(this as unknown as DashboardWidgetHost, slotEl, overlayEl);
+    return applyDateIndexOverlayBounds(this, slotEl, overlayEl);
   }
 
-  private syncIndicatorOverlayLayout(): void {
-    return syncIndicatorOverlayLayout(this as unknown as DashboardWidgetHost);
+syncIndicatorOverlayLayout(): void {
+    return syncIndicatorOverlayLayout(this);
   }
 
-  private clearOverlayLayout(overlay: HTMLElement | null): void {
-    return clearOverlayLayout(this as unknown as DashboardWidgetHost, overlay);
+clearOverlayLayout(overlay: HTMLElement | null): void {
+    return clearOverlayLayout(this, overlay);
   }
 
-  private clearIndicatorOverlayLayout(): void {
-    return clearIndicatorOverlayLayout(this as unknown as DashboardWidgetHost);
+clearIndicatorOverlayLayout(): void {
+    return clearIndicatorOverlayLayout(this);
   }
 
   render() {
-    return render(this as unknown as DashboardWidgetHost);
+    return render(this);
   }
 }

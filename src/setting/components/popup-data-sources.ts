@@ -2,7 +2,7 @@
  * Data-source lifecycle + field discovery for the polygon-popup settings panel.
  * Functions take the panel instance (PopupSettingHost) as first argument.
  */
-import type { DataSource, IMUseDataSource } from "jimu-core";
+import type { DataSource, IMUseDataSource, QueriableDataSource } from "jimu-core";
 import { getQueryableLayer } from "../../gis/feature-layer-data";
 import type { FieldInfo } from "../agri-popup-setting";
 import type { PopupSettingHost } from "../popup-setting-host";
@@ -31,14 +31,8 @@ interface LayerSourceLike {
   getChildDataSources?: () => unknown;
 }
 
-interface SchemaLike {
-  fields?: Record<string, SchemaFieldLike>;
-}
-
-interface SchemaSourceLike {
-  fetchSchema?: () => Promise<SchemaLike | undefined>;
-  getSchema?: () => SchemaLike | undefined;
-}
+/** Every jimu data source has `getSchema`; queriable ones also expose `fetchSchema`. */
+type SchemaSource = DataSource & Partial<Pick<QueriableDataSource, "fetchSchema">>;
 
 type QueryableLayerInput = Parameters<typeof getQueryableLayer>[0];
 
@@ -186,7 +180,7 @@ export const extractFieldsFromDs = async (host: PopupSettingHost) => {
   };
 
   for (const ds of dss) {
-    const schemaSource = ds as unknown as SchemaSourceLike;
+    const schemaSource: SchemaSource = ds;
 
     try {
       if (typeof schemaSource.fetchSchema === "function") {

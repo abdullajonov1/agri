@@ -99,8 +99,7 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
   const ndviDateChanged = d.ndviDate !== undefined;
   if (ndviDateChanged) {
     // When a polygon graph is active, ignore external NDVI date changes from Graff.
-    if (host.state.polygonMode && d.source === "AgriGraffWidget") {
-    } else {
+    if (!(host.state.polygonMode && d.source === "AgriGraffWidget")) {
       updates.ndviDate = String(d.ndviDate || "");
       if (updates.ndviDate !== host.state.ndviDate)
         host._ndviBucketToIds = {};
@@ -155,7 +154,7 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
       const y = String(updates.yil || "");
       const w =
         typeof window !== "undefined"
-          ? (window as unknown as { __AGRI3_DEBUG_YEAR__?: string })
+          ? window
           : null;
       if (w) w.__AGRI3_DEBUG_YEAR__ = /\b2024\b/.test(y) ? "2024" : "";
     }

@@ -6,18 +6,46 @@
 
 export type PlainRecord = Record<string, unknown>;
 
-interface MutableConvertible {
-  asMutable: (opts?: { deep?: boolean }) => unknown;
+/** A seamless-immutable value (jimu-core config / props). */
+export interface AsMutableCapable<T = unknown> {
+  asMutable: (options?: { deep?: boolean }) => T;
 }
 
-const hasAsMutable = (value: unknown): value is MutableConvertible =>
+interface ToArrayCapable {
+  toArray: () => unknown[];
+}
+
+/** True when the value exposes seamless-immutable's `asMutable()` method. */
+export const hasAsMutable = <T = unknown>(
+  value: unknown,
+): value is AsMutableCapable<T> =>
   value != null &&
   typeof value === "object" &&
-  typeof (value as Partial<MutableConvertible>).asMutable === "function";
+  typeof (value as Partial<AsMutableCapable>).asMutable === "function";
+
+const hasToArray = (value: unknown): value is ToArrayCapable =>
+  value != null &&
+  typeof (value as Partial<ToArrayCapable>).toArray === "function";
 
 /** Deep-unwrap a seamless-immutable value; other values pass through. */
 export const toPlainValue = (value: unknown): unknown =>
   hasAsMutable(value) ? value.asMutable({ deep: true }) : value;
+
+/** Typed variant of toPlainValue for callers that know the target shape. */
+export const toPlainDeep = <T>(value: unknown): T =>
+  hasAsMutable<T>(value) ? value.asMutable({ deep: true }) : (value as T);
+
+/**
+ * Plain array from an array, an immutable array (deep copy) or an object with
+ * `toArray()`. Anything else (including falsy values) yields `[]`.
+ */
+export const toPlainArray = (value: unknown): unknown[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (hasAsMutable<unknown[]>(value)) return value.asMutable({ deep: true });
+  if (hasToArray(value)) return value.toArray();
+  return [];
+};
 
 export const isPlainRecord = (value: unknown): value is PlainRecord =>
   value != null && typeof value === "object" && !Array.isArray(value);

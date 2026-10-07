@@ -6,7 +6,7 @@ import { type ChartFilterFlags } from "../../../gis/agri-chart-filter-order";
 import { type VHBarData, type VHBarDataItem } from "../../localization/vh-constants";
 import { normalizeTurlarList } from "../../localization/broadcast-detail";
 import { type MapZoomRequest } from "../../localization/map-zoom-policy";
-import type { LocalizationWidgetProps, ValueChangeEvent } from "./components/host";
+import type { LocalizationHost, LocalizationWidgetProps, ValueChangeEvent } from "./components/host";
 import {
   buildNdviDateClauseWithoutVh,
   buildNdviSpatialWhere,
@@ -114,10 +114,18 @@ import {
 export type { VHBarData, VHBarDataItem };
 export type { FilterState, GeoWidgetState, GraffSearchRecord };
 
-export default class AgriLocalization extends LocalizationMapBase {
+export default class AgriLocalization
+  extends LocalizationMapBase
+  implements LocalizationHost
+{
   constructor(props: LocalizationWidgetProps) {
     super(props);
     this.state = createInitialGeoState();
+  }
+
+  /** This instance viewed through the interface the extracted services use. */
+  protected get host(): LocalizationHost {
+    return this;
   }
 
   /* ---------------------- Lifecycle ---------------------- */
@@ -138,17 +146,17 @@ export default class AgriLocalization extends LocalizationMapBase {
 
   /* ---------------------- Widget Selection Handler (SINGLE ENTRY POINT) ---------------------- */
 
-  private handleWidgetSelection = async (event: Event) => {
+  handleWidgetSelection = async (event: Event) => {
     return handleWidgetSelection(this.host, event);
   };
 
   /* ---------------------- Broadcast Current State ---------------------- */
 
-  private handleRequestMasterFilterState = (): void => {
+  handleRequestMasterFilterState = (): void => {
     return handleRequestMasterFilterState(this.host);
   };
 
-  private broadcastFilterState = (opts?: { pendingOnly?: boolean }) => {
+  broadcastFilterState = (opts?: { pendingOnly?: boolean }) => {
     return broadcastFilterState(this.host, opts);
   };
 
@@ -156,13 +164,13 @@ export default class AgriLocalization extends LocalizationMapBase {
     return ensureInitialization(this.host);
   };
 
-  private getUniqueValues = (fieldName: string): Promise<string[]> =>
+  getUniqueValues = (fieldName: string): Promise<string[]> =>
     getUniqueValues(this.host, fieldName);
 
-  private fetchFilterOptions = () =>
+  fetchFilterOptions = () =>
     fetchFilterOptions(this.host);
 
-  private async flDistinctFromLayer(
+  async flDistinctFromLayer(
     layer: __esri.FeatureLayer,
     fieldName: string,
     where: string,
@@ -175,191 +183,191 @@ export default class AgriLocalization extends LocalizationMapBase {
     );
   }
 
-  private fetchAndStoreRegionDistrictMappings = (): Promise<void> =>
+  fetchAndStoreRegionDistrictMappings = (): Promise<void> =>
     fetchAndStoreRegionDistrictMappings(this.host);
 
-  private ensureRegionDistrictForSelection = (): Promise<void> =>
+  ensureRegionDistrictForSelection = (): Promise<void> =>
     ensureRegionDistrictForSelection(this.host);
 
-  private ensureCropIdForSelection = (): Promise<void> =>
+  ensureCropIdForSelection = (): Promise<void> =>
     ensureCropIdForSelection(this.host);
 
   /* ---------------------- UI Handlers ---------------------- */
 
-  private resolveThemeState = (): boolean => {
+  resolveThemeState = (): boolean => {
     return resolveThemeState(this.host);
   };
 
-  private initializeTheme = () => {
+  initializeTheme = () => {
     return initializeTheme(this.host);
   };
 
-  private applyThemeToDom = (isDarkTheme: boolean): void => {
+  applyThemeToDom = (isDarkTheme: boolean): void => {
     return applyThemeToDom(this.host, isDarkTheme);
   };
 
-  private handleThemeChange = (event: ValueChangeEvent) => {
+  handleThemeChange = (event: ValueChangeEvent) => {
     return handleThemeChange(this.host, event);
   };
 
-  private handleDocumentClick = (event: MouseEvent): void => {
+  handleDocumentClick = (event: MouseEvent): void => {
     return handleDocumentClick(this.host, event);
   };
 
-  private toggleToolbarMenu = (
+  toggleToolbarMenu = (
     menu: "yil" | "language" | "indexInfo" | "notifications",
   ): void => {
     return toggleToolbarMenu(this.host, menu);
   };
 
-  private hydrateNotificationCache = (): void =>
+  hydrateNotificationCache = (): void =>
     hydrateNotificationCache(this.host);
 
-  private onDashboardPackForNotifications = (pack: {
+  onDashboardPackForNotifications = (pack: {
     phase?: string;
     filter?: { yil?: string };
   }): void =>
     onDashboardPackForNotifications(this.host, pack);
 
-  private beginNotificationPrefetch = (): void =>
+  beginNotificationPrefetch = (): void =>
     beginNotificationPrefetch(this.host);
 
-  private onNotificationsMenuOpened = (): void =>
+  onNotificationsMenuOpened = (): void =>
     onNotificationsMenuOpened(this.host);
 
-  private loadNotificationFeed = (): Promise<void> =>
+  loadNotificationFeed = (): Promise<void> =>
     loadNotificationFeed(this.host);
 
-  private formatNotificationDate = (ymd: string): string =>
+  formatNotificationDate = (ymd: string): string =>
     formatNotificationDate(this.host, ymd);
 
-  private resolveRegionNotificationName = (regionCode: string): string =>
+  resolveRegionNotificationName = (regionCode: string): string =>
     resolveRegionNotificationName(this.host, regionCode);
 
-  private formatFieldCount = (value: number): string =>
+  formatFieldCount = (value: number): string =>
     formatFieldCount(this.host, value);
 
-  private updateNotificationScrollHint = (): void =>
+  updateNotificationScrollHint = (): void =>
     updateNotificationScrollHint(this.host);
 
-  private onNotificationBodyScroll = (): void => {
+  onNotificationBodyScroll = (): void => {
     this.updateNotificationScrollHint();
   };
 
-  private openIndexInfoDetail = (key: string): void => {
+  openIndexInfoDetail = (key: string): void => {
     this.setState({ selectedIndexInfoKey: key });
   };
 
   /** "×" / backdrop click — dismiss the indexInfo popover entirely. */
-  private closeIndexInfoMenu = (): void => {
+  closeIndexInfoMenu = (): void => {
     this.setState({ openToolbarMenu: null, selectedIndexInfoKey: null });
   };
 
-  private toggleProfileMenu = (): void => {
+  toggleProfileMenu = (): void => {
     this.setState((prev) => ({ showProfileMenu: !prev.showProfileMenu }));
   };
 
-  private closeProfileMenu = (): void => {
+  closeProfileMenu = (): void => {
     this.setState({ showProfileMenu: false });
   };
 
-  private handleLogout = (): void => {
+  handleLogout = (): void => {
     this.setState({ showProfileMenu: false });
     void logoutFromAccount();
   };
 
-  private handleYilChange = (event: ValueChangeEvent) => {
+  handleYilChange = (event: ValueChangeEvent) => {
     return handleYilChange(this.host, event);
   };
 
-  private applyLanguage = (lang: FilterState["language"]) => {
+  applyLanguage = (lang: FilterState["language"]) => {
     return applyLanguage(this.host, lang);
   };
 
-  private applyYil = (selectedYil: string) => {
+  applyYil = (selectedYil: string) => {
     return applyYil(this.host, selectedYil);
   };
 
-  private applyThemeByValue = (value: "light" | "dark") => {
+  applyThemeByValue = (value: "light" | "dark") => {
     return applyThemeByValue(this.host, value);
   };
 
-  private emitGraffTableSearchChanged = (query: string, options?: { preserveSelection?: boolean }) =>
+  emitGraffTableSearchChanged = (query: string, options?: { preserveSelection?: boolean }) =>
     emitGraffTableSearchChanged(this.host, query, options);
 
-  private emitGraffTableSearchClear = (options?: { preserveSelection?: boolean; }) =>
+  emitGraffTableSearchClear = (options?: { preserveSelection?: boolean; }) =>
     emitGraffTableSearchClear(this.host, options);
 
-  private emitGraffTableRowSelected = (record: GraffSearchRecord) =>
+  emitGraffTableRowSelected = (record: GraffSearchRecord) =>
     emitGraffTableRowSelected(this.host, record);
 
-  private getGraffDisplayFields = (): string[] =>
+  getGraffDisplayFields = (): string[] =>
     getGraffDisplayFields(this.host);
 
-  private buildGraffSearchTextWhere = (raw: string, layer?: __esri.FeatureLayer): string =>
+  buildGraffSearchTextWhere = (raw: string, layer?: __esri.FeatureLayer): string =>
     buildGraffSearchTextWhere(this.host, raw, layer);
 
-  private buildGraffSearchScopeWhere = (): string =>
+  buildGraffSearchScopeWhere = (): string =>
     buildGraffSearchScopeWhere(this.host);
 
-  private getGraffSearchFieldLabel = (fieldName: string, language: FilterState["language"]): string =>
+  getGraffSearchFieldLabel = (fieldName: string, language: FilterState["language"]): string =>
     getGraffSearchFieldLabel(this.host, fieldName, language);
 
-  private formatGraffSearchCellValue = (fieldName: string, rawValue: unknown): string =>
+  formatGraffSearchCellValue = (fieldName: string, rawValue: unknown): string =>
     formatGraffSearchCellValue(this.host, fieldName, rawValue);
 
-  private runGraffAutoComplete = (term: string) =>
+  runGraffAutoComplete = (term: string) =>
     runGraffAutoComplete(this.host, term);
 
-  private handleGraffSearchInputChange = (event: React.ChangeEvent<HTMLInputElement>) =>
+  handleGraffSearchInputChange = (event: React.ChangeEvent<HTMLInputElement>) =>
     handleGraffSearchInputChange(this.host, event);
 
-  private handleGraffSearchFocus = (): void =>
+  handleGraffSearchFocus = (): void =>
     handleGraffSearchFocus(this.host);
 
-  private clearFarmerSearchAndRestoreGeo = (): void =>
+  clearFarmerSearchAndRestoreGeo = (): void =>
     clearFarmerSearchAndRestoreGeo(this.host);
 
-  private handleGraffSearchClear = () =>
+  handleGraffSearchClear = () =>
     handleGraffSearchClear(this.host);
 
-  private handleGraffSearchRowClick = (record: GraffSearchRecord) =>
+  handleGraffSearchRowClick = (record: GraffSearchRecord) =>
     handleGraffSearchRowClick(this.host, record);
 
-  private applyFarmerSearchSelection = (inn: string): Promise<void> =>
+  applyFarmerSearchSelection = (inn: string): Promise<void> =>
     applyFarmerSearchSelection(this.host, inn);
 
 
-  private handleNdviDateChange = (event: ValueChangeEvent) => {
+  handleNdviDateChange = (event: ValueChangeEvent) => {
     return handleNdviDateChange(this.host, event);
   };
 
   /* ---------------------- WHERE Clause Builder ---------------------- */
 
-  private eqAposSmart(field: string, raw: string): string {
+  eqAposSmart(field: string, raw: string): string {
     return eqAposSmart(this.host, field, raw);
   }
 
-  private getAposHelpers = () =>
+  getAposHelpers = () =>
     getAposHelpers(this.host);
 
-  private normalizeTurlar = (raw: unknown, fallback = ""): string[] =>
+  normalizeTurlar = (raw: unknown, fallback = ""): string[] =>
     normalizeTurlarList(raw, fallback);
 
-  private getSelectedTurlar = (): string[] =>
+  getSelectedTurlar = (): string[] =>
     this.normalizeTurlar(this.state.turlar, this.state.turi || "");
 
-  private getChartFilterFlags = (
+  getChartFilterFlags = (
     vh = String(this.state.vh || "").trim(),
     turlar = this.getSelectedTurlar(),
   ): ChartFilterFlags =>
     getChartFilterFlags(this.host, vh, turlar);
 
-  private getCropIdsForVhUniqueIdScope = (): string[] => {
+  getCropIdsForVhUniqueIdScope = (): string[] => {
     return getCropIdsForVhUniqueIdScope(this.host);
   };
 
-  private syncChartDimOrder = (
+  syncChartDimOrder = (
     nextVh: string,
     nextTurlar: string[],
     resetGeography: boolean,
@@ -367,36 +375,36 @@ export default class AgriLocalization extends LocalizationMapBase {
     return syncChartDimOrder(this.host, nextVh, nextTurlar, resetGeography);
   };
 
-  private buildTurlarClause = (
+  buildTurlarClause = (
     field = "turi",
     values: string[] = this.getSelectedTurlar(),
   ): string => buildTurlarSqlClause(field, values);
 
-  private buildUniqueIdClause(raw: string, layer?: __esri.FeatureLayer): string {
+  buildUniqueIdClause(raw: string, layer?: __esri.FeatureLayer): string {
     return buildUniqueIdClause(this.host, raw, layer);
   }
 
-  private buildViloyatRegionClause(): string {
+  buildViloyatRegionClause(): string {
     return buildViloyatRegionClause(this.host);
   }
 
-  private buildTumanDistrictClause(): string {
+  buildTumanDistrictClause(): string {
     return buildTumanDistrictClause(this.host);
   }
 
-  private buildNdviSpatialWhere(includeTuri = true): string {
+  buildNdviSpatialWhere(includeTuri = true): string {
     return buildNdviSpatialWhere(this.host, includeTuri);
   }
 
-  private buildNdviStatusClauseForCurrentVh(): string {
+  buildNdviStatusClauseForCurrentVh(): string {
     return buildNdviStatusClauseForCurrentVh(this.host);
   }
 
-  private buildNdviDateClauseWithoutVh(): string {
+  buildNdviDateClauseWithoutVh(): string {
     return buildNdviDateClauseWithoutVh(this.host);
   }
 
-  private buildWhereClause(
+  buildWhereClause(
     includeVh = true,
     includeTuri = true,
     includeViloyat = true,
@@ -411,30 +419,30 @@ export default class AgriLocalization extends LocalizationMapBase {
     );
   }
 
-  private getLatestNdviDateForBar(primaryLayer?: __esri.FeatureLayer): string | null {
+  getLatestNdviDateForBar(primaryLayer?: __esri.FeatureLayer): string | null {
     return getLatestNdviDateForBar(this.host, primaryLayer);
   }
 
-  private computeVhBarData = (): Promise<VHBarData | null> =>
+  computeVhBarData = (): Promise<VHBarData | null> =>
     computeVhBarData(this.host);
 
-  private makeVhBarComputeKey = (): string =>
+  makeVhBarComputeKey = (): string =>
     makeVhBarComputeKey(this.host);
 
-  private executeComputeVhBarData = (): Promise<VHBarData | null> =>
+  executeComputeVhBarData = (): Promise<VHBarData | null> =>
     executeComputeVhBarData(this.host);
 
-  private publishVhBarPartial = (vhBarData: VHBarData): void =>
+  publishVhBarPartial = (vhBarData: VHBarData): void =>
     publishVhBarPartial(this.host, vhBarData);
 
-  private buildTableDateWhere(
+  buildTableDateWhere(
     dateField: string,
     ndviDate: string,
   ): string | null {
     return buildTableDateWhere(this.host, dateField, ndviDate);
   }
 
-  private buildTableWhereWithRegion(
+  buildTableWhereWithRegion(
     dateField: string,
     ndviDate: string,
     tableFieldNames: string[],
@@ -447,55 +455,55 @@ export default class AgriLocalization extends LocalizationMapBase {
     );
   }
 
-  private getPolygonAreasWithCurrentFilter = (opts?: { includeTuri?: boolean; }): Promise<Map<string, number>> =>
+  getPolygonAreasWithCurrentFilter = (opts?: { includeTuri?: boolean; }): Promise<Map<string, number>> =>
     getPolygonAreasWithCurrentFilter(this.host, opts);
 
-  private getGeoCodeHelpers = () =>
+  getGeoCodeHelpers = () =>
     getGeoCodeHelpers(this.host);
 
-  private makeVhBarDateGeoKey = (): string =>
+  makeVhBarDateGeoKey = (): string =>
     makeVhBarDateGeoKey(this.host);
 
-  private getGeoScopedVhBarUsedDate = (): string =>
+  getGeoScopedVhBarUsedDate = (): string =>
     getGeoScopedVhBarUsedDate(this.host);
 
-  private setVhUniqueIdCacheEntry = (key: string, ids: string[]): void =>
+  setVhUniqueIdCacheEntry = (key: string, ids: string[]): void =>
     setVhUniqueIdCacheEntry(this.host, key, ids);
 
-  private buildVhMapUniqueIdCacheKey = (): string | null =>
+  buildVhMapUniqueIdCacheKey = (): string | null =>
     buildVhMapUniqueIdCacheKey(this.host);
 
 
-  private isVhMapUniqueIdCacheWarm = (): boolean =>
+  isVhMapUniqueIdCacheWarm = (): boolean =>
     isVhMapUniqueIdCacheWarm(this.host);
 
-  private prefetchVhStatusUniqueIds = (ndviDate: string): void =>
+  prefetchVhStatusUniqueIds = (ndviDate: string): void =>
     prefetchVhStatusUniqueIds(this.host, ndviDate);
 
-  private resolveVhMapUniqueIds = (isCurrent?: () => boolean): Promise<string[] | null> =>
+  resolveVhMapUniqueIds = (isCurrent?: () => boolean): Promise<string[] | null> =>
     resolveVhMapUniqueIds(this.host, isCurrent);
 
-  private resolveVhRegionChartUniqueIdsBackground = (resolveGen: number, params: { status: string; regionNum: number; cropIds: string[]; ndviDate: string; vhCategory: string; }, isCurrent?: () => boolean): Promise<void> =>
+  resolveVhRegionChartUniqueIdsBackground = (resolveGen: number, params: { status: string; regionNum: number; cropIds: string[]; ndviDate: string; vhCategory: string; }, isCurrent?: () => boolean): Promise<void> =>
     resolveVhRegionChartUniqueIdsBackground(this.host, resolveGen, params, isCurrent);
 
-  private syncShownRegionYearLayers = (map: __esri.Map | null | undefined): ShownRegionYearLayer[] =>
+  syncShownRegionYearLayers = (map: __esri.Map | null | undefined): ShownRegionYearLayer[] =>
     syncShownRegionYearLayers(this.host, map);
-  private loadNdviBucketIds = (vhCategory: string): Promise<void> =>
+  loadNdviBucketIds = (vhCategory: string): Promise<void> =>
     loadNdviBucketIds(this.host, vhCategory);
 
-  private async applyFiltersPersistent(
+  async applyFiltersPersistent(
     isCurrent?: () => boolean,
     opts?: { vhDeferredSecondPass?: boolean },
   ): Promise<void> {
     return applyFiltersPersistent(this.host, isCurrent, opts);
   }
 
-  private zoomToSelectedDistrict = (view: __esri.MapView | __esri.SceneView): Promise<boolean> =>
+  zoomToSelectedDistrict = (view: __esri.MapView | __esri.SceneView): Promise<boolean> =>
     zoomToSelectedDistrict(this.host, view);
-  private applyMapFiltersOptimized = (zoomRequest: MapZoomRequest = { mode: "none", reason: "other" }, isApplyCurrent?: () => boolean): Promise<void> =>
+  applyMapFiltersOptimized = (zoomRequest: MapZoomRequest = { mode: "none", reason: "other" }, isApplyCurrent?: () => boolean): Promise<void> =>
     applyMapFiltersOptimized(this.host, zoomRequest, isApplyCurrent);
 
-  private fetchDataWithCurrentState = () =>
+  fetchDataWithCurrentState = () =>
     fetchDataWithCurrentState(this.host);
 
   /* ---------------------- Render ---------------------- */

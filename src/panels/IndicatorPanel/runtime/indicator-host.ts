@@ -32,7 +32,7 @@ export interface IndicatorWidgetHost {
   normalizeTurlar: (raw: unknown, fallback?: string) => string[];
   prepareVhJoinIds: (ids: string[] | null) => Promise<void>;
   _lastFilterEventMs: number;
-  _canonicalFeatureLayer: __esri.FeatureLayer;
+  _canonicalFeatureLayer?: __esri.FeatureLayer;
   getDefaultFeatureLayer: (layersOverride?: __esri.FeatureLayer[]) => __esri.FeatureLayer | undefined;
   refreshData: () => void;
   throttledFetchData: DebouncedFunc<(forceRefresh?: boolean) => Promise<void>>;

@@ -297,12 +297,12 @@ export const handleBarRowClick = (host: RegionWidgetHost, item: RegionalDataItem
   host.handleRegionSelectionClick({ payload: item });
 };
 export const handleBarRowPointerEnter = (host: RegionWidgetHost, item: RegionalDataItem & { displayName?: string }, event: React.MouseEvent<HTMLButtonElement>): void => {
-  host.handleBarPointerEnter(item, 0, event as unknown as React.MouseEvent<SVGPathElement>);
+  host.handleBarPointerEnter(item, 0, event);
 };
 export const handleBarRowPointerMove = (host: RegionWidgetHost, _item: RegionalDataItem & { displayName?: string }, event: React.MouseEvent<HTMLButtonElement>): void => {
-  host.handleBarPointerMove(_item, 0, event as unknown as React.MouseEvent<SVGPathElement>);
+  host.handleBarPointerMove(_item, 0, event);
 };
-export const handleBarPointerEnter = (host: RegionWidgetHost, data: unknown, _index: number, e: React.MouseEvent<SVGPathElement, MouseEvent>): void => {
+export const handleBarPointerEnter = (host: RegionWidgetHost, data: unknown, _index: number, e: React.MouseEvent<Element, MouseEvent>): void => {
   const item = ((data as ChartRowPayload)?.payload ?? data) as RegionalDataItem & {
     displayName?: string;
   };
@@ -325,7 +325,7 @@ export const handleBarPointerEnter = (host: RegionWidgetHost, data: unknown, _in
     showTooltip,
   );
 };
-export const handleBarPointerMove = (host: RegionWidgetHost, data: unknown, _index: number, e: React.MouseEvent<SVGPathElement, MouseEvent>): void => {
+export const handleBarPointerMove = (host: RegionWidgetHost, data: unknown, _index: number, e: React.MouseEvent<Element, MouseEvent>): void => {
   if (!host.state.cursorTooltip.visible) return;
   const { x: clientX, y: clientY } = host.getClientPoint(e, data);
   if (!clientX && !clientY) return;

@@ -107,6 +107,19 @@ export interface CropUniqueValueInfo {
   symbol: CropFillSymbolJson;
 }
 
+/**
+ * Plain renderer JSON the crop palette assigns to `layer.renderer`; the
+ * ArcGIS JS API autocasts it to a SimpleRenderer / UniqueValueRenderer.
+ */
+export type CropRendererJson =
+  | { type: "simple"; symbol: CropFillSymbolJson }
+  | {
+      type: "unique-value";
+      field: string;
+      defaultSymbol: CropFillSymbolJson;
+      uniqueValueInfos: CropUniqueValueInfo[];
+    };
+
 export function createCropFillSymbol(color: string): CropFillSymbolJson {
   return {
     type: "simple-fill",

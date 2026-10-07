@@ -52,7 +52,7 @@ export interface LocalizationHost {
   _farmerSearchApplying: boolean;
   _preFarmerSearchGeo: { viloyat: string; tuman: string } | null;
   _zoomRequestId: number;
-  _originalLayerRenderers: Map<AgriMapLayer, __esri.Renderer | null>;
+  _originalLayerRenderers: Map<AgriMapLayer, AgriMapLayer["renderer"]>;
   _cropRenderedLayers: Set<AgriMapLayer>;
   _cropRendererRequestId: number;
   _cropDistinctValueCache: Map<string, string[]>;
@@ -310,4 +310,11 @@ export interface LocalizationHost {
   formatNotificationDate: (ymd: string) => string;
   formatFieldCount: (value: number) => string;
   resolveRegionNotificationName: (regionCode: string) => string;
+}
+
+declare global {
+  interface Window {
+    /** Debug-only year flag ("2024" or "") used to filter console diagnostics. */
+    __AGRI3_DEBUG_YEAR__?: string;
+  }
 }
