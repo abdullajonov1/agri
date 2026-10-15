@@ -54,6 +54,10 @@ jest.mock("../gis/agri-admin-boundary-layer", () => ({
 jest.mock("../gis/feature-layer-data", () => ({
   looksLikeRegionYearLayerHaystack: (h: string) => h.includes("region-year"),
 }));
+jest.mock("./field-compare-panel", () => ({
+  __esModule: true,
+  default: () => null,
+}));
 jest.mock("jimu-core", () => ({
   ...jest.requireActual("jimu-core"),
   getAppStore: () => ({ getState: () => ({ portalUrl: "https://portal.test/" }) }),

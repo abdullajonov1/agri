@@ -24,6 +24,7 @@ import {
   setAgriAdminBordersVisible,
 } from "../gis/agri-admin-boundary-layer";
 import { looksLikeRegionYearLayerHaystack } from "../gis/feature-layer-data";
+import FieldComparePanel from "./field-compare-panel";
 
 interface Props {
   mapWidgetId: string;
@@ -657,6 +658,12 @@ export default function EmbeddedAgriMap(props: Props) {
             </div>
           )}
         </div>
+      <FieldComparePanel
+        language={language}
+        onOpenChange={(open) => {
+          if (open) setBasemapMenuOpen(false);
+        }}
+      />
       {effectiveRootUseDataSource && (
         <div style={{ display: "none" }} aria-hidden="true">
           <DataSourceComponent

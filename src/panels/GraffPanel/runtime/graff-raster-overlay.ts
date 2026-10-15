@@ -136,9 +136,13 @@ export const applyGraffVegetationImageOverlay = async (
   // network tab does not show a cascade of 400s for every table row.
   const seasonMonths = getExportImageSeasonMonths(cleanId, cropId);
   const dateMonth = Number(String(normalizedDate).slice(5, 7));
+  // The polygon's own index dates are proof the API can serve that scene.
+  // A season learned from another crop must not hide a listed date.
+  const listedForPolygon = advertisedDates.includes(normalizedDate);
   const needsRewrite =
-    (seasonMonths.length > 0 && !seasonMonths.includes(dateMonth)) ||
-    isRegionDateWithoutImagery(regionId, normalizedDate);
+    !listedForPolygon &&
+    ((seasonMonths.length > 0 && !seasonMonths.includes(dateMonth)) ||
+      isRegionDateWithoutImagery(regionId, normalizedDate));
   if (needsRewrite) {
     const rewritten = pickExportRasterDate(
       advertisedDates.length
@@ -461,7 +465,7 @@ export const applyGraffVegetationImageOverlay = async (
       id: VEGETATION_IMAGE_LAYER_ID,
       source: [imageElement],
       title: `Vegetation ${indiceType.toUpperCase()} ${normalizedDate}`,
-      opacity: 0.85,
+      opacity: 1,
     });
     activeMapView.view.map.add(mediaLayer);
     host._vegetationImageLayer = mediaLayer;

@@ -124,6 +124,15 @@ describe("applyGraffVegetationImageOverlay early exits", () => {
     expect(asMock(host.cancelVegetationImageOverlay)).toHaveBeenCalled();
     expect(host.state.polygonImageError).toContain("Viloyat");
   });
+  test("advertised index date is fetched even when a cached season excludes its month", async () => {
+    mockSeason.mockReturnValue([6, 7]);
+    const host = makeHost(
+      { polygonAvailableDates: ["2024-09-10"] },
+      { _polygonAvailableDatesUniqueid: "U" },
+    );
+    await applyGraffVegetationImageOverlay(host, "U", "2024-09-10");
+    expect(mockFetchTiff).toHaveBeenCalledWith(expect.objectContaining({ rasterDate: "2024-09-10" }));
+  });
   test("out-of-season date with no replacement retries instead of fetching", async () => {
     mockSeason.mockReturnValue([6, 7]);
     const host = makeHost();
@@ -200,8 +209,9 @@ describe("applyGraffVegetationImageOverlay success path", () => {
     await applyGraffVegetationImageOverlay(host, "{U}", "2024-06-10T00:00:00Z", "savi");
     expect(mockFetchTiff).toHaveBeenCalledWith(expect.objectContaining({ uniqueid: "U", regionId: 5, indiceType: "savi", stretch: "fixed" }));
     expect(asMock(host.removeVegetationImageOverlay)).toHaveBeenCalled();
-    const layer = mapOf(host).add.mock.calls[0][0] as { id: string; title: string };
+    const layer = mapOf(host).add.mock.calls[0][0] as { id: string; title: string; opacity: number };
     expect(layer.id).toBe("agri-graff-vegetation-image-overlay");
+    expect(layer.opacity).toBe(1);
     expect(layer.title).toBe("Vegetation SAVI 2024-06-10");
     expect(host._vegetationImageLayer).toBe(layer);
     expect(host._vegetationRasterSample).toMatchObject({ width: 2, height: 2, indexMin: 0, indexMax: 1, rgba: null });

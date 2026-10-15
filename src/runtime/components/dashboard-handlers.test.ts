@@ -167,6 +167,24 @@ describe("lifecycle", () => {
     dispatchOn.mockRestore();
   });
 
+  test("opening the compare popup collapses an open indicator drawer", () => {
+    const { host, setState } = prep();
+    host.state.indicatorsOpen = true;
+    host.state.indicatorsAnimPhase = "expanded";
+    setRoot(host, document.createElement("div"));
+    jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      cb(0);
+      return 1;
+    });
+    handlers.componentDidMount(host);
+    document.dispatchEvent(new CustomEvent("agriFieldCompareToggled", { detail: { open: true } }));
+    expect(setState).toHaveBeenCalledWith({ indicatorsOpen: false, indicatorsAnimPhase: "collapsing" });
+    handlers.componentWillUnmount(host);
+    setState.mockClear();
+    document.dispatchEvent(new CustomEvent("agriFieldCompareToggled", { detail: { open: true } }));
+    expect(setState).not.toHaveBeenCalled();
+  });
+
   test("a second mounted dashboard logs a single-instance warning", () => {
     const first = prep();
     const second = prep();

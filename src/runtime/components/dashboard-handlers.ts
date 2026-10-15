@@ -90,6 +90,29 @@ export function getUiLanguage(host: DashboardWidgetHost): string {
   }
 }
 
+const fieldCompareListeners = new WeakMap<DashboardWidgetHost, EventListener>();
+
+function collapseIndicatorsForCompare(host: DashboardWidgetHost): void {
+  const visible =
+    host.state.indicatorsOpen ||
+    host.state.indicatorsAnimPhase === "expanded" ||
+    host.state.indicatorsAnimPhase === "expanding";
+  if (!visible) return;
+  if (host.indicatorAnimTimer) {
+    clearTimeout(host.indicatorAnimTimer);
+    host.indicatorAnimTimer = null;
+  }
+  host.setState({
+    indicatorsOpen: false,
+    indicatorsAnimPhase: "collapsing",
+  });
+  host.indicatorAnimTimer = setTimeout(() => {
+    host.indicatorAnimTimer = null;
+    if (!host.dashboardRootRef.current) return;
+    host.setState({ indicatorsAnimPhase: "collapsed" });
+  }, 720);
+}
+
 export function componentDidMount(host: DashboardWidgetHost): void {
   // Re-apply in case Builder mutated config between construct and mount.
   host.syncConfigSideEffects();
@@ -121,6 +144,12 @@ export function componentDidMount(host: DashboardWidgetHost): void {
     "agriMapPopupVisibility",
     host.handleMapPopupVisibility as EventListener,
   );
+  const onFieldCompare: EventListener = (event) => {
+    const detail = (event as CustomEvent<{ open?: boolean }>).detail;
+    if (detail?.open === true) collapseIndicatorsForCompare(host);
+  };
+  fieldCompareListeners.set(host, onFieldCompare);
+  document.addEventListener("agriFieldCompareToggled", onFieldCompare);
   requestAnimationFrame(() => {
     host.ensurePortalHost();
     host.forceUpdate(() => {
@@ -190,6 +219,14 @@ export const toggleIndicatorsDrawer = (host: DashboardWidgetHost, event: React.M
     indicatorsOpen: opening,
     indicatorsAnimPhase: opening ? "expanding" : "collapsing",
   });
+  if (opening) {
+    document.dispatchEvent(
+      new CustomEvent("agriIndicatorsDrawerToggled", {
+        detail: { open: true },
+        bubbles: true,
+      }),
+    );
+  }
 
   host.indicatorAnimTimer = setTimeout(
     () => {
@@ -223,6 +260,11 @@ export function componentWillUnmount(host: DashboardWidgetHost): void {
     "agriMapPopupVisibility",
     host.handleMapPopupVisibility as EventListener,
   );
+  const onFieldCompare = fieldCompareListeners.get(host);
+  if (onFieldCompare) {
+    document.removeEventListener("agriFieldCompareToggled", onFieldCompare);
+    fieldCompareListeners.delete(host);
+  }
   host.dashboardRootRef.current?.classList.remove("agri-popup-open");
   host.dashboardRootRef.current?.classList.remove("agri-popup-pinned");
   host.dashboardResizeObserver?.disconnect();
