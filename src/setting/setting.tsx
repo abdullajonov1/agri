@@ -207,8 +207,9 @@ export default class Setting extends React.PureComponent<
           Layout: AgriLocalization header, AgriRegion10 + map on top,
           AgriPie10 / AgriGraff10 / AgriBar10 on bottom, AgriIndicator10 on
           the map. Does not require standalone Agri3 widgets on the page.
-          The map is built into this widget. Select an ArcGIS Web Map and any
-          additional feature layers below; no separate Map widget is required.
+          The map is built into this widget. Select an ArcGIS Web Map and/or its
+          feature layers below (one of them is required — nothing loads without a
+          connected WebMap); no separate Map widget is required.
         </p>
 
         <div
@@ -218,7 +219,10 @@ export default class Setting extends React.PureComponent<
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Xarita sozlamalari</div>
           <div style={{ fontWeight: 500, marginBottom: 6 }}>ArcGIS Web Map</div>
           <div style={{ marginBottom: 7, fontSize: 12, color: "#5b6b7a" }}>
-            Optional. If none is selected, an ArcGIS topographic basemap opens automatically.
+            Shu yerda Web Map yoki pastdagi «Data sources» dan uning qatlamlarini
+            tanlang. Ikkalasi ham tanlanmasa xarita ochilmaydi va widgetlar ma’lumot
+            yuklamaydi. Xaritadagi maydonlar ekin turiga qarab «Ekin turi»
+            diagrammasidagi ranglar bilan bo‘yaladi.
           </div>
           <DataSourceSelector
             mustUseDataSource={false}

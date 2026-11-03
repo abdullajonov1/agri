@@ -202,11 +202,19 @@ describe("crop-renderer-service", () => {
     });
   });
 
-  test("syncCropRenderer bumps the request id", async () => {
+  test("syncCropRenderer bumps the request id when the palette is on", async () => {
     const apply = jest.fn(() => Promise.resolve());
-    const host = makeFakeHost({ applyCropRenderer: apply, _cropRendererRequestId: 4 });
+    const host = makeFakeHost({ applyCropRenderer: apply, _cropRendererRequestId: 4, state: { cropRendererMode: "on" } });
     await syncCropRenderer(host);
     expect(apply).toHaveBeenCalledWith(5);
+  });
+
+  test("syncCropRenderer leaves the WebMap renderer alone when the palette is off", async () => {
+    const apply = jest.fn(() => Promise.resolve());
+    const host = makeFakeHost({ applyCropRenderer: apply, _cropRendererRequestId: 4, state: { cropRendererMode: "off" } });
+    await syncCropRenderer(host);
+    expect(apply).not.toHaveBeenCalled();
+    expect(host._cropRendererRequestId).toBe(4);
   });
 
   describe("applyInstantCropPaletteNoRefresh", () => {

@@ -154,7 +154,6 @@ export default function EmbeddedAgriMap(props: Props) {
     mapWidgetId,
     webMapDataSourceId,
     webMapUseDataSource,
-    featureUseDataSources,
     onViewReady,
     onLoadingChange,
     onError,
@@ -198,18 +197,9 @@ export default function EmbeddedAgriMap(props: Props) {
     root.classList.toggle("agri-basemap-menu-open", basemapMenuOpen);
     return () => root.classList.remove("agri-basemap-menu-open");
   }, [basemapMenuOpen]);
-  const firstFeatureDataSourceId = String(
-    featureUseDataSources?.[0]?.dataSourceId || "",
-  );
-  const firstFeatureRootDataSourceId = String(
-    featureUseDataSources?.[0]?.rootDataSourceId || "",
-  );
-  const effectiveRootDataSourceId = String(
-    webMapDataSourceId ||
-      firstFeatureRootDataSourceId ||
-      firstFeatureDataSourceId.split("-")[0] ||
-      "",
-  );
+  // Only the WebMap chosen in the settings is opened. A selected feature
+  // layer's parent WebMap is NOT used as a silent fallback.
+  const effectiveRootDataSourceId = String(webMapDataSourceId || "").trim();
   const effectiveRootUseDataSource = webMapUseDataSource ||
     (effectiveRootDataSourceId
       ? {
@@ -397,7 +387,13 @@ export default function EmbeddedAgriMap(props: Props) {
         const ds = rootDataSource || (effectiveRootDataSourceId
           ? DataSourceManager.getInstance().getDataSource(effectiveRootDataSourceId)
           : null);
-        if (effectiveRootDataSourceId && !ds) return;
+        // No WebMap chosen in the settings: open nothing (no basemap-only map).
+        if (!effectiveRootDataSourceId) {
+          onLoadingChangeRef.current?.(false);
+          return;
+        }
+        // WebMap data source not created yet: the rootDataSource effect re-runs this.
+        if (!ds) return;
         if (ds) {
           try { await ds.ready?.(); } catch { /* WebMap loads from the portal item */ }
         }

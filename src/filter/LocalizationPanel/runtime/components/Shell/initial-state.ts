@@ -42,6 +42,8 @@ export function createInitialGeoState(): GeoWidgetState {
     notificationLoading: false,
     notificationError: null,
     notificationCanScrollDown: false,
+    // Field polygons are coloured by crop type from code (crop-renderer.ts),
+    // with the same colours as the "Ekin turi" pie.
     cropRendererMode: "on",
     graffSearchText: "",
     graffSearchSuggestions: [],

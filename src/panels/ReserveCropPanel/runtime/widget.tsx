@@ -146,6 +146,48 @@ function ReserveTable(props: { data: ReserveBarDatum[]; unit: string; caption: s
   );
 }
 
+/**
+ * Which ends of a sideways-scrolling row still hide columns. Drives the edge
+ * fades, so a narrow card shows there is more to scroll to.
+ */
+function useScrollEdges(
+  ref: React.RefObject<HTMLElement>,
+  deps: readonly unknown[],
+): { start: boolean; end: boolean } {
+  const [edges, setEdges] = React.useState({ start: false, end: false });
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const update = (): void => {
+      const max = el.scrollWidth - el.clientWidth;
+      const next = { start: el.scrollLeft > 1, end: max - el.scrollLeft > 1 };
+      setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+    };
+    // A vertical mouse wheel scrolls the row sideways while it overflows.
+    // Native listener: React's onWheel is passive and cannot preventDefault.
+    const onWheel = (event: WheelEvent): void => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      const before = el.scrollLeft;
+      el.scrollLeft += event.deltaY;
+      // Swallow it only when the row moved; at either end the page scrolls.
+      if (el.scrollLeft !== before) event.preventDefault();
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    el.addEventListener("wheel", onWheel, { passive: false });
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      el.removeEventListener("wheel", onWheel);
+      observer?.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return edges;
+}
+
 export default function ReserveCropPanel(props: { active: boolean }): JSX.Element {
   const { active } = props;
   const scope = useAgriLandScope();
@@ -237,6 +279,9 @@ export default function ReserveCropPanel(props: { active: boolean }): JSX.Elemen
     setReserveCropFilter(hit?.where ? { key: hit.key, where: hit.where } : null);
   }, [data, loading, selectedKey]);
 
+  const gridRef = React.useRef<HTMLDivElement>(null);
+  const edges = useScrollEdges(gridRef, [data, loading, error]);
+
   return (
     <div className={`agri-reserve-crop-card ${isDark ? "dark-theme" : "light-theme"}`}>
       <div className="agri-reserve-crop-title">{TITLE[language]}</div>
@@ -257,13 +302,25 @@ export default function ReserveCropPanel(props: { active: boolean }): JSX.Elemen
           <React.Fragment>
             {/* A refetch keeps the previous bars, dimmed, instead of flashing a loader. */}
             <div
-              className={`agri-reserve-crop-grid${loading ? " is-refreshing" : ""}${selectedKey ? " has-selection" : ""}`}
+              ref={gridRef}
+              className={[
+                "agri-reserve-crop-grid",
+                loading ? "is-refreshing" : "",
+                selectedKey ? "has-selection" : "",
+                edges.start ? "has-more-start" : "",
+                edges.end ? "has-more-end" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               role="list"
               aria-label={TITLE[language]}
               aria-busy={loading}
               // Every crop gets a column; past the card width the row scrolls sideways
-              // instead of squeezing names into ellipses.
-              style={{ gridTemplateColumns: `repeat(${data.length}, minmax(var(--reserve-col-min), 1fr))` }}
+              // instead of squeezing names into ellipses. Column bounds scale with
+              // the card (container units in ReserveCrop.css).
+              style={{
+                gridTemplateColumns: `repeat(${data.length}, minmax(var(--reserve-col-min), var(--reserve-col-max)))`,
+              }}
             >
               {data.map((item, index) => (
                 <ReserveColumn

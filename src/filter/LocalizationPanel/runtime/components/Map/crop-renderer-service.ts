@@ -285,8 +285,9 @@ export const applyCropRenderer = async (host: LocalizationHost, requestId: numbe
 };
 
 export const syncCropRenderer = async (host: LocalizationHost): Promise<void> => {
-  // Crop colors are a permanent map style; every filter/layer change reapplies
-  // them to the currently visible live sublayers.
+  // On by default (initial-state.ts): every filter/layer change reapplies the
+  // crop palette to the currently visible live sublayers.
+  if (host.state.cropRendererMode !== "on") return;
   const requestId = ++host._cropRendererRequestId;
   await host.applyCropRenderer(requestId);
 };

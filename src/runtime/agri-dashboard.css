@@ -2618,11 +2618,12 @@ body.light-theme .agri-dashboard-v3 .land-category-card.light-theme {
   min-width: 0 !important;
 }
 
-/* Panel titles — same size/weight across Region / Ekin / Index / VH */
+/* Panel titles — same size/weight across Region / Ekin / Index / VH / Zaxira */
 .agri-dashboard-v3 .agri-v11-regional-stats-header-title,
 .agri-dashboard-v3 .land-category-title,
 .agri-dashboard-v3 .graff-index-top-label,
-.agri-dashboard-v3 .construction-years-header-title {
+.agri-dashboard-v3 .construction-years-header-title,
+.agri-dashboard-v3 .agri-reserve-crop-title {
   font-size: 14px !important;
   font-weight: 700 !important;
   letter-spacing: 0.04em !important;

@@ -47,6 +47,36 @@ export function toMutableUseDataSources(value: unknown): UseDataSource[] {
   return Array.from((value as ArrayLike<UseDataSource>) || []);
 }
 
+/**
+ * The WebMap the widget settings connect, or "" when they connect none:
+ * 1. the WebMap picked in "ArcGIS Web Map" (must still be a selected source);
+ * 2. else the WebMap whose layers were picked in "Select data"
+ *    (the selected layers' rootDataSourceId).
+ * With nothing selected there is no map and the dashboard loads no data.
+ * `getRootType` (optional) reads a data source type from the app config so a
+ * layer of a plain map service is not taken for a WebMap.
+ */
+export function getConnectedWebMapId(
+  baseConfig: Record<string, unknown>,
+  useDataSources: unknown,
+  getRootType?: (dataSourceId: string) => string | undefined,
+): string {
+  const sources = toMutableUseDataSources(useDataSources);
+  const webMapId = String(baseConfig?.webMapDataSourceId || "").trim();
+  if (webMapId) {
+    return sources.some((source) => String(source?.dataSourceId || "") === webMapId)
+      ? webMapId
+      : "";
+  }
+  for (const source of sources) {
+    const rootId = String(source?.rootDataSourceId || "").trim();
+    if (!rootId || rootId === String(source?.dataSourceId || "")) continue;
+    const type = getRootType?.(rootId);
+    if (type === undefined || type === "WEB_MAP") return rootId;
+  }
+  return "";
+}
+
 /** Plain config handed to the embedded Indicator (crop area) panel. */
 export function buildIndicatorChildConfig(
   baseConfig: Record<string, unknown>,

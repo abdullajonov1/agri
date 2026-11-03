@@ -1,6 +1,7 @@
 import {
   buildIndicatorChildConfig,
   buildPopupChildConfig,
+  getConnectedWebMapId,
   hasAsMutableFn,
   leftPanelWidthCss,
   mapSurfaceLoadingSafetyMs,
@@ -175,5 +176,32 @@ describe("layout sizing", () => {
     expect(mapSurfaceLoadingSafetyMs("vegetation-raster-cancel")).toBe(28000);
     expect(mapSurfaceLoadingSafetyMs("region")).toBe(12000);
     expect(mapSurfaceLoadingSafetyMs(undefined)).toBe(12000);
+  });
+});
+
+describe("getConnectedWebMapId", () => {
+  test("returns the WebMap chosen in the settings when it is a selected data source", () => {
+    expect(getConnectedWebMapId({ webMapDataSourceId: "wm" }, [{ dataSourceId: "fl" }, { dataSourceId: "wm" }])).toBe("wm");
+    expect(getConnectedWebMapId({ webMapDataSourceId: " wm " }, immutableLike([{ dataSourceId: "wm" }]))).toBe("wm");
+  });
+
+  test("layers picked in Select data connect their parent WebMap", () => {
+    const layers = [{ dataSourceId: "wm-layer1", rootDataSourceId: "wm" }];
+    expect(getConnectedWebMapId({}, layers)).toBe("wm");
+    expect(getConnectedWebMapId({ webMapDataSourceId: "" }, layers, () => "WEB_MAP")).toBe("wm");
+  });
+
+  test("a layer of a plain map service, or one with no parent, connects nothing", () => {
+    expect(getConnectedWebMapId({}, [{ dataSourceId: "ms-layer1", rootDataSourceId: "ms" }], () => "MAP_SERVICE")).toBe("");
+    expect(getConnectedWebMapId({}, [{ dataSourceId: "fl", rootDataSourceId: "fl" }, { dataSourceId: "fl2" }])).toBe("");
+  });
+
+  test("is empty with nothing selected", () => {
+    expect(getConnectedWebMapId({ webMapDataSourceId: "" }, undefined)).toBe("");
+    expect(getConnectedWebMapId({}, [])).toBe("");
+  });
+
+  test("is empty when the configured WebMap was removed from the data sources", () => {
+    expect(getConnectedWebMapId({ webMapDataSourceId: "wm" }, [{ dataSourceId: "fl" }])).toBe("");
   });
 });

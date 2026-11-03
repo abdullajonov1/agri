@@ -11,6 +11,9 @@
   min-height: 0;
   padding: 12px 16px 10px;
   border-radius: var(--agri-widget-radius);
+  /* Sizes below follow this card (cqi / @container), not the viewport: the
+     Graff slot is 2fr of the bottom row on desktop and full width on phones. */
+  container: agri-reserve-crop / size;
   background: var(--agri-widget-panel-bg, #1f2030);
   color: #e9f8ff;
   --reserve-surface: var(--agri-widget-panel-bg, #1f2030);
@@ -42,8 +45,15 @@
 .agri-reserve-crop-title {
   flex: 0 0 auto;
   margin-bottom: 10px;
+  /* Same title look as VH / Region / Ekin / Index (agri-dashboard.css). */
   font-size: 14px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .agri-reserve-crop-body {
@@ -61,12 +71,35 @@
   /* Like VH: no gap; each column pads 4px, so bars sit ~8px apart. */
   column-gap: 0;
   align-items: stretch;
-  --reserve-col-min: 84px;
+  /* Column width bounds scale with the card. Few crops: columns stop at the
+     max and the group is centred (safe: an overflowing row still starts at 0). */
+  --reserve-col-min: clamp(64px, 11cqi, 96px);
+  --reserve-col-max: clamp(110px, 24cqi, 200px);
+  justify-content: safe center;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--reserve-ring-track) transparent;
   transition: opacity 200ms ease;
+}
+
+/* Faded edge where more columns hide off-card (set from scroll position). */
+.agri-reserve-crop-grid.has-more-end {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.agri-reserve-crop-grid.has-more-start {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 32px);
+  mask-image: linear-gradient(to right, transparent, #000 32px);
+}
+
+.agri-reserve-crop-grid.has-more-start.has-more-end {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
 }
 
 .agri-reserve-crop-grid.is-refreshing {
@@ -86,6 +119,7 @@
   padding: 2px 4px 0;
   border-radius: 12px;
   cursor: pointer;
+  scroll-snap-align: start;
   transition: opacity 180ms ease, background-color 180ms ease;
 }
 
@@ -141,7 +175,7 @@
 }
 
 .agri-reserve-crop-value {
-  font-size: clamp(13px, 1.15vw, 15px);
+  font-size: clamp(12px, 1.4cqi + 6px, 16px);
   line-height: 1.15;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -159,7 +193,7 @@
 
 .agri-reserve-crop-label {
   max-width: 100%;
-  font-size: 12.5px;
+  font-size: clamp(11px, 0.9cqi + 6px, 13.5px);
   font-weight: 500;
   line-height: 1.2;
   color: var(--reserve-text-2);
@@ -177,7 +211,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: clamp(10px, 0.6cqi + 6px, 11.5px);
   font-weight: 500;
   color: var(--reserve-text-3);
   font-variant-numeric: tabular-nums;
@@ -228,6 +262,8 @@
 .agri-reserve-crop-track {
   position: relative;
   width: 100%;
+  /* Wide columns (few crops) keep a bar shape instead of a slab. */
+  max-width: 120px;
   height: 100%;
   overflow: hidden;
   border-radius: 14px;
@@ -317,6 +353,58 @@
   }
   .agri-reserve-crop-col {
     transition: none;
+  }
+}
+
+/* ---- card size steps ---- */
+
+/* Narrow card (phone / small tablet column). */
+@container agri-reserve-crop (max-width: 460px) {
+  .agri-reserve-crop-title {
+    margin-bottom: 6px;
+  }
+  .agri-reserve-crop-col {
+    padding: 2px 2px 0;
+  }
+  .agri-reserve-crop-track,
+  .agri-reserve-crop-bar {
+    border-radius: 10px;
+  }
+}
+
+/* Short card: drop the share ring row, tighten the header and the plot. */
+@container agri-reserve-crop (max-height: 230px) {
+  .agri-reserve-crop-title {
+    margin-bottom: 4px;
+  }
+  .agri-reserve-crop-head {
+    gap: 0;
+    padding-top: 2px;
+  }
+  .agri-reserve-crop-share {
+    display: none;
+  }
+  .agri-reserve-crop-plot {
+    min-height: 28px;
+    padding: 4px 0 4px;
+  }
+}
+
+/* Very short card: the bars matter most; the list keeps its aria-label. */
+@container agri-reserve-crop (max-height: 170px) {
+  .agri-reserve-crop-title {
+    display: none;
+  }
+  .agri-reserve-crop-col:not(:last-child)::after {
+    top: 6px;
+    bottom: 6px;
+  }
+}
+
+/* The card padding cannot use its own cqi; step it with the slot instead. */
+@media (max-width: 860px) {
+  .agri-reserve-crop-card {
+    padding: 10px 10px 8px;
   }
 }
 

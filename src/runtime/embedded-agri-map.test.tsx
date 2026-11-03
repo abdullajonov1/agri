@@ -123,7 +123,7 @@ const mount = (props: Partial<React.ComponentProps<typeof EmbeddedAgriMap>> = {}
   const cb: Callbacks = { onViewReady: jest.fn(), onLoadingChange: jest.fn(), onError: jest.fn() };
   const utils = render(
     <div className="agri-dashboard-map-slot">
-      <EmbeddedAgriMap mapWidgetId="w1-embedded-map" {...cb} {...props} />
+      <EmbeddedAgriMap mapWidgetId="w1-embedded-map" webMapDataSourceId="wm" {...cb} {...props} />
     </div>,
   );
   return { ...utils, ...cb };
@@ -145,7 +145,10 @@ describe("EmbeddedAgriMap", () => {
     mockLoad.mockReset();
     mockLoad.mockResolvedValue([FakeMapCtor, FakeMapCtor, FakeViewCtor, class { constructor(public args: unknown) {} }]);
     mockViewManager.mockReturnValue({ createJimuMapView: state.createJimu, destroyJimuMapView: state.destroyJimu });
-    mockDsManager.mockReturnValue({ getDataSource: jest.fn((): null => null) });
+    // The settings WebMap ("wm") exists but has no portal item: basemap-only map.
+    mockDsManager.mockReturnValue({
+      getDataSource: jest.fn((id: string) => (id === "wm" ? { ready: async (): Promise<void> => undefined } : null)),
+    });
     window.localStorage.clear();
     document.documentElement.className = "";
     jest.mocked(setAgriAdminBordersVisible).mockClear();
@@ -341,11 +344,17 @@ describe("EmbeddedAgriMap", () => {
     window.removeEventListener("agri-main:map-settings-request", listener);
   });
 
-  test("feature layer root ids are used when no web map is configured", async () => {
+  test("without a WebMap chosen in the settings no map is built, even with feature layers", async () => {
     const getDataSource = jest.fn(() => ({ ready: async (): Promise<void> => undefined }));
     mockDsManager.mockReturnValue({ getDataSource });
-    const cb = mount({ featureUseDataSources: [{ dataSourceId: "root-layer1" } as never] });
-    await readyView(cb);
-    expect(getDataSource).toHaveBeenCalledWith("root");
+    const cb = mount({
+      webMapDataSourceId: "",
+      featureUseDataSources: [{ dataSourceId: "root-layer1", rootDataSourceId: "root" } as never],
+    });
+    await waitFor(() => expect(cb.onLoadingChange).toHaveBeenLastCalledWith(false));
+    expect(getDataSource).not.toHaveBeenCalledWith("root");
+    expect(mockLoad).not.toHaveBeenCalled();
+    expect(state.views).toHaveLength(0);
+    expect(cb.onViewReady).not.toHaveBeenCalled();
   });
 });

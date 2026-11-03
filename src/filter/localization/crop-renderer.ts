@@ -1,7 +1,12 @@
 /**
  * Crop polygon renderer palette helpers for LocalizationPanel.
  * Pure helpers — symbol objects are plain JSON for ArcGIS SimpleFillSymbol.
+ *
+ * Field colour = the crop's colour in the "Ekin turi" pie, so the map and the
+ * chart legend always agree (see resolveCropRendererColor).
  */
+import { CROP_COLOR_MAP, getCropCanonicalKey } from "../../shared/agri-crop-labels";
+import { getPieCropColor } from "../../shared/agri-crop-color-registry";
 
 export type CropRendererMode = "off" | "on";
 
@@ -63,6 +68,15 @@ export function normalizeCropKey(raw: string): string {
 export function resolveCropRendererColor(raw: unknown): string {
   const key = normalizeCropKey(String(raw ?? ""));
   if (!key) return "#78909C";
+
+  // 1) The colour the pie actually painted this crop (covers crops outside
+  //    the fixed map, which the pie colours by slice position).
+  const pieColor = getPieCropColor(raw);
+  if (pieColor) return pieColor;
+  // 2) The shared crop colour map the pie and the other charts use
+  //    (canonical key folds Буғдой / Bug'doy / bugdoy together).
+  const shared = CROP_COLOR_MAP[getCropCanonicalKey(raw)];
+  if (shared) return shared;
 
   const exact = CROP_RENDERER_ITEMS.find(
     (item) => normalizeCropKey(item.value) === key,

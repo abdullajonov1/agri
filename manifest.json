@@ -1,11 +1,11 @@
 {
   "name": "Agro_widgetV5",
-  "label": "Space Agro Monitoring V6.3.1",
+  "label": "Space Agro Monitoring V6.3.2",
   "type": "widget",
-  "version": "6.3.1",
+  "version": "6.3.2",
   "exbVersion": "1.16.0",
   "author": "abdullajonov1",
-  "description": "Space Agro Monitoring. Portal package: https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.json — Reserve / unused land layers, reserve crop chart with map filter. 6.3.1: settings panel works on Portal 12.0 (ExB 1.18).",
+  "description": "Space Agro Monitoring. Portal package: https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.json — Reserve / unused land layers, reserve crop chart with map filter. 6.3.2: map connects only via settings (WebMap or its layers in Select data), map fields coloured by crop like the pie, responsive reserve card.",
   "copyright": "",
   "license": "",
   "properties": {
