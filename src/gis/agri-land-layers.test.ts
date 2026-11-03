@@ -139,6 +139,33 @@ describe("syncAgriLandLayers", () => {
     expect(r.definitionExpression.endsWith(") AND (turi IN ('Paxta'))")).toBe(true);
   });
 
+  it("colours the filtered layer before showing it", async () => {
+    const r = reserve();
+    const seen: Array<[string, boolean]> = [];
+    const beforeShow = jest.fn(async (layer: __esri.FeatureLayer) => {
+      seen.push([layer.definitionExpression, layer.visible]);
+    });
+    await syncAgriLandLayers(viewOf([r]), "reserve", SCOPE, "", beforeShow);
+    expect(seen).toHaveLength(1);
+    expect(seen[0][0]).toContain("yil LIKE '2026%'");
+    expect(seen[0][1]).toBe(false);
+    expect(r.visible).toBe(true);
+  });
+
+  it("still shows the polygons when colouring fails", async () => {
+    const u = unused();
+    await syncAgriLandLayers(viewOf([u]), "unused", SCOPE, "", async () => {
+      throw new Error("no rows");
+    });
+    expect(u.visible).toBe(true);
+  });
+
+  it("does not colour a layer with nothing to show", async () => {
+    const beforeShow = jest.fn(async () => undefined);
+    await syncAgriLandLayers(viewOf([reserve()]), "reserve", { ...SCOPE, yil: "" }, "", beforeShow);
+    expect(beforeShow).not.toHaveBeenCalled();
+  });
+
   it("ignores a crop pick for the unused layer and before a year is known", async () => {
     const u = unused();
     await syncAgriLandLayers(viewOf([u]), "unused", SCOPE, "turi IN ('Paxta')");

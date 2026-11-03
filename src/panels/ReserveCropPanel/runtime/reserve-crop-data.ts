@@ -57,7 +57,8 @@ export function toReserveCropRows(
   const byKey = new Map<string, ReserveCropRow>();
   for (const feature of features) {
     const attrs = feature?.attributes || {};
-    const maydon = Number(attrs.sum_m);
+    // sum_m = summed area; cnt_m = polygon count when the layer has no area field.
+    const maydon = Number(attrs.sum_m ?? attrs.cnt_m);
     if (!(maydon > 0)) continue;
     const turi = String(attrs.turi ?? "").trim();
     const cropId = String(attrs.crop_id ?? "").trim();
@@ -120,6 +121,23 @@ export function buildReserveCropWhere(
 
 export async function queryReserveCropRows(scope: AgriLandScope): Promise<ReserveCropRow[]> {
   const { layer } = await getAgriReserveLandLayer();
+  return queryLandCropRows(layer, scope, "maydon");
+}
+
+/**
+ * Crop rows of any land layer (reserve / unused) for `scope`, merged the same
+ * way as the reserve chart. [] when the layer has no `turi` column. Without an
+ * area field the rows are weighted by polygon count.
+ */
+export async function queryLandCropRows(
+  layer: __esri.FeatureLayer,
+  scope: AgriLandScope,
+  areaField: string | null,
+): Promise<ReserveCropRow[]> {
+  const hasTuri = (Array.isArray(layer.fields) ? layer.fields : []).some(
+    (field) => String(field?.name || "").toLowerCase() === "turi",
+  );
+  if (!hasTuri) return [];
   const where = buildLandLayerWhere(layer, scope);
   if (!where) return [];
   const features = await getRegionGroupFeaturesCached({
@@ -127,8 +145,8 @@ export async function queryReserveCropRows(scope: AgriLandScope): Promise<Reserv
     where,
     groupField: "turi",
     codeField: "crop_id",
-    statMode: "sum",
-    areaField: "maydon",
+    statMode: areaField ? "sum" : "count",
+    areaField,
   });
   const needsNames = features.some((feature) =>
     needsCropLookup(String(feature?.attributes?.turi ?? "").trim()),

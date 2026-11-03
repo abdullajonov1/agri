@@ -197,21 +197,29 @@ export function holdInactiveLandLayersHidden(
 
 let latestSync = 0;
 
-/** Show only `active`, filtered to `scope`; the other land layer is hidden. */
+/**
+ * Show only `active`, filtered to `scope`; the other land layer is hidden.
+ * Resolves to the layer now on the map, or null (nothing shown / superseded).
+ */
 export async function syncAgriLandLayers(
   view: __esri.MapView,
   active: AgriLandOverlay | null,
   scope: AgriLandScope,
   /** Reserve only: the crop clicked on the reserve chart. */
   reserveCropWhere = "",
-): Promise<void> {
+  /**
+   * Runs on the filtered layer before it is shown (crop colours). A failure
+   * keeps the layer's own renderer; `isStale` is true once a newer sync began.
+   */
+  beforeShow?: (layer: __esri.FeatureLayer, isStale: () => boolean) => Promise<unknown>,
+): Promise<__esri.FeatureLayer | null> {
   const sync = ++latestSync;
   const map = view.map;
-  if (!map) return;
+  if (!map) return null;
 
   hideInactiveLandLayers(map, active);
   // Switched off: no layer is created, loaded or queried.
-  if (!active) return;
+  if (!active) return null;
 
   // Only the land polygons stay on the map. Localization brings the field
   // layers back (repaint on overlay change) once the overlay is switched off.
@@ -228,14 +236,24 @@ export async function syncAgriLandLayers(
   if (isRepublicLandScope(scope)) {
     const layer = findMapLandLayer(map, active);
     if (layer) layer.visible = false;
-    return;
+    return null;
   }
 
   const layer = findMapLandLayer(map, active) || (await addLandLayer(map, active));
   await layer.load();
-  if (sync !== latestSync) return;
+  if (sync !== latestSync) return null;
   const where = buildLandLayerWhere(layer, scope);
   const crop = active === "reserve" ? reserveCropWhere.trim() : "";
   layer.definitionExpression = !where ? "1=0" : crop ? `(${where}) AND (${crop})` : where;
+  if (where && beforeShow) {
+    const isStale = (): boolean => sync !== latestSync;
+    try {
+      await beforeShow(layer, isStale);
+    } catch {
+      /* colours only — show the polygons anyway */
+    }
+    if (isStale()) return null;
+  }
   layer.visible = true;
+  return where ? layer : null;
 }

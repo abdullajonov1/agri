@@ -8,7 +8,9 @@
 #   widgets/chunks/...
 #
 # After code changes:
-#   1) npm start / build so client/dist/... is fresh
+#   1) in client/ (dist-prod must be newer than src/):
+#        NODE_ENV=production OUTPUT_FOLDER=./dist-prod npx webpack --mode production \
+#          --config your-extensions/widgets/Agri3/Agro_widgetV5/scripts/webpack.prod-only.js
 #   2) bash scripts/publish-agri.sh
 #   3) Portal → Custom widgets → Agro_widgetV6 → Update
 #      (Pages updates immediately; Portal caches until Update)
@@ -48,16 +50,34 @@ VERSION="${VERSION:-6.1.2}"
 
 # Chunks must come from the same build as the widget: dev and prod builds use
 # different module ids, so mixing them breaks lazy import() in Portal.
+#
+# Portal gets the production build (minified, no inline source maps): the dev
+# build is ~22 MB and kept the page white ~2 s longer (measured 2026-11-03).
+# A prod build older than the source is refused, so a stale dist-prod is never
+# published silently. ALLOW_DEV_BUILD=1 publishes the dev build instead.
 SRC=""
 CHUNKS=""
-if [ -d "$PROD_SRC/dist" ]; then
-  SRC="$PROD_SRC"
-  CHUNKS="$PROD_CHUNKS"
-elif [ -d "$DIST_SRC/dist" ]; then
+PROD_WIDGET_JS="$PROD_SRC/dist/runtime/widget.js"
+if [ "${ALLOW_DEV_BUILD:-}" = "1" ]; then
+  if [ ! -d "$DIST_SRC/dist" ]; then
+    echo "No dev build found. Run the EXB client (npm start) first."
+    exit 1
+  fi
+  echo "WARNING: publishing the DEV build (large, slow first load)."
   SRC="$DIST_SRC"
   CHUNKS="$CHUNKS_SRC"
+elif [ -f "$PROD_WIDGET_JS" ]; then
+  NEWER_SRC="$(find "$ROOT/src" "$ROOT/manifest.json" "$ROOT/config.json" -type f -newer "$PROD_WIDGET_JS" -print -quit)"
+  if [ -n "$NEWER_SRC" ]; then
+    echo "dist-prod is older than the source (e.g. $NEWER_SRC)."
+    echo "Rebuild: see the header of this script (webpack.prod-only.js), or ALLOW_DEV_BUILD=1."
+    exit 1
+  fi
+  SRC="$PROD_SRC"
+  CHUNKS="$PROD_CHUNKS"
 else
-  echo "No built widget found. Run EXB client (npm start) or build:prod first."
+  echo "No production build. See the header of this script (webpack.prod-only.js)."
+  echo "(or ALLOW_DEV_BUILD=1 bash scripts/publish-agri.sh to publish the dev build)"
   exit 1
 fi
 if [ ! -d "$CHUNKS" ]; then
@@ -128,12 +148,12 @@ if [ -f "$ROOT/.gitignore" ]; then cp "$ROOT/.gitignore" "$WORK/.gitignore"; fi
 cat > "$WORK/widgets/Agro_widgetV6/manifest.json" <<EOF
 {
   "name": "Agro_widgetV6",
-  "label": "Space Agro Monitoring V6",
+  "label": "Space Agro Monitoring V$VERSION",
   "type": "widget",
   "version": "$VERSION",
   "exbVersion": "1.16.0",
   "author": "abdullajonov1",
-  "description": "Agri portal package (single-date export-image, eager Graff+Popup). Source: https://github.com/abdullajonov1/agri",
+  "description": "Agri portal package $VERSION (built $(date -u +%Y-%m-%dT%H:%MZ)). Stable URL: $PAGES_URL. Source: https://github.com/abdullajonov1/agri",
   "copyright": "",
   "license": "",
   "properties": {

@@ -6,6 +6,7 @@ import {
   syncAgriLandLayers,
   useAgriLandScope,
 } from "../gis/agri-land-layers";
+import { applyLandCropRenderer } from "../gis/agri-land-crop-renderer";
 import {
   getAgriLandOverlay,
   toggleAgriLandOverlay,
@@ -79,7 +80,12 @@ export default function MapLandLayersPanel(props: Props): JSX.Element {
 
   React.useEffect(() => {
     if (!view) return;
-    void syncAgriLandLayers(view, overlay, scope, cropFilter?.where || "").catch(
+    // Polygons take the crop colours of the pie / reserve chart.
+    const colorByCrop = overlay
+      ? (layer: __esri.FeatureLayer, isStale: () => boolean) =>
+          applyLandCropRenderer(layer, overlay, scope, isStale)
+      : undefined;
+    void syncAgriLandLayers(view, overlay, scope, cropFilter?.where || "", colorByCrop).catch(
       (): undefined => undefined,
     );
   }, [view, overlay, scope, cropFilter]);

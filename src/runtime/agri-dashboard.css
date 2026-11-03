@@ -220,6 +220,16 @@ body.light-theme .agri-dashboard-land-panel {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* The parked Zaxira pane (translateY(100%)) gives an overflow:hidden box a
+     100% scroll range: scrollIntoView / focus could slide Graff up and cut its
+     title. clip = same look, but never scrollable. */
+  overflow: clip;
+}
+
+/* Same for the cards inside (beats `.agri-dashboard-v3 .kadastr-status-card`). */
+.agri-dashboard-graff-swap .agri-dashboard-graff-swap-pane .kadastr-status-card,
+.agri-dashboard-graff-swap .agri-dashboard-graff-swap-pane .agri-reserve-crop-card {
+  overflow: clip !important;
 }
 
 .agri-dashboard-graff-swap-pane {

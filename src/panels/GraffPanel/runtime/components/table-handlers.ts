@@ -22,19 +22,22 @@ export const scrollSelectedRowIntoCenter = (host: GraffWidgetHost): void => {
       ) || null;
   }
   if (!row) return;
-  try {
-    row.scrollIntoView({
-      block: "center",
-      behavior: "smooth",
-      inline: "nearest",
-    });
-  } catch {
-    const rowTop = row.offsetTop;
-    const nextTop = Math.max(
-      0,
-      rowTop + row.offsetHeight / 2 - container.clientHeight / 2,
-    );
+  // Scroll ONLY the table container. row.scrollIntoView() also scrolls every
+  // overflow:hidden ancestor (card, Graff/Zaxira swap slot, ExB page) when the
+  // row cannot be centred (last rows of a page) — the whole card then slides
+  // up and the "JADVAL" title / header get cut off on the portal.
+  const rowRect = row.getBoundingClientRect();
+  const boxRect = container.getBoundingClientRect();
+  const rowTopInContainer = rowRect.top - boxRect.top + container.scrollTop;
+  const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+  const nextTop = Math.min(
+    maxTop,
+    Math.max(0, rowTopInContainer + rowRect.height / 2 - container.clientHeight / 2),
+  );
+  if (typeof container.scrollTo === "function") {
     container.scrollTo({ top: nextTop, behavior: "smooth" });
+  } else {
+    container.scrollTop = nextTop;
   }
 };
 

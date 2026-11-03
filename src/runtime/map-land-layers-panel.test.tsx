@@ -11,6 +11,11 @@ jest.mock("../gis/agri-land-layers", () => ({
     !scope.viloyat && !scope.lockedViloyat,
 }));
 
+const mockColor = jest.fn(async (): Promise<boolean> => true);
+jest.mock("../gis/agri-land-crop-renderer", () => ({
+  applyLandCropRenderer: (...args: unknown[]): Promise<boolean> => mockColor(...(args as [])),
+}));
+
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { React } from "jimu-core";
 import MapLandLayersPanel from "./map-land-layers-panel";
@@ -57,17 +62,32 @@ describe("MapLandLayersPanel", () => {
   it("applies the overlay and scope to the map view", () => {
     render(<MapLandLayersPanel language="uz_lat" view={view} />);
     fireEvent.click(toggleOf("Zaxira maydonlari"));
-    expect(mockSync).toHaveBeenLastCalledWith(view, "reserve", mockScope, "");
+    expect(mockSync).toHaveBeenLastCalledWith(view, "reserve", mockScope, "", expect.any(Function));
   });
 
   it("passes the crop picked on the reserve chart to the map", () => {
     render(<MapLandLayersPanel language="uz_lat" view={view} />);
     fireEvent.click(toggleOf("Zaxira maydonlari"));
     act(() => setReserveCropFilter({ key: "Paxta", where: "turi IN ('Paxta')" }));
-    expect(mockSync).toHaveBeenLastCalledWith(view, "reserve", mockScope, "turi IN ('Paxta')");
+    expect(mockSync).toHaveBeenLastCalledWith(
+      view, "reserve", mockScope, "turi IN ('Paxta')", expect.any(Function),
+    );
     // Leaving reserve drops the pick.
     fireEvent.click(toggleOf("Foydalanilmagan yer"));
-    expect(mockSync).toHaveBeenLastCalledWith(view, "unused", mockScope, "");
+    expect(mockSync).toHaveBeenLastCalledWith(view, "unused", mockScope, "", expect.any(Function));
+  });
+
+  it("colours the shown land layer by crop for its overlay and scope", async () => {
+    render(<MapLandLayersPanel language="uz_lat" view={view} />);
+    fireEvent.click(toggleOf("Foydalanilmagan yer"));
+    const colorByCrop = (mockSync.mock.calls as unknown[][]).pop()?.[4] as (
+      layer: unknown,
+      isStale: () => boolean,
+    ) => Promise<unknown>;
+    const layer = {};
+    const isStale = (): boolean => false;
+    await colorByCrop(layer, isStale);
+    expect(mockColor).toHaveBeenCalledWith(layer, "unused", mockScope, isStale);
   });
 
   it("waits for the map view", () => {
