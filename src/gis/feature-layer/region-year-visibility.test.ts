@@ -8,6 +8,7 @@ jest.mock("jimu-arcgis", () => ({
 
 import { preloadRegionYearMapImages, syncRegionYearLayerVisibility } from "./region-year-visibility";
 import type { AgriLayerLike, AgriMapLike } from "../agri-layer-types";
+import { setAgriLandOverlay } from "../../store/agri-land-overlay-store";
 import { collection, fields, makeLayer } from "./__test-utils__/fake-layer";
 
 const polyFields = fields(["distrct_id", "esriFieldTypeInteger"], ["turi", "esriFieldTypeString"]);
@@ -67,6 +68,23 @@ describe("syncRegionYearLayerVisibility", () => {
     expect(fergana2025.definitionExpression).toContain("turi='paxta'");
     expect(andijan2025.visible).toBe(false);
     expect(fergana2024.visible).toBe(false);
+  });
+
+  test("a land overlay keeps the matched layer filtered but hidden", () => {
+    const { map, fergana2025 } = buildMap();
+    setAgriLandOverlay("unused");
+    try {
+      const shown = syncRegionYearLayerVisibility(map, {
+        yil: "2025",
+        viloyat: "Farg'ona",
+        turi: "paxta",
+      });
+      expect(shown.map((s) => s.layer)).toEqual([fergana2025]);
+      expect(fergana2025.visible).toBe(false);
+      expect(fergana2025.definitionExpression).toContain("turi='paxta'");
+    } finally {
+      setAgriLandOverlay(null);
+    }
   });
 
   test("without a region every region-year layer is hidden", () => {

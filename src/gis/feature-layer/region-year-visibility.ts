@@ -7,6 +7,7 @@ import { type AgriFilters, type ShownRegionYearLayer, regionYearLog, haystackMat
 import { collectRegionYearLeafLayers, buildSublayerDefinitionExpression, forceSublayersVisible } from "./layer-lookup";
 import { haystackMatchesRegion } from "./haystack-scoring";
 import type { AgriLayerLike, AgriMapLike } from "../agri-layer-types";
+import { getAgriLandOverlay } from "../../store/agri-land-overlay-store";
 
 /**
  * Toggles visibility of region+year map layers (e.g. "agri andijan 2026
@@ -173,9 +174,12 @@ export function syncRegionYearLayerVisibility(
     });
   }
 
+  // A reserve / unused land overlay owns the map: the matched field layers
+  // keep their filters (and stay in `shown` for zoom) but are not painted.
+  const landOverlayOn = getAgriLandOverlay() != null;
   for (const layer of pendingShow) {
     try {
-      layer.visible = true;
+      layer.visible = !landOverlayOn;
     } catch {
       /* ignore */
     }

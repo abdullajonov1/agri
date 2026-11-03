@@ -1,5 +1,5 @@
 import {
-  type AllDataSourceTypes,
+  AllDataSourceTypes,
   DataSourceManager,
   DataSourceTypes,
   Immutable,
@@ -7,7 +7,6 @@ import {
   type UseDataSource,
 } from "jimu-core";
 import { type AllWidgetSettingProps } from "jimu-for-builder";
-import { ArcGISDataSourceTypes } from "jimu-arcgis";
 import { DataSourceSelector } from "jimu-ui/advanced/data-source-selector";
 import { Label, NumericInput, Switch, TextInput } from "jimu-ui";
 import { type Config, type IMConfig, type IndicatorChildConfig } from "../config";
@@ -28,11 +27,12 @@ export default class Setting extends React.PureComponent<
     DataSourceTypes.MapService,
   ]);
   /**
-   * jimu-arcgis declares its own WebMap enum; the selector is typed with
-   * jimu-core's copy. Both carry the same runtime value ("WEB_MAP").
+   * Take WebMap from jimu-core's AllDataSourceTypes, not jimu-arcgis:
+   * Portal 12.0 (ExB 1.18) no longer exports ArcGISDataSourceTypes from
+   * jimu-arcgis, so reading `.WebMap` on it crashed the settings panel.
    */
   private readonly webMapTypes = Immutable.from<AllDataSourceTypes[]>([
-    ArcGISDataSourceTypes.WebMap as string as AllDataSourceTypes,
+    AllDataSourceTypes.WebMap,
   ]);
 
   componentDidMount(): void {
@@ -189,13 +189,14 @@ export default class Setting extends React.PureComponent<
       { key: "adminDistrictsUrl", label: "Admin districts URL" },
       { key: "reserveLandUrl", label: "Reserve land URL" },
       { key: "unusedLandUrl", label: "Unused land URL" },
+      { key: "cropPlanUrl", label: "Crop Agro plan (agri_crop) URL" },
     ];
     const allSources = this.toPlainArray(this.props.useDataSources) as UseDataSource[];
     const webMapId = String(cfg.webMapDataSourceId || "");
     const webMapSource = allSources.find((source) => source.dataSourceId === webMapId);
     const featureSources = allSources.filter((source) => {
       const ds = DataSourceManager.getInstance().getDataSource(source.dataSourceId);
-      return ds?.type !== ArcGISDataSourceTypes.WebMap && source.dataSourceId !== webMapId;
+      return ds?.type !== AllDataSourceTypes.WebMap && source.dataSourceId !== webMapId;
     });
 
     return (

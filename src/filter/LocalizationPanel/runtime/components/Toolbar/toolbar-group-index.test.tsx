@@ -126,6 +126,8 @@ describe("ToolbarGroup", () => {
     isDarkTheme: false,
     connectionStatus: "connected",
     showProfileMenu: false,
+    reportExporting: false,
+    onExportReport: jest.fn(),
     _notificationsToolbarItemRef: emptyRef(),
     _indexInfoToolbarItemRef: emptyRef(),
     _yilToolbarItemRef: emptyRef(),
@@ -136,6 +138,18 @@ describe("ToolbarGroup", () => {
     closeProfileMenu: jest.fn(),
     handleLogout: jest.fn(),
     ...over,
+  });
+
+  test("excel button sits before notifications and triggers export", () => {
+    const p = props();
+    render(<ToolbarGroup {...p} />);
+    const excel = screen.getByLabelText("Download Excel report");
+    const bell = screen.getByLabelText("Notifications");
+    expect(
+      excel.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    fireEvent.click(excel);
+    expect(p.onExportReport).toHaveBeenCalled();
   });
 
   test("toggles each toolbar menu from its button", () => {

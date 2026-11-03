@@ -19,6 +19,16 @@ describe("agroV5Log", () => {
   afterEach(() => {
     logSpy.mockRestore();
     for (const name of FLAG_NAMES) delete flags[name];
+    localStorage.clear();
+  });
+
+  test("localStorage flag survives a reload; window flag overrides it", () => {
+    localStorage.setItem("__AGRO_V5_VH_DEBUG", "true");
+    agroV5Log("q", undefined, "agriVh");
+    expect(logSpy).toHaveBeenCalledWith("[AgriVH] q", {});
+    flags.__AGRO_V5_VH_DEBUG = false;
+    agroV5Log("r", undefined, "agriVh");
+    expect(logSpy).toHaveBeenCalledTimes(1);
   });
 
   test("is silent by default for the 'all' topic", () => {

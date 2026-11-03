@@ -30,7 +30,7 @@ import {
 
 const computeMock = jest.mocked(executeVhBarCompute);
 const queryIdsMock = jest.mocked(queryVegetationUniqueIdsForStatus);
-const BAR: VHBarData = { items: [], total: 0 } as unknown as VHBarData;
+const BAR: VHBarData = { categories: [], totalCount: 5 };
 
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 5; i += 1) await Promise.resolve();
@@ -105,6 +105,28 @@ describe("vh-bar-prep", () => {
       await expect(computeVhBarData(host)).resolves.toBeNull();
       expect(host._vhBarComputeMemo.size).toBe(0);
     });
+
+    test("does not memoize all-zero results (codes may still be resolving)", async () => {
+      const zero = { categories: [], totalCount: 0 } as VHBarData;
+      const exec = jest.fn(() => Promise.resolve(zero));
+      const host = makeFakeHost({ makeVhBarComputeKey: () => "k", executeComputeVhBarData: exec });
+      await expect(computeVhBarData(host)).resolves.toBe(zero);
+      expect(host._vhBarComputeMemo.size).toBe(0);
+      await computeVhBarData(host);
+      expect(exec).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  test("makeVhBarComputeKey changes once STIR parcels resolve", () => {
+    const state = { yil: "2025", viloyat: "A", selectedFarmerInn: "123" };
+    const pending = JSON.parse(makeVhBarComputeKey(makeFakeHost({ state }))) as { farmerIdsSig: string };
+    expect(pending.farmerIdsSig).toBe("pending");
+    const ready = JSON.parse(
+      makeVhBarComputeKey(makeFakeHost({ state, _farmerMapUniqueIds: ["u1", "u2"] })),
+    ) as { farmerIdsSig: string };
+    expect(ready.farmerIdsSig).toBe("2:u1:u2");
+    const none = JSON.parse(makeVhBarComputeKey(makeFakeHost({ state: { yil: "2025" } }))) as { farmerIdsSig: string };
+    expect(none.farmerIdsSig).toBe("");
   });
 
   test("makeVhBarComputeKey includes turlar only when crop scopes the bar", () => {

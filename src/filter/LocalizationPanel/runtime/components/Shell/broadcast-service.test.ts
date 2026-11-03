@@ -100,11 +100,33 @@ describe("broadcastFilterState", () => {
   });
 
   test("reuses last VH data on VH-only toggles", () => {
-    const host = broadcastHost({ _reuseVhBarDataOnNextBroadcast: true, _lastVhBarData: BAR });
+    const host = broadcastHost({
+      _reuseVhBarDataOnNextBroadcast: true,
+      _lastVhBarData: BAR,
+      _lastVhBarDataKey: "key",
+    });
     broadcastFilterState(host);
     expect(events).toHaveLength(1);
     expect(events[0].vhBarData).toBe(BAR);
     expect(host._reuseVhBarDataOnNextBroadcast).toBe(false);
+    expect(jest.mocked(host.computeVhBarData)).not.toHaveBeenCalled();
+  });
+
+  test("recomputes instead of reusing when the bar scope changed", async () => {
+    // VH-first + crop, then VH cleared: crop now scopes the bar (new key).
+    const OLD = { items: [], total: 9 } as unknown as VHBarData;
+    const host = broadcastHost({
+      _reuseVhBarDataOnNextBroadcast: true,
+      _lastVhBarData: OLD,
+      _lastVhBarDataKey: "all-crops",
+    });
+    broadcastFilterState(host);
+    expect(events[0].vhBarData).toBeNull();
+    expect(events[0].vhBarDataPending).toBe(true);
+    await flush();
+    expect(jest.mocked(host.computeVhBarData)).toHaveBeenCalledTimes(1);
+    expect(events[1].vhBarData).toBe(BAR);
+    expect(host._lastVhBarDataKey).toBe("key");
   });
 
   test("uses memoized VH data without recomputing", () => {

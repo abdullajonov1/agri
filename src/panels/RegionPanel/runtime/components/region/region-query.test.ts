@@ -31,6 +31,10 @@ const mockMatchPack = jest.fn();
 jest.mock("../../../../../data/agri-dashboard-pack-match", () => ({
   matchRegionDashboardPack: (...a: unknown[]): unknown => mockMatchPack(...a) as unknown,
 }));
+const mockReserveLayer = { id: "reserve", loaded: true };
+jest.mock("../../../../../gis/agri-reserve-land-data-source", () => ({
+  getAgriReserveLandLayer: async (): Promise<unknown> => ({ layer: mockReserveLayer }),
+}));
 
 import type { DataSource } from "jimu-core";
 import type { JimuMapView } from "jimu-arcgis";
@@ -255,6 +259,22 @@ describe("queryAggregates", () => {
     expect(rows).toEqual([{ name: "Asaka", maydon: 4 }]);
     expect(mockGroupFeatures).toHaveBeenCalledWith(expect.objectContaining({ where: "W", codeField: null }));
   });
+
+  it("sums maydon on Agri_reserve_land while the reserve overlay is on", async () => {
+    mockGroupFeatures.mockResolvedValue([{ attributes: { viloyat: "Andijon", region: 1, sum_m: 7 } }]);
+    const h = makeStubHost({
+      reserveMode: true,
+      featureLayers: [{ id: "table", loaded: true }] as unknown as __esri.FeatureLayer[],
+      areaField: "ekin_maydon",
+      statMode: "count",
+    });
+    const rows = await queryAggregates(h, "viloyat", "W", "region");
+    expect(rows.map((r) => [r.name, r.maydon])).toEqual([["Andijon", 7]]);
+    expect(mockGroupFeatures).toHaveBeenCalledTimes(1);
+    expect(mockGroupFeatures).toHaveBeenCalledWith(
+      expect.objectContaining({ layer: mockReserveLayer, statMode: "sum", areaField: "maydon" }),
+    );
+  });
 });
 
 describe("fetchRegionalData", () => {
@@ -336,6 +356,15 @@ describe("fetchRegionalData", () => {
     });
   });
 
+  it("never uses the Agri_table pack for reserve bars", async () => {
+    mockMatchPack.mockReturnValue({ totalArea: 200, rows: [{ name: "P", maydon: 50, percentage: 25 }] });
+    const h = withHost({ reserveMode: true });
+    await fetchRegionalData(h);
+    expect(mockWaitPack).not.toHaveBeenCalled();
+    expect(h.queryAggregates).toHaveBeenCalledWith("viloyat", "W", "region");
+    expect(h.state.regionalData.totalArea).toBe(40);
+  });
+
   it("reports a load error", async () => {
     const h = withHost({}, { queryAggregates: jest.fn().mockRejectedValue(new Error("boom")) });
     await fetchRegionalData(h);
@@ -379,6 +408,14 @@ describe("fetchRegionalDataDeduped", () => {
     await fetchRegionalDataDeduped(h);
     expect(h.fetchRegionalData).toHaveBeenCalledTimes(1);
     h.state = { ...h.state, currentView: "tuman", selectedViloyatForDrillDown: "A" };
+    await fetchRegionalDataDeduped(h);
+    expect(h.fetchRegionalData).toHaveBeenCalledTimes(2);
+  });
+
+  it("refetches when the reserve overlay flips", async () => {
+    const h = makeStubHost({ currentFilters: { ...makeStubHost().state.currentFilters, yil: "2024" } });
+    await fetchRegionalDataDeduped(h);
+    h.state = { ...h.state, reserveMode: true };
     await fetchRegionalDataDeduped(h);
     expect(h.fetchRegionalData).toHaveBeenCalledTimes(2);
   });

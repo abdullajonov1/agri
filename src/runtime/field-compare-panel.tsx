@@ -244,10 +244,12 @@ export default function FieldComparePanel(props: Props): JSX.Element {
     document.addEventListener("widgetSelectionChanged", onSelection);
     document.addEventListener("graffDateIndexSelectionChanged", onDate);
     document.addEventListener("agriIndicatorsDrawerToggled", onIndicators);
+    document.addEventListener("agriLandLayersToggled", onIndicators);
     return () => {
       document.removeEventListener("widgetSelectionChanged", onSelection);
       document.removeEventListener("graffDateIndexSelectionChanged", onDate);
       document.removeEventListener("agriIndicatorsDrawerToggled", onIndicators);
+      document.removeEventListener("agriLandLayersToggled", onIndicators);
     };
   }, []);
 

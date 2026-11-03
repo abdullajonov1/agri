@@ -34,6 +34,8 @@ export type VhBarComputeKeyInput = {
   filterVhBarByCrop: boolean;
   /** Exact STIR filter from header search. */
   farmerInn?: string;
+  /** Which STIR parcel list the compute saw ("pending" before it resolves). */
+  farmerIdsSig?: string;
 };
 
 function normalizeNdviStatusKey(raw: string): string {
@@ -86,7 +88,8 @@ export function buildEmptyVhBarData(): VHBarData {
 
 /**
  * Aggregate vegetation service rows. Each uniqueid is already assigned to one
- * status (max px_all vote), so summing does not double-count polygons.
+ * status (its newest reading in the VH window), so summing does not
+ * double-count polygons.
  */
 export function aggregateVhServiceRows(
   rows: VhServiceStatusRow[],
@@ -152,7 +155,7 @@ export function aggregateVhRowsByPolygonArea(
 /** Stable memo/single-flight key for VH bar compute. */
 export function buildVhBarComputeKey(input: VhBarComputeKeyInput): string {
   return JSON.stringify({
-    algo: "ndvi-status-by-date-v2-max-per-region",
+    algo: "latest-status-10d-crop-season-v1",
     yil: String(input.yil || ""),
     viloyat: String(input.viloyat || ""),
     tuman: String(input.tuman || ""),
@@ -163,5 +166,7 @@ export function buildVhBarComputeKey(input: VhBarComputeKeyInput): string {
     ),
     filterVhBarByCrop: input.filterVhBarByCrop,
     farmerInn: String(input.farmerInn || "").trim(),
+    farmerIdsSig: String(input.farmerIdsSig || ""),
   });
 }
+

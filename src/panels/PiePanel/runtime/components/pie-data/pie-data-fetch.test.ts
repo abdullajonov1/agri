@@ -217,6 +217,26 @@ describe("_doFetchCategoryData", () => {
     expect(buildPieVhWhereChunks).toHaveBeenCalledWith(["x", "y"]);
   });
 
+  it("crop-first (filterPieByVh=false): a selected VH does not filter the pie", async () => {
+    const fetchPieCategoriesViaVegetation = jest.fn(() => Promise.resolve(true));
+    const buildPieVhWhereChunks = jest.fn(() => null);
+    const host = makeHost(
+      { filterPieByVh: false, vh: "Alo", viloyat: "V", turlar: ["1"], selectedCategories: ["1"] },
+      { fetchPieCategoriesViaVegetation, buildPieVhWhereChunks },
+    );
+    // Bridge still holds ids from an earlier VH-first pick — must be ignored.
+    mockVhIds.mockReturnValue(["x"]);
+    await _doFetchCategoryData(host);
+    expect(fetchPieCategoriesViaVegetation).not.toHaveBeenCalled();
+    expect(mockExpand).not.toHaveBeenCalled();
+    expect(buildPieVhWhereChunks).toHaveBeenCalledWith(null);
+    expect(host.buildWhereClauseForDS).toHaveBeenCalledWith(
+      expect.objectContaining({ includeCategory: false, includeViloyat: true }),
+    );
+    expect(host.state.categoryData.totalValue).toBe(100);
+    expect(host.state.selectedCategories).toEqual(["1"]);
+  });
+
   it("returns early after VH vegetation handled the pie", async () => {
     const host = makeHost(
       { filterPieByVh: true, vh: "Alo" },

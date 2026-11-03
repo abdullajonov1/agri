@@ -277,6 +277,34 @@ export default class AgriLocalization
     void logoutFromAccount();
   };
 
+  handleExportReport = (): void => {
+    if (this.state.reportExporting) return;
+    const yil = String(this.state.yil || "").trim();
+    if (!yil) {
+      this.setState({ error: "Excel uchun yil tanlang" });
+      return;
+    }
+    this.setState({ reportExporting: true, error: null });
+    void import("./components/Toolbar/report-export")
+      .then(({ exportAgriReport, resolveExportViloyat }) => {
+        const viloyat = resolveExportViloyat(this.state.viloyat, this.state.lockedViloyat);
+        return exportAgriReport({
+          yil,
+          viloyat,
+          tuman: viloyat ? String(this.state.tuman || "").trim() : "",
+        });
+      })
+      .catch((err: unknown) => {
+        if (!this._isMounted) return;
+        const message =
+          err instanceof Error ? err.message : String(err || "Excel export failed");
+        this.setState({ error: message });
+      })
+      .finally(() => {
+        if (this._isMounted) this.setState({ reportExporting: false });
+      });
+  };
+
   handleYilChange = (event: ValueChangeEvent) => {
     return handleYilChange(this.host, event);
   };

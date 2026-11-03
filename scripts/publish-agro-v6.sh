@@ -21,6 +21,8 @@ PROD_CHUNKS="$EXB_CLIENT/dist-prod/widgets/chunks"
 WORK="${TMPDIR:-/tmp}/agro-v6-publish-$$"
 REPO="abdullajonov1/agro-monitoring"
 PAGES_URL="https://abdullajonov1.github.io/agro-monitoring/widgets/Agro_widgetV6/manifest.json"
+# Version comes from the widget manifest, so the portal package never lags behind it.
+VERSION="$(cd "$ROOT" && node -p "JSON.parse(require('fs').readFileSync('manifest.json','utf8')).version")"
 
 SRC=""
 CHUNKS=""
@@ -41,6 +43,7 @@ else
   exit 1
 fi
 
+echo "Version:       $VERSION"
 echo "Using build:   $SRC"
 echo "Using chunks:  $CHUNKS"
 rm -rf "$WORK"
@@ -52,15 +55,15 @@ cp "$ROOT/config.json" "$WORK/widgets/Agro_widgetV6/config.json"
 cp "$ROOT/icon.svg" "$WORK/widgets/Agro_widgetV6/icon.svg"
 cp -r "$CHUNKS/." "$WORK/widgets/chunks/"
 
-cat > "$WORK/widgets/Agro_widgetV6/manifest.json" <<'EOF'
+cat > "$WORK/widgets/Agro_widgetV6/manifest.json" <<EOF
 {
   "name": "Agro_widgetV6",
   "label": "Space Agro Monitoring V6",
   "type": "widget",
-  "version": "6.1.0",
+  "version": "$VERSION",
   "exbVersion": "1.16.0",
   "author": "abdullajonov1",
-  "description": "Portal build 6.1.0: single-date export-image, eager Graff+Popup. Update Agro_widgetV6 in Portal (not Agro-main-widget).",
+  "description": "Portal build $VERSION. Update Agro_widgetV6 in Portal (not Agro-main-widget).",
   "copyright": "",
   "license": "",
   "properties": {

@@ -25,6 +25,7 @@ import {
 } from "../gis/agri-admin-boundary-layer";
 import { looksLikeRegionYearLayerHaystack } from "../gis/feature-layer-data";
 import FieldComparePanel from "./field-compare-panel";
+import MapLandLayersPanel from "./map-land-layers-panel";
 
 interface Props {
   mapWidgetId: string;
@@ -160,6 +161,7 @@ export default function EmbeddedAgriMap(props: Props) {
   } = props;
   const [basemapMenuOpen, setBasemapMenuOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [readyView, setReadyView] = React.useState<__esri.MapView | null>(null);
   const [isDarkTheme, setIsDarkTheme] = React.useState(resolveInitialDarkTheme);
   const [hasSelectedRegion, setHasSelectedRegion] = React.useState(false);
   const [activeBasemapId, setActiveBasemapId] = React.useState<string>(() =>
@@ -491,6 +493,7 @@ export default function EmbeddedAgriMap(props: Props) {
         }
         jimuMapViewId = jimuMapView.id;
         jimuMapViewRef.current = jimuMapView;
+        setReadyView(view);
         // The map is usable as soon as the view is ready. Hidden/background
         // layer updates must not keep the whole dashboard behind a loader.
         onLoadingChangeRef.current?.(false);
@@ -511,6 +514,7 @@ export default function EmbeddedAgriMap(props: Props) {
       updatingHandle?.remove?.();
       if (jimuMapViewId) MapViewManager.getInstance().destroyJimuMapView(jimuMapViewId);
       jimuMapViewRef.current = null;
+      setReadyView(null);
       viewRef.current = null;
       mapRef.current = null;
       try { view?.destroy(); } catch { /* noop */ }
@@ -660,6 +664,13 @@ export default function EmbeddedAgriMap(props: Props) {
         </div>
       <FieldComparePanel
         language={language}
+        onOpenChange={(open) => {
+          if (open) setBasemapMenuOpen(false);
+        }}
+      />
+      <MapLandLayersPanel
+        language={language}
+        view={readyView}
         onOpenChange={(open) => {
           if (open) setBasemapMenuOpen(false);
         }}

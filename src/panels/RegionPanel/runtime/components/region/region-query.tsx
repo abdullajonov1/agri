@@ -14,6 +14,9 @@ import { matchRegionDashboardPack } from "../../../../../data/agri-dashboard-pac
 import type { AgriStatFeature } from "../../../../../data/agri-stats-store";
 import { messageOf } from "../../../../panel-filter-detail";
 import type { RegionUseDataSourceRef } from "../../region-host";
+import { getAgriReserveLandLayer } from "../../../../../gis/agri-reserve-land-data-source";
+
+const RESERVE_AREA_FIELD = "maydon";
 
 /** Layer shape accepted by the shared queryable-layer resolver. */
 type QueryableLayerInput = Parameters<typeof getQueryableLayer>[0];
@@ -142,12 +145,16 @@ export const buildVhScopedWheres = async (host: RegionWidgetHost, baseWhere: str
   return [baseWhere];
 };
 export const queryAggregates = async (host: RegionWidgetHost, groupField: string, whereOverride?: string, codeField?: string | null): Promise<RegionalDataItem[]> => {
-  const { featureLayers, featureLayer, areaField, statMode } = host.state;
-  const layers = featureLayers?.length
-    ? featureLayers
-    : featureLayer
-      ? [featureLayer]
-      : [];
+  const { featureLayers, featureLayer, reserveMode } = host.state;
+  const areaField = reserveMode ? RESERVE_AREA_FIELD : host.state.areaField;
+  const statMode = reserveMode ? "sum" : host.state.statMode;
+  const layers = reserveMode
+    ? [(await getAgriReserveLandLayer()).layer as __esri.FeatureLayer]
+    : featureLayers?.length
+      ? featureLayers
+      : featureLayer
+        ? [featureLayer]
+        : [];
   if (!layers.length) return [];
 
   const acc: RegionGroupAccumulator = {};
@@ -244,7 +251,8 @@ export const fetchRegionalData = async (host: RegionWidgetHost) => {
     // even while Pie/Indicator are deferred under an active VH status.
     let rows: RegionalDataItem[] | null = null;
     let packTotalArea: number | null = null;
-    {
+    // The pack holds Agri_table totals; reserve bars always query their own layer.
+    if (!host.state.reserveMode) {
       await waitForDashboardPackReady(2500);
       if (!isCurrent()) return;
       const regionPack = matchRegionDashboardPack(getDashboardPack(), {
@@ -318,9 +326,11 @@ export const fetchRegionalDataDeduped = async (host: RegionWidgetHost) => {
     currentView,
     selectedViloyatForDrillDown,
     lockedViloyat,
+    reserveMode,
   } = host.state;
 
   const key = JSON.stringify({
+    reserveMode: !!reserveMode,
     yil: currentFilters.yil || "",
     view: currentView,
     drillViloyat: selectedViloyatForDrillDown || "",

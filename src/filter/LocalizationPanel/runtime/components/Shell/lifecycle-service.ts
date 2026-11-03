@@ -4,6 +4,7 @@ import type { GeoWidgetState } from "../../widget";
 import { isMapImageOwnedLayer } from "../../../../../gis/feature-layer-data";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../../shared/map-connection-service";
 import { subscribeDashboardPack, getDashboardPack } from "../../../../../store/agri-dashboard-store";
+import { subscribeAgriLandOverlay } from "../../../../../store/agri-land-overlay-store";
 
 export function componentDidMount(host: LocalizationHost) {
   host._isMounted = true;
@@ -12,6 +13,10 @@ export function componentDidMount(host: LocalizationHost) {
     host.onDashboardPackForNotifications,
   );
   host.onDashboardPackForNotifications(getDashboardPack());
+  // A land overlay hides the field polygons; turning it off brings them back.
+  host._unbindLandOverlay = subscribeAgriLandOverlay(() => {
+    host.repaintShownRegionYearLayers("land-overlay");
+  });
 
   host.setState({ connectionStatus: "connecting" });
   host.initializeTheme();
@@ -84,6 +89,8 @@ export function componentWillUnmount(host: LocalizationHost) {
   host._isMounted = false;
   host._unbindNotificationPack?.();
   host._unbindNotificationPack = null;
+  host._unbindLandOverlay?.();
+  host._unbindLandOverlay = null;
   if (host._notificationPaintFrame) {
     cancelAnimationFrame(host._notificationPaintFrame);
     host._notificationPaintFrame = 0;

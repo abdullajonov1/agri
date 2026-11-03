@@ -294,6 +294,7 @@ export function clearAgriStatsStoreCache(): void {
 
 /** VH bar chart — cached vegetation status counts (Bar panel via Localization). */
 export {
+  queryVegetationLatestStatusCounts as getVhBarLatestStatusCountsCached,
   queryVegetationStatusCounts as getVhBarStatusCountsCached,
   queryVegetationStatusCountsByStatus as getVhBarStatusCountsByStatusCached,
   queryVegetationStatusCountsByRegionScopes as getVhBarStatusCountsByRegionScopesCached,

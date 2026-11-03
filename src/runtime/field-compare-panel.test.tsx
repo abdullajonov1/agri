@@ -150,6 +150,16 @@ describe("FieldComparePanel", () => {
     expect(screen.getByText("Снимок отсутствует")).toBeTruthy();
   });
 
+  test("closes when the land layers panel opens", () => {
+    render(<FieldComparePanel language="uz_lat" />);
+    const button = screen.getByRole("button", { name: "Maydon rasmini solishtirish" });
+    fireEvent.click(button);
+    act(() => {
+      document.dispatchEvent(new CustomEvent("agriLandLayersToggled", { detail: { open: true } }));
+    });
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+  });
+
   test("opens when a field is selected", () => {
     render(<FieldComparePanel language="uz_lat" />);
     expect(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }).getAttribute("aria-expanded")).toBe("false");

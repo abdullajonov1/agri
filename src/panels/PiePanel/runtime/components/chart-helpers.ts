@@ -5,6 +5,7 @@ import { getPieVhFilterUniqueIds } from "../../../../gis/agri-chart-filter-order
 import { buildSpatialJoinWhere, queryAgriTuriCropMappings, getAgriTableDataLayer } from "../../../../gis/agri-table-data-source";
 import { normalizeCropName, getTuriCropLookupKey, getCropDisplayName, getCropColor as cropColorForTuri } from "../../../../shared/agri-crop-labels";
 import type { AgriCropLanguage } from "../../../../shared/agri-crop-labels";
+import { rememberPieCropColor } from "../../../../shared/agri-crop-color-registry";
 import { escapeArcGIS } from "../../../../gis/feature-layer-data";
 import { getAgriDashboardBootstrap } from "../../../../data/agri-bootstrap";
 import { JimuMapView } from "jimu-arcgis";
@@ -258,7 +259,10 @@ export function turiNamesToCropIds(host: PieWidgetHost, names: string[]): string
 
 export function getCropColor(host: PieWidgetHost, rawKey: string, index: number): string {
   const turi = host.resolveCropIdToTuri(rawKey);
-  return cropColorForTuri(turi, index);
+  const color = cropColorForTuri(turi, index);
+  // Other charts (reserve crop bars) reuse the pie's colour for the same crop.
+  rememberPieCropColor(turi, color);
+  return color;
 }
 
 export function getCategoryDisplayName(host: PieWidgetHost, rawKey: string, language: AgriCropLanguage): string {

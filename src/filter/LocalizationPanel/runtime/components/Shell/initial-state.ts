@@ -48,5 +48,6 @@ export function createInitialGeoState(): GeoWidgetState {
     graffSearchShowSuggestions: false,
     graffSearchLoading: false,
     showProfileMenu: false,
+    reportExporting: false,
   };
 }

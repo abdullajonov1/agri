@@ -259,6 +259,7 @@ export interface LocalizationHost {
   onNotificationsMenuOpened: () => void;
   _lastGeographySelectionTs: number;
   _lastVhBarData: VHBarData | null;
+  _lastVhBarDataKey: string;
   _geographyApplyId: number;
   _broadcastGeneration: number;
   normalizeTurlar: (raw: unknown, fallback?: string) => string[];
@@ -275,6 +276,7 @@ export interface LocalizationHost {
   computeVhBarData: () => Promise<VHBarData | null>;
   hydrateNotificationCache: () => void;
   _unbindNotificationPack: (() => void) | null;
+  _unbindLandOverlay: (() => void) | null;
   onDashboardPackForNotifications: (pack: { phase?: string; filter?: { yil?: string } }) => void;
   initializeTheme: () => void;
   handleDocumentClick: (event: MouseEvent) => void;
@@ -302,6 +304,7 @@ export interface LocalizationHost {
   toggleProfileMenu: () => void;
   closeProfileMenu: () => void;
   handleLogout: () => void;
+  handleExportReport: () => void;
   applyYil: (selectedYil: string) => void;
   applyLanguage: (lang: FilterState["language"]) => void;
   openIndexInfoDetail: (key: string) => void;

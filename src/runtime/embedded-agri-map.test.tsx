@@ -58,6 +58,10 @@ jest.mock("./field-compare-panel", () => ({
   __esModule: true,
   default: () => null,
 }));
+jest.mock("./map-land-layers-panel", () => ({
+  __esModule: true,
+  default: () => null,
+}));
 jest.mock("jimu-core", () => ({
   ...jest.requireActual("jimu-core"),
   getAppStore: () => ({ getState: () => ({ portalUrl: "https://portal.test/" }) }),

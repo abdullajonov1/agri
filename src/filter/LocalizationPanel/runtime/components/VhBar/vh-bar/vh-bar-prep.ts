@@ -81,7 +81,11 @@ export const computeVhBarData = async (host: LocalizationHost): Promise<VHBarDat
 
   const promise = host.executeComputeVhBarData()
     .then((result) => {
-      if (result) {
+      // All-zero results are not memoized: they are also what the compute
+      // returns while region/district/crop codes are still unresolved, and
+      // the key does not change once those codes arrive. Underlying
+      // vegetation queries are cached, so recomputing an empty scope is cheap.
+      if (result && result.totalCount > 0) {
         host._vhBarComputeMemo.set(key, result);
         while (host._vhBarComputeMemo.size > 8) {
           const oldestKey = host._vhBarComputeMemo.keys().next().value;
@@ -112,6 +116,15 @@ export const makeVhBarComputeKey = (host: LocalizationHost): string => {
   const selectedTurlar = chartFlags.filterVhBarByCrop
     ? host.getSelectedTurlar()
     : [];
+  const farmerInn = String(host.state.selectedFarmerInn || "").trim();
+  const farmerIds = host._farmerMapUniqueIds;
+  // STIR parcels resolve after selectedFarmerInn is set; a compute made in
+  // between (ids null / previous farmer's ids) must not share their key.
+  const farmerIdsSig = !farmerInn
+    ? ""
+    : Array.isArray(farmerIds)
+      ? `${farmerIds.length}:${farmerIds[0] || ""}:${farmerIds[farmerIds.length - 1] || ""}`
+      : "pending";
   return buildVhBarComputeKey({
     yil: String(yil || ""),
     viloyat: String(effectiveViloyat || ""),
@@ -122,7 +135,8 @@ export const makeVhBarComputeKey = (host: LocalizationHost): string => {
     polygonMode: false,
     uniqueid: "",
     filterVhBarByCrop: chartFlags.filterVhBarByCrop,
-    farmerInn: String(host.state.selectedFarmerInn || "").trim(),
+    farmerInn,
+    farmerIdsSig,
   });
 };
 export const executeComputeVhBarData = async (host: LocalizationHost): Promise<VHBarData | null> => {

@@ -8,6 +8,8 @@ import { default as PopupPanel } from "../../panels/PopupPanel/runtime/widget";
 import { default as LocalizationPanel } from "../../filter/LocalizationPanel";
 import { default as RegionPanel } from "../../panels/RegionPanel";
 import { default as EmbeddedAgriMap } from "../embedded-agri-map";
+import { default as AgriGraffReserveSwap } from "../agri-graff-reserve-swap";
+import { default as AgriReserveLock } from "../agri-reserve-lock";
 import { default as AgriChartLoader } from "../../shared/AgriChartLoader";
 import { TriangleAlert } from "lucide-react";
 import { agriNoDataLabel } from "../../shared/agriNoDataLabel";
@@ -245,13 +247,19 @@ export function render(host: DashboardWidgetHost) {
 
         <div className="agri-dashboard-bottom-row" aria-label="Charts">
           <div className="agri-dashboard-widget-slot">
-            <PiePanel {...host.childProps("pie", baseConfig)} />
+            <AgriReserveLock>
+              <PiePanel {...host.childProps("pie", baseConfig)} />
+            </AgriReserveLock>
           </div>
           <div className="agri-dashboard-widget-slot">
-            <GraffPanel {...host.childProps("graff", baseConfig)} />
+            <AgriGraffReserveSwap>
+              <GraffPanel {...host.childProps("graff", baseConfig)} />
+            </AgriGraffReserveSwap>
           </div>
           <div className="agri-dashboard-widget-slot">
-            <BarPanel {...host.childProps("bar", baseConfig)} />
+            <AgriReserveLock>
+              <BarPanel {...host.childProps("bar", baseConfig)} />
+            </AgriReserveLock>
           </div>
         </div>
       </div>

@@ -1,0 +1,355 @@
+/* Reserve land by crop. Value, name and share ride on one line-up above the
+   columns (like VH); behind each lit gradient bar stands a faded full-height
+   column of the same colour (like VH). Click = filter the reserve layer on the map. */
+
+.agri-reserve-crop-card {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 12px 16px 10px;
+  border-radius: var(--agri-widget-radius);
+  background: var(--agri-widget-panel-bg, #1f2030);
+  color: #e9f8ff;
+  --reserve-surface: var(--agri-widget-panel-bg, #1f2030);
+  --reserve-text: #e9f8ff;
+  --reserve-text-2: rgba(233, 248, 255, 0.72);
+  --reserve-text-3: rgba(233, 248, 255, 0.52);
+  --reserve-ring-track: rgba(233, 248, 255, 0.14);
+  /* Faded column behind each bar, as VH tints it on dark. */
+  --reserve-track-mix: 26%;
+  --reserve-track-mix-hover: 34%;
+  --reserve-divider: rgba(233, 248, 255, 0.12);
+  --reserve-focus: rgba(233, 248, 255, 0.55);
+}
+
+.agri-reserve-crop-card.light-theme {
+  background: #ffffff;
+  color: #0f172a;
+  --reserve-surface: #ffffff;
+  --reserve-text: #0f172a;
+  --reserve-text-2: rgba(15, 23, 42, 0.72);
+  --reserve-text-3: rgba(15, 23, 42, 0.52);
+  --reserve-ring-track: rgba(15, 23, 42, 0.1);
+  --reserve-track-mix: 10%;
+  --reserve-track-mix-hover: 15%;
+  --reserve-divider: rgba(15, 23, 42, 0.12);
+  --reserve-focus: rgba(15, 23, 42, 0.45);
+}
+
+.agri-reserve-crop-title {
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.agri-reserve-crop-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ---- plot ---- */
+
+.agri-reserve-crop-grid {
+  position: relative;
+  display: grid;
+  height: 100%;
+  /* Like VH: no gap; each column pads 4px, so bars sit ~8px apart. */
+  column-gap: 0;
+  align-items: stretch;
+  --reserve-col-min: 84px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--reserve-ring-track) transparent;
+  transition: opacity 200ms ease;
+}
+
+.agri-reserve-crop-grid.is-refreshing {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Column = button: header on top, track below. */
+.agri-reserve-crop-col {
+  all: unset;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 2px 4px 0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: opacity 180ms ease, background-color 180ms ease;
+}
+
+/* Hairline divider between columns, inset top and bottom (like VH). */
+.agri-reserve-crop-col:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  right: 0;
+  width: 1px;
+  background: var(--reserve-divider);
+  pointer-events: none;
+}
+
+.agri-reserve-crop-col:disabled {
+  cursor: default;
+}
+
+.agri-reserve-crop-col:focus-visible {
+  outline: 2px solid var(--reserve-focus);
+  outline-offset: 2px;
+}
+
+/* Selected: a soft wash of its colour, no outline (like VH). */
+.agri-reserve-crop-col.is-selected {
+  background: color-mix(in srgb, var(--bar-color) 10%, transparent);
+}
+
+.agri-reserve-crop-col:not(:disabled):not(.is-selected):hover {
+  background: color-mix(in srgb, var(--bar-color) 6%, transparent);
+}
+
+.agri-reserve-crop-col.is-dimmed {
+  opacity: 0.42;
+}
+
+.agri-reserve-crop-col.is-dimmed:hover {
+  opacity: 0.75;
+}
+
+/* ---- header: value / name / share, aligned across columns ---- */
+
+.agri-reserve-crop-head {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 2px 0;
+  text-align: center;
+}
+
+.agri-reserve-crop-value {
+  font-size: clamp(13px, 1.15vw, 15px);
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--reserve-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  animation: agri-reserve-value-in 300ms ease calc(var(--bar-delay) + 260ms) both;
+}
+
+.agri-reserve-crop-value small {
+  font-size: 0.74em;
+  font-weight: 500;
+  color: var(--reserve-text-2);
+}
+
+.agri-reserve-crop-label {
+  max-width: 100%;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--reserve-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agri-reserve-crop-col.is-selected .agri-reserve-crop-label {
+  color: var(--reserve-text);
+  font-weight: 600;
+}
+
+.agri-reserve-crop-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--reserve-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.agri-reserve-crop-ring {
+  width: 12px;
+  height: 12px;
+  transform: rotate(-90deg);
+}
+
+.agri-reserve-crop-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.agri-reserve-crop-ring-track {
+  stroke: var(--reserve-ring-track);
+}
+
+.agri-reserve-crop-ring-arc {
+  stroke: var(--bar-color);
+  stroke-linecap: round;
+}
+
+@keyframes agri-reserve-value-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---- track + bar ---- */
+
+.agri-reserve-crop-plot {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 0 6px;
+  box-sizing: border-box;
+}
+
+/* Full-height faded column of the crop colour behind the bar (like VH):
+   shows the headroom to the largest crop. */
+.agri-reserve-crop-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bar-color) var(--reserve-track-mix), transparent);
+  transition: background-color 180ms ease;
+}
+
+/* Bright bar in the full crop colour (like VH): flat body, a light sheen on
+   the cap, a glow of its own colour. No darkening toward the base. */
+.agri-reserve-crop-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: max(var(--bar-fill), 10px);
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bar-color) 80%, #ffffff) 0%,
+    var(--bar-color) 20%,
+    var(--bar-color) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 8px 22px -8px color-mix(in srgb, var(--bar-color) 85%, transparent);
+  transform-origin: bottom center;
+  animation: agri-reserve-bar-grow 650ms cubic-bezier(0.22, 1, 0.36, 1) var(--bar-delay) both;
+  transition: filter 160ms ease;
+}
+
+/* Glass highlight on the cap. */
+.agri-reserve-crop-bar::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 24%;
+  right: 24%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.agri-reserve-crop-col:not(:disabled):hover .agri-reserve-crop-bar {
+  filter: brightness(1.08);
+}
+
+.agri-reserve-crop-col:not(:disabled):hover .agri-reserve-crop-track {
+  --reserve-track-mix: var(--reserve-track-mix-hover);
+}
+
+/* Selected bar lights up with a wider glow of its own colour. */
+.agri-reserve-crop-col.is-selected .agri-reserve-crop-bar {
+  filter: brightness(1.12) saturate(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 22px -2px color-mix(in srgb, var(--bar-color) 70%, transparent);
+}
+
+.agri-reserve-crop-col.is-selected .agri-reserve-crop-track {
+  overflow: visible;
+}
+
+@keyframes agri-reserve-bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Screen-reader table twin. */
+.agri-reserve-crop-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agri-reserve-crop-bar,
+  .agri-reserve-crop-value {
+    animation: none;
+  }
+  .agri-reserve-crop-col {
+    transition: none;
+  }
+}
+
+/* ---- states ---- */
+
+.agri-reserve-crop-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  text-align: center;
+  font-size: 13px;
+}
+
+.agri-reserve-crop-empty h3,
+.agri-reserve-crop-empty p {
+  margin: 0;
+  font-size: inherit;
+}
+
+/* Light mode: unit, crop name and share in solid black; names a bit bolder. */
+.agri-reserve-crop-card.light-theme .agri-reserve-crop-value small,
+.agri-reserve-crop-card.light-theme .agri-reserve-crop-share {
+  color: #000000;
+}
+
+.agri-reserve-crop-card.light-theme .agri-reserve-crop-label {
+  color: #000000;
+  font-weight: 600;
+}
+
+.agri-reserve-crop-card.light-theme .agri-reserve-crop-col.is-selected .agri-reserve-crop-label {
+  font-weight: 700;
+}

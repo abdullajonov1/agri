@@ -126,6 +126,7 @@ export function render(host: LocalizationHost) {
                   isDarkTheme={isDarkTheme}
                   connectionStatus={connectionStatus}
                   showProfileMenu={host.state.showProfileMenu}
+                  reportExporting={!!host.state.reportExporting}
                   _notificationsToolbarItemRef={host._notificationsToolbarItemRef}
                   _indexInfoToolbarItemRef={host._indexInfoToolbarItemRef}
                   _yilToolbarItemRef={host._yilToolbarItemRef}
@@ -135,6 +136,7 @@ export function render(host: LocalizationHost) {
                   toggleProfileMenu={host.toggleProfileMenu}
                   closeProfileMenu={host.closeProfileMenu}
                   handleLogout={host.handleLogout}
+                  onExportReport={host.handleExportReport}
                 />
               </div>
 

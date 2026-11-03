@@ -37,6 +37,7 @@ import {
   resolveInitialLanguage,
 } from "../../../shared/agri-language";
 import { getDashboardPack, waitForDashboardPackReady } from "../../../store/agri-dashboard-store";
+import { getAgriLandOverlay } from "../../../store/agri-land-overlay-store";
 import { matchRegionDashboardPack } from "../../../data/agri-dashboard-pack-match";
 import {
   applyRegionRowPercentages,
@@ -110,6 +111,8 @@ export interface AgriRegionState {
 
   areaField: string | null;
   statMode: "sum" | "count";
+  /** Bars show Agri_reserve_land totals while the map's reserve overlay is on. */
+  reserveMode: boolean;
 
   connectionStatus: "idle" | "connecting" | "connected" | "failed";
   language: "uz_cyr" | "uz_lat" | "ru" | "en";
@@ -197,6 +200,7 @@ export default class AgriRegion extends React.PureComponent<
 
   _isMounted = false;
   _unbindMasterFilter: (() => void) | null = null;
+  _unbindLandOverlay: (() => void) | null = null;
   _rootRef = React.createRef<HTMLDivElement>();
   _countFilterRef = React.createRef<HTMLDivElement>();
   _chartAreaRef = React.createRef<HTMLDivElement>();
@@ -268,6 +272,7 @@ export default class AgriRegion extends React.PureComponent<
 
       areaField: this.props.config?.areaField || null,
       statMode: this.props.config?.areaField ? "sum" : "count",
+      reserveMode: getAgriLandOverlay() === "reserve",
 
       connectionStatus: "idle",
       language: initialLanguage,

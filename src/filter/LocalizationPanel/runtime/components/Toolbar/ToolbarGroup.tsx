@@ -5,6 +5,7 @@ import type { GeoWidgetState } from "../../widget";
 import {
   BellIcon,
   CalendarIcon,
+  ExcelIcon,
   InfoIcon,
   LanguageIcon,
   LogoutIcon,
@@ -25,6 +26,8 @@ export type ToolbarGroupProps = Pick<
   toggleProfileMenu: () => void;
   closeProfileMenu: () => void;
   handleLogout: () => void;
+  reportExporting?: boolean;
+  onExportReport?: () => void;
 };
 
 export const ToolbarGroup = (props: ToolbarGroupProps) => {
@@ -51,8 +54,31 @@ export const ToolbarGroup = (props: ToolbarGroupProps) => {
   const logoutLabel =
     language === "en" ? "Log out" : language === "ru" ? "Выйти" : language === "uz_lat" ? "Chiqish" : "Чиқиш";
 
+  const excelLabel =
+    language === "en"
+      ? "Download Excel report"
+      : language === "ru"
+        ? "Скачать Excel-отчёт"
+        : language === "uz_lat"
+          ? "Excel hisobotni yuklash"
+          : "Excel ҳисоботни юклаш";
+
   return (
     <div className="agri-v20-toolbar-group">
+      <div className="agri-v20-toolbar-item">
+        <button
+          type="button"
+          className={`agri-v20-toolbar-btn${props.reportExporting ? " is-active" : ""}`}
+          onClick={() => props.onExportReport?.()}
+          disabled={props.reportExporting || connectionStatus !== "connected" || !props.onExportReport}
+          data-tooltip={excelLabel}
+          aria-label={excelLabel}
+          aria-busy={props.reportExporting ? true : undefined}
+        >
+          <ExcelIcon />
+        </button>
+      </div>
+
       <div
         className="agri-v20-toolbar-item"
         ref={props._notificationsToolbarItemRef}

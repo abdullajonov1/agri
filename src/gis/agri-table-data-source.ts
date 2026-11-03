@@ -17,6 +17,7 @@ import {
 } from "../shared/agri-singleton-layer-loader";
 import { type AgriAttributes, featureAttributeBag } from "./agri-layer-types";
 import { asStatisticDefinitions } from "../shared/agri-plain-object";
+import { agroV5Log } from "./agri-debug-log";
 
 /** esri Query plus the REST paging props the JS API typings omit. */
 type AgriTableQuery = __esri.Query & {
@@ -419,4 +420,132 @@ export async function queryAgriTuriCropMappings(): Promise<
     });
   }
   return agriTuriCropMappingsPromise;
+}
+
+/** One Agri_table row behind a uniqueid: its crop and registered hectares. */
+export interface AgriTableAreaRow {
+  /** uniqueid as stored in Agri_table (braces / case kept). */
+  uniqueId: string;
+  region: string;
+  cropId: string;
+  maydon: number;
+}
+
+export interface AgriTableAreaScope {
+  region?: number;
+  district?: number;
+  /** "YYYY" — matched as `yil LIKE 'YYYY%'`, like the indicator. */
+  year: string;
+}
+
+/** uniqueid slices — contiguous, so every id lands in exactly one under any collation. */
+const AREA_UNIQUEID_BOUNDS = [
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f",
+];
+
+const agriTableAreaCache = new Map<string, Promise<Map<string, AgriTableAreaRow[]>>>();
+const AGRI_TABLE_AREA_CACHE_MAX = 16;
+
+/**
+ * Normalized uniqueid → Agri_table rows (crop_id + maydon) for one scope. The
+ * VH bar uses it to report hectares from the same `maydon` the indicator
+ * sums. Sliced by uniqueid in parallel; keyset paging (`objectid > last`)
+ * inside each slice — this server ignores resultOffset, which made offset
+ * pages repeat the first page and multiply every hectare.
+ */
+export async function queryAgriTableAreaByUniqueId(
+  scope: AgriTableAreaScope,
+): Promise<Map<string, AgriTableAreaRow[]>> {
+  const year = String(scope.year || "").match(/^(18|19|20)\d{2}$/)?.[0];
+  if (!year) return new Map();
+  const clauses = [`yil LIKE '${year}%'`, `${AGRI_TABLE_JOIN_FIELD} IS NOT NULL`];
+  if (scope.region != null) clauses.push(`region='${escapeAgriValue(String(scope.region))}'`);
+  if (scope.district != null) clauses.push(`district='${escapeAgriValue(String(scope.district))}'`);
+  const where = combineAccessWhere(clauses.join(" AND "));
+
+  const cached = agriTableAreaCache.get(where);
+  if (cached) return cached;
+
+  const request = (async (): Promise<Map<string, AgriTableAreaRow[]>> => {
+    const startedAt = Date.now();
+    let pages = 0;
+    const { layer, fields } = await getAgriTableDataLayer();
+    const names = new Map(fields.map((f) => [String(f).toLowerCase(), String(f)]));
+    const areaField = names.get("maydon") || names.get("area_ha") || names.get("area");
+    if (!areaField) throw new Error("Agri_table has no maydon field.");
+    const cropField = names.get("crop_id") || "crop_id";
+    const regionField = names.get("region") || "region";
+    const oidField = layer.objectIdField || "objectid";
+    const out = new Map<string, AgriTableAreaRow[]>();
+    const seenOids = new Set<number>();
+
+    const slices = [`${AGRI_TABLE_JOIN_FIELD} < '${AREA_UNIQUEID_BOUNDS[0]}'`];
+    for (let i = 1; i < AREA_UNIQUEID_BOUNDS.length; i += 1) {
+      slices.push(
+        `${AGRI_TABLE_JOIN_FIELD} >= '${AREA_UNIQUEID_BOUNDS[i - 1]}' AND ${AGRI_TABLE_JOIN_FIELD} < '${AREA_UNIQUEID_BOUNDS[i]}'`,
+      );
+    }
+    slices.push(`${AGRI_TABLE_JOIN_FIELD} >= '${AREA_UNIQUEID_BOUNDS[AREA_UNIQUEID_BOUNDS.length - 1]}'`);
+
+    await Promise.all(
+      slices.map(async (slice) => {
+        let lastOid = -1;
+        for (let page = 0; page < AGRI_QUERY_MAX_PAGES; page++) {
+          const query: AgriTableQuery = layer.createQuery();
+          query.where = `(${where}) AND ${slice} AND ${oidField} > ${lastOid}`;
+          query.outFields = [AGRI_TABLE_JOIN_FIELD, regionField, cropField, areaField, oidField];
+          query.returnGeometry = false;
+          query.orderByFields = [`${oidField} ASC`];
+          query.resultRecordCount = AGRI_QUERY_PAGE_SIZE;
+          const result = await layer.queryFeatures(query);
+          const features = result?.features ?? [];
+          pages += 1;
+          let pageMaxOid = lastOid;
+          for (const feature of features) {
+            const attrs = featureAttributeBag(feature);
+            const oid = Number(attrs[oidField]);
+            if (Number.isFinite(oid)) {
+              if (oid > pageMaxOid) pageMaxOid = oid;
+              // A row is counted once even if a page repeats.
+              if (seenOids.has(oid)) continue;
+              seenOids.add(oid);
+            }
+            const rawId = String(attrs[AGRI_TABLE_JOIN_FIELD] ?? "").trim();
+            const key = rawId.replace(/[{}]/g, "").trim().toLowerCase();
+            if (!key) continue;
+            const rows = out.get(key) || [];
+            rows.push({
+              uniqueId: rawId,
+              region: String(attrs[regionField] ?? "").trim(),
+              cropId: String(attrs[cropField] ?? "").trim(),
+              maydon: Number(attrs[areaField]) || 0,
+            });
+            out.set(key, rows);
+          }
+          // Short page = slice done; no OID progress = stop instead of looping.
+          if (features.length < AGRI_QUERY_PAGE_SIZE || !(pageMaxOid > lastOid)) return;
+          lastOid = pageMaxOid;
+        }
+      }),
+    );
+    agroV5Log(
+      "table-area:done",
+      { where, ms: Date.now() - startedAt, pages, rows: seenOids.size, uniqueIds: out.size },
+      "agriVh",
+    );
+    return out;
+  })();
+
+  agriTableAreaCache.set(where, request);
+  while (agriTableAreaCache.size > AGRI_TABLE_AREA_CACHE_MAX) {
+    const oldestKey = agriTableAreaCache.keys().next().value;
+    if (!oldestKey) break;
+    agriTableAreaCache.delete(oldestKey);
+  }
+  try {
+    return await request;
+  } catch (error) {
+    agriTableAreaCache.delete(where);
+    throw error;
+  }
 }

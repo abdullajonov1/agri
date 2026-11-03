@@ -73,6 +73,8 @@ export interface GeoWidgetState extends FilterState {
   connectionStatus: "idle" | "connecting" | "connected" | "failed";
   initialPreselectionProcessed: boolean;
   openToolbarMenu: "yil" | "language" | "indexInfo" | "notifications" | null;
+  /** True while the Excel report export is building/downloading. */
+  reportExporting?: boolean;
   /** Index (NDVI/SAVI/…) currently expanded to its full detail page within the indexInfo menu. */
   selectedIndexInfoKey: string | null;
   notificationDays: VegetationRecentDayGroup[];

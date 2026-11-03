@@ -25,6 +25,7 @@ export interface RegionWidgetHost {
   setState: React.Component<RegionWidgetProps, AgriRegionState>["setState"];
   _isMounted: boolean;
   _unbindMasterFilter: () => void;
+  _unbindLandOverlay: (() => void) | null;
   handleMasterFilterChange: (event: Event) => void;
   handleDocumentClickForCountFilter: (event: MouseEvent) => void;
   handleAgriV10ThemeChanged: (event: Event) => void;

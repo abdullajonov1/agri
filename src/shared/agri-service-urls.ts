@@ -18,6 +18,8 @@ export interface AgriServiceUrls {
   adminDistrictsFallbackUrl: string;
   reserveLandUrl: string;
   unusedLandUrl: string;
+  /** Crop Agro plan polygons (Excel REJA + Fermer). */
+  cropPlanUrl: string;
 }
 
 export type AgriServiceUrlsConfig = Partial<AgriServiceUrls>;
@@ -41,6 +43,8 @@ const DEFAULT_AGRI_SERVICE_URLS: AgriServiceUrls = {
     "https://sgm.uzspace.uz/server/rest/services/Agriculture/Agri_reserve_land/FeatureServer/1",
   unusedLandUrl:
     "https://sgm.uzspace.uz/server/rest/services/Agriculture/Agri_unused_land/FeatureServer/2",
+  cropPlanUrl:
+    "https://sgm.uzspace.uz/server/rest/services/Agriculture/agri_crop/FeatureServer/2",
 };
 
 let activeUrls: AgriServiceUrls = { ...DEFAULT_AGRI_SERVICE_URLS };
