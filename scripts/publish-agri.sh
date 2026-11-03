@@ -110,7 +110,9 @@ needed_chunks() {
     for f in "$CHUNKS"/*.js; do
       name="$(basename "$f" .js)"
       grep -qxF "$name" "$WORK/.chunks" && continue
-      if grep -rqF "\"$name\"" "${scan_dirs[@]}" "$WORK/widgets/chunks" 2>/dev/null; then
+      # Dev builds reference "<name>"; prod builds "widgets/chunks/<name>" +
+      # ".js" — match either form.
+      if grep -rqE "[\"/]${name//./\\.}[\".]" "${scan_dirs[@]}" "$WORK/widgets/chunks" 2>/dev/null; then
         echo "$name" >> "$WORK/.chunks"
         cp "$f" "$WORK/widgets/chunks/"
         found=1
