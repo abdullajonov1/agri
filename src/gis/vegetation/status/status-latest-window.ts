@@ -11,6 +11,7 @@ import { errorMessage } from "../../agri-layer-types";
 import { escapeArcGIS } from "../../../data/agri-sql";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 import { rememberAsync } from "../../../data/agri-persistent-cache";
+import { withHeavyQuerySlot } from "../../../data/agri-query-scheduler";
 import { buildSpatialJoinWhere, queryAgriTableAreaByUniqueId, type AgriTableAreaRow } from "../../agri-table-data-source";
 import { buildVhWindowsWhere, normalizeCropIds, resolveVhStatusWindows, VH_STATUS_WINDOW_DAYS, type VhCropWindow, type VhResolvedWindows, type VhWindowParams } from "./status-vh-window";
 
@@ -103,6 +104,30 @@ function partitionClauses(field: string): string[] {
   }
   out.push(`${field} >= '${bounds[bounds.length - 1]}'`);
   return out;
+}
+
+/**
+ * One request of the VH scans, through the per-service heavy lane: the
+ * republic scan sends 16 slices (and the per-region retry and the season
+ * fallback more), which together exhausted the server's instances.
+ */
+function queryVegHeavy(
+  layer: Parameters<typeof queryVegFeatures>[0],
+  query: Parameters<typeof queryVegFeatures>[1],
+  scan?: { failed: boolean },
+): Promise<__esri.FeatureSet> {
+  const lane = String((layer as { url?: unknown } | null)?.url ?? "agri-vegetation");
+  return withHeavyQuerySlot(lane, async () => {
+    // A queued request of a scan that already failed is not sent.
+    if (scan?.failed) throw new Error("VH scan cancelled");
+    try {
+      return await queryVegFeatures(layer, query);
+    } catch (error) {
+      // Mark the scan before the slot passes to the next queued request.
+      if (scan) scan.failed = true;
+      throw error;
+    }
+  });
 }
 
 /** Status rows (px area) + crop mix from per-field assignments. */
@@ -213,6 +238,7 @@ async function loadLatestStatus(
 
     // Keyset paging on uniqueid (`uniqueid >= last`), not resultOffset: this
     // service does not advertise supportsPaginationOnAggregatedQueries.
+    const groupedScan = { failed: false };
     const pageGroupedSlice = async (sliceWhere: string): Promise<void> => {
       let cursor: string | null = null;
       for (let page = 0; page < VEG_STATUS_ROW_MAX_PAGES; page++) {
@@ -232,7 +258,7 @@ async function loadLatestStatus(
         query.returnGeometry = false;
         query.resultRecordCount = pageSize;
 
-        const result = await queryVegFeatures(layer, query);
+        const result = await queryVegHeavy(layer, query, groupedScan);
         const features = result?.features ?? [];
         if (!features.length) return;
         pagesFetched += 1;
@@ -269,7 +295,10 @@ async function loadLatestStatus(
     try {
       await Promise.all(
         partitionClauses(uniqueIdField).map((slice) =>
-          pageGroupedSlice(`(${where}) AND ${slice}`),
+          pageGroupedSlice(`(${where}) AND ${slice}`).catch((error: unknown) => {
+            groupedScan.failed = true;
+            throw error;
+          }),
         ),
       );
     } catch (groupedError) {
@@ -299,7 +328,7 @@ async function loadLatestStatus(
         query.returnGeometry = false;
         query.resultRecordCount = pageSize;
 
-        const result = await queryVegFeatures(layer, query);
+        const result = await queryVegHeavy(layer, query);
         const features = result?.features ?? [];
         if (!features.length) break;
         pagesFetched += 1;
@@ -390,7 +419,7 @@ async function runLimited<T>(tasks: Array<() => Promise<T>>, limit: number): Pro
   return results;
 }
 
-/** Republic retry: one grouped scan per viloyat (3 at a time) when the combined scan fails. */
+/** Republic: one grouped scan per viloyat (3 at a time; requests share the heavy lane). */
 async function loadPerRegion(resolved: VhResolvedWindows): Promise<VegetationLatestStatusSummary> {
   const byRegion = new Map<string | null, VhCropWindow[]>();
   for (const w of resolved.windows) byRegion.set(w.region, [...(byRegion.get(w.region) || []), w]);
@@ -480,7 +509,7 @@ async function withSeasonFallback(
           { statisticType: "max", onStatisticField: "px_all", outStatisticFieldName: "max_px_all" },
         ]);
         query.returnGeometry = false;
-        const result = await queryVegFeatures(layer, query);
+        const result = await queryVegHeavy(layer, query);
         for (const feature of result?.features ?? []) {
           const attrs = (feature?.attributes || {}) as Record<string, unknown>;
           const rawId = String(readAttribute(attrs, "uniqueid") ?? "").trim();
@@ -538,8 +567,8 @@ const VH_SUMMARY_CACHE_MAX = 32;
 /**
  * Per-field status for one scope: newest reading in the 10-day windows
  * (`date` caps every crop's window end), plus the season fallback for
- * window-less fields. A failed republic scan retries per viloyat instead of
- * walking raw rows.
+ * window-less fields. The republic is scanned per viloyat (never by walking
+ * raw rows).
  */
 export async function queryVegetationLatestStatusSummary(
   params: VegetationLatestStatusParams,
@@ -552,21 +581,19 @@ export async function queryVegetationLatestStatusSummary(
   if (cached) return cached;
 
   const request = (async (): Promise<VegetationLatestStatusSummary> => {
-    // The Agri_table read (fallback candidates + hectares) does not depend on
-    // the vegetation scan — start it now so both run side by side; its
-    // promise is cached, so later callers share it.
-    if (resolved.windows.some((w) => w.lookbackStart < w.startDate)) {
-      void queryAgriTableAreaByUniqueId(tableScope(params)).catch(() => undefined);
-    }
+    // The Agri_table read (fallback candidates + hectares) starts after the
+    // vegetation scan, not beside it: run together, the two 16-slice scans
+    // exhausted the server and the scan timed out (2026-11-05).
     let base: VegetationLatestStatusSummary;
-    try {
-      base = await loadLatestStatus(where, resolved.startDate, resolved.endDate, params.region != null);
-    } catch (error) {
-      if (params.region != null || resolved.windows.length < 2) throw error;
-      agriVhLog("latest-status:per-region-retry", {
-        regions: new Set(resolved.windows.map((w) => w.region)).size,
-      });
+    const regionCount = new Set(resolved.windows.map((w) => w.region)).size;
+    if (params.region == null && regionCount > 1) {
+      // Republic: straight to one scan per viloyat. The combined republic
+      // scan timed out (60 s) on every slice even 4 at a time (2026-11-05),
+      // so trying it first only held the server for a minute before this.
+      agriVhLog("latest-status:per-region", { regions: regionCount });
       base = await loadPerRegion(resolved);
+    } else {
+      base = await loadLatestStatus(where, resolved.startDate, resolved.endDate, params.region != null);
     }
     return withSeasonFallback(base, resolved, params);
   })();

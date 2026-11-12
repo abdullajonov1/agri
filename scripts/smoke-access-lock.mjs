@@ -45,6 +45,10 @@ function transpileTo(fileRel, outName) {
     .replace(
       /from\s+["']\.\.\/data\/agri-sql["']/g,
       `from ${JSON.stringify(pathToFileURL(path.join(tmpDir, "agri-sql.mjs")).href)}`,
+    )
+    .replace(
+      /from\s+["']\.\/agri-plain-object["']/g,
+      `from ${JSON.stringify(pathToFileURL(path.join(tmpDir, "agri-plain-object.mjs")).href)}`,
     );
   const out = path.join(tmpDir, outName);
   fs.writeFileSync(out, outputText, "utf8");
@@ -52,6 +56,7 @@ function transpileTo(fileRel, outName) {
 }
 
 transpileTo("data/agri-sql.ts", "agri-sql.mjs");
+transpileTo("shared/agri-plain-object.ts", "agri-plain-object.mjs");
 const accessOut = transpileTo("shared/agri-access-config.ts", "agri-access-config.mjs");
 
 const mod = await import(pathToFileURL(accessOut).href);

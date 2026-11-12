@@ -1,5 +1,5 @@
-import { JimuMapView } from "jimu-arcgis";
-import { QueriableDataSource } from "jimu-core";
+import { type JimuMapView } from "jimu-arcgis";
+import { type QueriableDataSource } from "jimu-core";
 import { type VegetationRecentDayGroup } from "../../../gis/agri-vegetation-data-source";
 import { type CropRendererMode } from "../../localization/crop-renderer";
 

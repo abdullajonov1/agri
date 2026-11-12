@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Network guard for agri-main/src. Fails when:
+ * Network guard for Agro_widgetV5/src. Fails when:
  *   - a raw `fetch(` (bare, window., globalThis. or self.) is used outside
  *     src/shared/agri-http.ts (use fetchJson / fetchArrayBuffer /
  *     fetchWithTimeout so every call has a timeout), or

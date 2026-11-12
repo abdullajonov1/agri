@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Code-quality gate for agri-main/src. Prints metrics and exits non-zero when
+ * Code-quality gate for Agro_widgetV5/src. Prints metrics and exits non-zero when
  * any limit is exceeded. Usage: node scripts/check-quality.mjs [--report] [dir]
  *   --report  print metrics only, never fail
  */

@@ -1,17 +1,17 @@
 import type { GraffWidgetHost } from "../graff-host";
-import { JimuMapView } from "jimu-arcgis";
+import { type JimuMapView } from "jimu-arcgis";
 import { getCropDisplayName } from "../../../../shared/agri-crop-labels";
 import type { RecordData } from "../widget";
 import { NDVI_STATUS_TO_VH } from "../../../../filter/localization/vh-constants";
 import { getAgriTableDataLayer } from "../../../../gis/agri-table-data-source";
 import { buildSelectionSymbol, clearMapSelectionGraphics } from "../graff-map-utils";
 import { getQueryableLayer } from "../../../../gis/feature-layer-data";
-import { arcgisEaseInOut } from "../../../../shared/agri-plain-object";
+import { arcgisEaseInOut, toPlainRecord, toPlainValue } from "../../../../shared/agri-plain-object";
 import { DataSourceManager } from "jimu-core";
 import { getAgriDashboardBootstrap } from "../../../../data/agri-bootstrap";
 import type { AgriLanguage } from "../../../../shared/agri-language";
 import type { ImmutableObject, UseDataSource } from "jimu-core";
-import { toPlainRecord, toPlainValue } from "../../../../shared/agri-plain-object";
+
 import { describeThrown, type AgriQueryableLayer } from "../graff-guards";
 import { graffLog } from "../graff-log";
 import { translateAgriPlaceForDisplay } from "../../../../shared/agri-place-display";
@@ -185,7 +185,7 @@ export function getStatusValueForRecord(host: GraffWidgetHost, record: RecordDat
   const key = String(raw).trim().toLowerCase().replace(/\s+/g, "_");
   const vhCategory = NDVI_STATUS_TO_VH[key];
   if (vhCategory)
-    return getLocalizedVhCategoryLabel(vhCategory, host.state.language);
+    { return getLocalizedVhCategoryLabel(vhCategory, host.state.language); }
 
   return host.formatFieldValue(statusField, raw);
 }
@@ -382,12 +382,12 @@ export function refreshFiltersFromConfig(host: GraffWidgetHost) {
   }
 
   const makeMap = <T,>(def: T): Record<string, T> =>
-    fields.reduce(
+    fields.reduce<Record<string, T>>(
       (acc, f) => {
         acc[f] = def;
         return acc;
       },
-      {} as Record<string, T>,
+      {},
     );
 
   host.setState({
@@ -421,7 +421,7 @@ export const resolveFeatureLayerFromDataSource = async (host: GraffWidgetHost, j
         lv?.layer?.dataSourceId === id,
     );
 
-  let jlv = matchByDsId(dsId) || (rootDsId ? matchByDsId(rootDsId) : null);
+  const jlv = matchByDsId(dsId) || (rootDsId ? matchByDsId(rootDsId) : null);
 
   // getQueryableLayer handles both plain FeatureLayers and Map Image Layer
   // roots by drilling into .sublayers/.allSublayers for a queryable child —

@@ -1,7 +1,7 @@
 import {
   AllDataSourceTypes,
-  DataSourceManager,
   DataSourceTypes,
+  getAppStore,
   Immutable,
   React,
   type UseDataSource,
@@ -14,33 +14,57 @@ import AgriPopupSettingPanel from "./agri-popup-setting";
 import AgriAccessSettingPanel from "./agri-access-setting";
 import {
   normalizeAgriServiceUrls,
+  setAgriServiceUrls,
   type AgriServiceUrls,
 } from "../shared/agri-service-urls";
 import { hasAsMutable, toPlainArray } from "./plain-value";
+import {
+  isWebMapSource,
+  listFailedWebMapSourceIds,
+  readSettingDataSourceType,
+  splitWebMapSelection,
+} from "./webmap-source";
+import { installAgriCorsGuard, recreateDataSource } from "../shared/agri-cors-guard";
 
 export default class Setting extends React.PureComponent<
   AllWidgetSettingProps<IMConfig>
 > {
   private readonly mapSettingsRef = React.createRef<HTMLDivElement>();
+  /**
+   * One list for the map and its layers. WebMap comes from jimu-core
+   * AllDataSourceTypes (portal ExB 1.18 no longer exports ArcGISDataSourceTypes
+   * from jimu-arcgis). A WebMap picked here becomes the connected map; before,
+   * a WebMap added with "Add new data" was invisible in a layers-only list.
+   */
   private readonly supportedTypes = Immutable.from<AllDataSourceTypes[]>([
     DataSourceTypes.FeatureLayer,
     DataSourceTypes.MapService,
-  ]);
-  /**
-   * Take WebMap from jimu-core's AllDataSourceTypes, not jimu-arcgis:
-   * Portal 12.0 (ExB 1.18) no longer exports ArcGISDataSourceTypes from
-   * jimu-arcgis, so reading `.WebMap` on it crashed the settings panel.
-   */
-  private readonly webMapTypes = Immutable.from<AllDataSourceTypes[]>([
     AllDataSourceTypes.WebMap,
   ]);
-
   componentDidMount(): void {
     window.addEventListener(
       "agri-main:map-settings-request",
       this.onMapSettingsRequest as EventListener,
     );
+    void this.repairWebMapSources();
   }
+
+  /**
+   * In Builder a WebMap may already have failed: its layers' first requests
+   * went without a token and the server's IIS answered 403 "not allowed for
+   * your territory" (no CORS headers), or the JS API routed the whole host
+   * through the 403 portal proxy. Select data then lists it without its
+   * layers. Share the portal token with the server, remove that route and
+   * create the failed WebMaps again (with their layers).
+   */
+  private readonly repairWebMapSources = async (): Promise<void> => {
+    setAgriServiceUrls(this.props.config?.serviceUrls);
+    await installAgriCorsGuard();
+    const failed = listFailedWebMapSourceIds(getAppStore().getState());
+    await Promise.all(
+      failed.map((id) => recreateDataSource(id, true).catch((): null => null)),
+    );
+  };
 
   componentWillUnmount(): void {
     window.removeEventListener(
@@ -49,12 +73,12 @@ export default class Setting extends React.PureComponent<
     );
   }
 
-  private onMapSettingsRequest = (event: CustomEvent<{ widgetId?: string }>): void => {
+  private readonly onMapSettingsRequest = (event: CustomEvent<{ widgetId?: string }>): void => {
     if (event.detail?.widgetId !== this.props.id) return;
     this.mapSettingsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     this.mapSettingsRef.current?.classList.add("agri-map-settings-active");
     window.setTimeout(
-      () => this.mapSettingsRef.current?.classList.remove("agri-map-settings-active"),
+      () => { this.mapSettingsRef.current?.classList.remove("agri-map-settings-active"); },
       1200,
     );
   };
@@ -142,32 +166,19 @@ export default class Setting extends React.PureComponent<
     return toPlainArray(value);
   }
 
-  private onDataSourceChange = (useDataSources: unknown): void => {
-    const webMapId = String(this.ensureConfig().webMapDataSourceId || "");
-    const webMapSource = this.toPlainArray(this.props.useDataSources).find(
-      (source) => (source as UseDataSource | null)?.dataSourceId === webMapId,
-    );
-    this.props.onSettingChange({
-      id: this.props.id,
-      useDataSources: [
-        ...this.toPlainArray(useDataSources),
-        ...(webMapSource ? [webMapSource] : []),
-      ] as UseDataSource[],
-    });
-  };
+  /** The connected WebMap counts as a WebMap even before its type is known. */
+  private readonly isWebMap = (source: UseDataSource): boolean =>
+    (!!source?.dataSourceId &&
+      source.dataSourceId === String(this.ensureConfig().webMapDataSourceId || "")) ||
+    isWebMapSource(source, readSettingDataSourceType);
 
-  private onWebMapChange = (next: UseDataSource[]): void => {
-    const current = this.toPlainArray(this.props.useDataSources) as UseDataSource[];
-    const previousId = String(this.ensureConfig().webMapDataSourceId || "");
-    const selected = next?.[0];
-    const merged = current.filter((source) => source.dataSourceId !== previousId);
-    if (selected && !merged.some((source) => source.dataSourceId === selected.dataSourceId)) {
-      merged.push(selected);
-    }
+  private readonly onDataSourceChange = (useDataSources: unknown): void => {
+    const next = this.toPlainArray(useDataSources) as UseDataSource[];
+    const { useDataSources: stored, webMapDataSourceId } = splitWebMapSelection(next, this.isWebMap);
     this.props.onSettingChange({
       id: this.props.id,
-      useDataSources: merged,
-      config: this.ensureConfig().set("webMapDataSourceId", selected?.dataSourceId || ""),
+      useDataSources: stored,
+      config: this.ensureConfig().set("webMapDataSourceId", webMapDataSourceId),
     });
   };
 
@@ -192,12 +203,6 @@ export default class Setting extends React.PureComponent<
       { key: "cropPlanUrl", label: "Crop Agro plan (agri_crop) URL" },
     ];
     const allSources = this.toPlainArray(this.props.useDataSources) as UseDataSource[];
-    const webMapId = String(cfg.webMapDataSourceId || "");
-    const webMapSource = allSources.find((source) => source.dataSourceId === webMapId);
-    const featureSources = allSources.filter((source) => {
-      const ds = DataSourceManager.getInstance().getDataSource(source.dataSourceId);
-      return ds?.type !== AllDataSourceTypes.WebMap && source.dataSourceId !== webMapId;
-    });
 
     return (
       <div style={{ padding: 16 }}>
@@ -208,40 +213,25 @@ export default class Setting extends React.PureComponent<
           AgriPie10 / AgriGraff10 / AgriBar10 on bottom, AgriIndicator10 on
           the map. Does not require standalone Agri3 widgets on the page.
           The map is built into this widget. Select an ArcGIS Web Map and/or its
-          feature layers below (one of them is required — nothing loads without a
-          connected WebMap); no separate Map widget is required.
+          layers below (nothing loads without a connected WebMap); no separate
+          Map widget is required.
         </p>
 
         <div
           ref={this.mapSettingsRef}
           style={{ marginBottom: 14, padding: 10, borderRadius: 6 }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>Xarita sozlamalari</div>
-          <div style={{ fontWeight: 500, marginBottom: 6 }}>ArcGIS Web Map</div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>Xarita va ma’lumotlar</div>
           <div style={{ marginBottom: 7, fontSize: 12, color: "#5b6b7a" }}>
-            Shu yerda Web Map yoki pastdagi «Data sources» dan uning qatlamlarini
-            tanlang. Ikkalasi ham tanlanmasa xarita ochilmaydi va widgetlar ma’lumot
-            yuklamaydi. Xaritadagi maydonlar ekin turiga qarab «Ekin turi»
+            «Select data» orqali Web Map’ni yoki uning qatlamlarini tanlang (bitta
+            Web Map ulanadi). Hech narsa tanlanmasa xarita ochilmaydi va widgetlar
+            ma’lumot yuklamaydi. Xaritadagi maydonlar ekin turiga qarab «Ekin turi»
             diagrammasidagi ranglar bilan bo‘yaladi.
-          </div>
-          <DataSourceSelector
-            mustUseDataSource={false}
-            types={this.webMapTypes}
-            useDataSources={Immutable.from(webMapSource ? [webMapSource] : [])}
-            onChange={this.onWebMapChange}
-            widgetId={this.props.id}
-            hideDataView
-          />
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>
-            Data sources (Feature layers)
           </div>
           <DataSourceSelector
             mustUseDataSource
             types={this.supportedTypes}
-            useDataSources={Immutable.from(featureSources)}
+            useDataSources={Immutable.from(allSources)}
             onChange={this.onDataSourceChange}
             widgetId={this.props.id}
             hideDataView
@@ -259,7 +249,7 @@ export default class Setting extends React.PureComponent<
             size="sm"
             value={cfg.leftPanelWidthPercent || 26}
             onAcceptValue={(value) =>
-              this.updateConfig({ leftPanelWidthPercent: value })
+              { this.updateConfig({ leftPanelWidthPercent: value }); }
             }
           />
         </div>
@@ -274,7 +264,7 @@ export default class Setting extends React.PureComponent<
             size="sm"
             value={cfg.bottomRowFraction || 38}
             onAcceptValue={(value) =>
-              this.updateConfig({ bottomRowFraction: value })
+              { this.updateConfig({ bottomRowFraction: value }); }
             }
           />
         </div>
@@ -295,12 +285,12 @@ export default class Setting extends React.PureComponent<
                 size="sm"
                 value={this.serviceUrlValue(key)}
                 placeholder={defaultUrls[key]}
-                onAcceptValue={(value) => this.mergeServiceUrl(key, value)}
+                onAcceptValue={(value) => { this.mergeServiceUrl(key, value); }}
                 onBlur={(e) =>
-                  this.mergeServiceUrl(
+                  { this.mergeServiceUrl(
                     key,
                     (e.target as HTMLInputElement).value,
-                  )
+                  ); }
                 }
               />
             </div>
@@ -324,9 +314,9 @@ export default class Setting extends React.PureComponent<
           <Switch
             checked={indicator.useApiDataSource !== false}
             onChange={(e) =>
-              this.updateIndicator({
+              { this.updateIndicator({
                 useApiDataSource: (e.target as HTMLInputElement).checked,
-              })
+              }); }
             }
           />
           <span>Use API data source</span>
@@ -340,9 +330,9 @@ export default class Setting extends React.PureComponent<
             size="sm"
             value={indicator.apiEndpoint || ""}
             onChange={(e) =>
-              this.updateIndicator({
+              { this.updateIndicator({
                 apiEndpoint: (e.target as HTMLInputElement).value,
-              })
+              }); }
             }
             placeholder="https://apisoil.sgm.uzspace.uz/api/v1/..."
           />
@@ -356,9 +346,9 @@ export default class Setting extends React.PureComponent<
             size="sm"
             value={indicator.responseField || "total"}
             onChange={(e) =>
-              this.updateIndicator({
+              { this.updateIndicator({
                 responseField: (e.target as HTMLInputElement).value,
-              })
+              }); }
             }
           />
         </div>
@@ -369,9 +359,9 @@ export default class Setting extends React.PureComponent<
             size="sm"
             value={indicator.label || "Ekin maydonlari"}
             onChange={(e) =>
-              this.updateIndicator({
+              { this.updateIndicator({
                 label: (e.target as HTMLInputElement).value,
-              })
+              }); }
             }
           />
         </div>
@@ -382,9 +372,9 @@ export default class Setting extends React.PureComponent<
             size="sm"
             value={indicator.unitLabel || "ga"}
             onChange={(e) =>
-              this.updateIndicator({
+              { this.updateIndicator({
                 unitLabel: (e.target as HTMLInputElement).value,
-              })
+              }); }
             }
           />
         </div>

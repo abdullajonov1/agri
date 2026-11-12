@@ -14,7 +14,7 @@ GitHub Pages updates automatically on push; Portal caches the old build until yo
 
 Clone this repo into ExB:
 
-`client/your-extensions/widgets/Agro_widgetV5/`
+`client/your-extensions/widgets/Agri3/Agro_widgetV5/`
 
 Then `npm start` in the ExB client.
 
@@ -39,15 +39,17 @@ Large modules are split into folders; the original file path is kept as a barrel
 Run from `client/`:
 
 ```bash
-npx jest -c your-extensions/widgets/agri-main/jest.config.js           # unit tests
-npx tsc --noEmit -p your-extensions/widgets/agri-main/tsconfig.jest.json # types (one jimu-core SDK error is expected)
-npx eslint your-extensions/widgets/agri-main/src --ext .ts,.tsx         # widget lint rules (.eslintrc.js)
-node your-extensions/widgets/agri-main/scripts/check-quality.mjs        # no any / empty catch / console, files <= 800 lines
-node your-extensions/widgets/agri-main/scripts/check-network-timeouts.mjs  # every request has a timeout
-node your-extensions/widgets/agri-main/scripts/smoke-sql-helpers.mjs    # SQL helper smoke test
+W=your-extensions/widgets/Agri3/Agro_widgetV5
+npx jest --runInBand $W/src                  # unit tests
+npx tsc -p $W/tsconfig.check.json            # types (one jimu-core SDK error is expected)
+npx eslint $W/src --ext .ts,.tsx             # lint (root rules + $W/.eslintrc.js overrides)
+node $W/scripts/check-quality.mjs            # no any / empty catch / console, files <= 800 lines
+node $W/scripts/check-network-timeouts.mjs   # every request has a timeout
+node $W/scripts/smoke-sql-helpers.mjs        # SQL helper smoke test
+node $W/scripts/smoke-access-lock.mjs        # access-lock helper smoke test
 ```
 
-The pre-commit hook in `scripts/git-hooks/pre-commit` runs the gate, the timeout check, ESLint and Jest. Enable it once per clone:
+The pre-commit hook in `scripts/git-hooks/pre-commit` runs the gate, the timeout check, the type check, ESLint and Jest. Enable it once per clone:
 
 ```bash
 git config core.hooksPath scripts/git-hooks

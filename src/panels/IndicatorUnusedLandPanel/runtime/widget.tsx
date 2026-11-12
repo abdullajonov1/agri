@@ -1,7 +1,7 @@
 // Unused Land Indicator — standalone widget, independent of AgriIndicator10.
 // Shows sum(maydon) from Agri_unused_land, scoped by the same master yil/viloyat/tuman filters.
 
-import { AllWidgetProps, React } from "jimu-core";
+import { type AllWidgetProps, React } from "jimu-core";
 import AgriDashboardSpinner from "../../../shared/AgriDashboardSpinner";
 import AgriAnimatedCount from "../../../shared/AgriAnimatedCount";
 import { getAgriUnusedLandLayer } from "../../../gis/agri-unused-land-data-source";
@@ -129,7 +129,7 @@ export default class AgriIndicatorUnusedLand extends React.PureComponent<
     );
   }
 
-  private handleThemeChange = (event: Event): void => {
+  private readonly handleThemeChange = (event: Event): void => {
     const detail = (event as CustomEvent<PanelFilterDetail | null>)?.detail;
     if (detail?.theme) {
       this.setState({ isDarkTheme: detail.theme === "dark" });
@@ -138,17 +138,17 @@ export default class AgriIndicatorUnusedLand extends React.PureComponent<
     }
   };
 
-  private handleLanguageChange = (event: Event): void => {
+  private readonly handleLanguageChange = (event: Event): void => {
     if (!this._isMounted) return;
     const d = panelEventDetail(event);
     const next = normalizeLanguage(d.lang ?? d.language ?? d.code);
     if (next !== this.state.language) this.setState({ language: next });
   };
 
-  private normalizeTurlar = (raw: unknown, fallback = ""): string[] =>
+  private readonly normalizeTurlar = (raw: unknown, fallback = ""): string[] =>
     normalizeTurlarListSql(raw, fallback);
 
-  private handleMasterFilterChanged = (event: Event): void => {
+  private readonly handleMasterFilterChanged = (event: Event): void => {
     if (!this._isMounted) return;
     const d = panelEventDetail(event);
     if (!d?.filters) return;
@@ -303,7 +303,7 @@ export default class AgriIndicatorUnusedLand extends React.PureComponent<
     return combineAccessWhereIfFieldsExist(joinAndClauses(clauses, "1=1"), fieldNames);
   }
 
-  private fetchValue = async (): Promise<void> => {
+  private readonly fetchValue = async (): Promise<void> => {
     const { layer, connectionStatus, yil } = this.state;
     if (!layer || connectionStatus !== "connected") return;
 

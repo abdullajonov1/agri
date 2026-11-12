@@ -113,7 +113,7 @@ export const resolveGroupScope = (host: LocalizationHost, groups: Array<{ id: st
   const userIds = groups.map((g) => host._normId(g.id)).filter(Boolean);
   const normIdToOriginal: Record<string, string> = {};
   for (const k of Object.keys(GROUP_ID_TO_VIEW))
-    normIdToOriginal[host._normId(k)] = k;
+    { normIdToOriginal[host._normId(k)] = k; }
 
   for (const gid of userIds) {
     const originalKey = normIdToOriginal[gid];
@@ -186,9 +186,9 @@ export const handleYilChange = (host: LocalizationHost, event: ValueChangeEvent)
             ? window
             : null;
         if (w)
-          w.__AGRI3_DEBUG_YEAR__ = /\b2024\b/.test(selectedYil)
+          { w.__AGRI3_DEBUG_YEAR__ = /\b2024\b/.test(selectedYil)
             ? "2024"
-            : "";
+            : ""; }
       } catch {
         /* ignore */
       }
@@ -199,7 +199,7 @@ export const handleYilChange = (host: LocalizationHost, event: ValueChangeEvent)
         host.broadcastFilterState();
       } catch (e) {
         if (host._isMounted)
-          host.setState({ error: errorMessage(e), loading: false });
+          { host.setState({ error: errorMessage(e), loading: false }); }
       }
     },
   );
@@ -269,7 +269,7 @@ export const applyYil = (host: LocalizationHost, selectedYil: string) => {
         host.broadcastFilterState();
       } catch (e) {
         if (host._isMounted)
-          host.setState({ error: errorMessage(e), loading: false });
+          { host.setState({ error: errorMessage(e), loading: false }); }
       }
     },
   );
@@ -300,7 +300,7 @@ export const handleNdviDateChange = (host: LocalizationHost, event: ValueChangeE
         host.broadcastFilterState();
       } catch (e) {
         if (host._isMounted)
-          host.setState({ error: errorMessage(e), loading: false });
+          { host.setState({ error: errorMessage(e), loading: false }); }
       }
     },
   );

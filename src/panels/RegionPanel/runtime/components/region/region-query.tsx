@@ -1,7 +1,7 @@
-import type { RegionWidgetHost } from "../../region-host";
-import { JimuMapView } from "jimu-arcgis";
+import type { RegionWidgetHost, RegionUseDataSourceRef } from "../../region-host";
+import { type JimuMapView } from "jimu-arcgis";
 import { getQueryableLayer } from "../../../../../gis/feature-layer-data";
-import { DataSourceManager, DataSource, QueriableDataSource } from "jimu-core";
+import { DataSourceManager, type DataSource, type QueriableDataSource } from "jimu-core";
 import { findAreaFieldNumeric } from "../../../../../data/agri-area-field";
 import { normalizeAposKey } from "../../../../../data/agri-sql";
 import { buildRegionAggregatesWhere } from "../../../../../controller/agri-where-builder";
@@ -13,7 +13,7 @@ import { waitForDashboardPackReady, getDashboardPack } from "../../../../../stor
 import { matchRegionDashboardPack } from "../../../../../data/agri-dashboard-pack-match";
 import type { AgriStatFeature } from "../../../../../data/agri-stats-store";
 import { messageOf } from "../../../../panel-filter-detail";
-import type { RegionUseDataSourceRef } from "../../region-host";
+
 import { getAgriReserveLandLayer } from "../../../../../gis/agri-reserve-land-data-source";
 
 const RESERVE_AREA_FIELD = "maydon";
@@ -44,7 +44,7 @@ export const resolveFeatureLayerFromOneUseDataSource = async (host: RegionWidget
     jlvList.find(
       (lv) => lv?.layerDataSourceId === id || lv?.dataSourceId === id,
     );
-  let jlv = matchByDsId(dsId) || (rootId ? matchByDsId(rootId) : null);
+  const jlv = matchByDsId(dsId) || (rootId ? matchByDsId(rootId) : null);
   // getQueryableLayer handles both plain FeatureLayers and Map Image Layer
   // roots by drilling into .sublayers/.allSublayers for a queryable child —
   // the same shared helper agri/agri-main's widgets rely on.

@@ -2,10 +2,10 @@ import type { LocalizationConfig, LocalizationHost } from "../../host";
 import type { AgriMapLayer } from "../../../../../localization/agri-map-layer";
 import { featureAttributes } from "../../../../../localization/agri-map-layer";
 import { firstCollectionArray } from "../../../../../../gis/agri-layer-types";
-import { JimuMapView } from "jimu-arcgis";
+import { type JimuMapView } from "jimu-arcgis";
 import { agriLog } from "../../localization-log";
 import { safeLoadMapImageTree, getQueryableLayer } from "../../../../../../gis/feature-layer-data";
-import { DataSourceManager, DataSource, QueriableDataSource, type IMDataSourceInfo, type IMUseDataSource } from "jimu-core";
+import { DataSourceManager, type DataSource, type QueriableDataSource, type IMDataSourceInfo, type IMUseDataSource } from "jimu-core";
 import { getAgriTableDataLayer } from "../../../../../../gis/agri-table-data-source";
 import { dedupedQueryFeatures } from "../../../../../../data/agri-query-gateway";
 import { getAgriVegetationIndicesLayer } from "../../../../../../gis/agri-vegetation-data-source";
@@ -53,7 +53,7 @@ export const resolveFeatureLayerFromOneUseDataSource = async (
       (lv) => lv?.layerDataSourceId === id || lv?.dataSourceId === id,
     );
 
-  let jlv = matchByDsId(dsId) || (rootDsId ? matchByDsId(rootDsId) : null);
+  const jlv = matchByDsId(dsId) || (rootDsId ? matchByDsId(rootDsId) : null);
   // MapImage sublayers often aren't queryable until the parent finishes loading.
   try {
     await safeLoadMapImageTree(jlv?.layer);

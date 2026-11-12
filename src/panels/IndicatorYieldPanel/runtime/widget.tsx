@@ -1,7 +1,7 @@
 // Average Yield Indicator — standalone widget, independent of AgriIndicator10.
 // Shows avg(yld) from Agri_table_data, scoped by the same master yil/viloyat/tuman filters.
 
-import { AllWidgetProps, React } from "jimu-core";
+import { type AllWidgetProps, React } from "jimu-core";
 import AgriDashboardSpinner from "../../../shared/AgriDashboardSpinner";
 import AgriAnimatedCount from "../../../shared/AgriAnimatedCount";
 import { getAgriTableDataLayer } from "../../../gis/agri-table-data-source";
@@ -124,7 +124,7 @@ export default class AgriIndicatorYield extends React.PureComponent<
     );
   }
 
-  private handleThemeChange = (event: Event): void => {
+  private readonly handleThemeChange = (event: Event): void => {
     const detail = (event as CustomEvent<PanelFilterDetail | null>)?.detail;
     if (detail?.theme) {
       this.setState({ isDarkTheme: detail.theme === "dark" });
@@ -133,17 +133,17 @@ export default class AgriIndicatorYield extends React.PureComponent<
     }
   };
 
-  private handleLanguageChange = (event: Event): void => {
+  private readonly handleLanguageChange = (event: Event): void => {
     if (!this._isMounted) return;
     const d = panelEventDetail(event);
     const next = normalizeLanguage(d.lang ?? d.language ?? d.code);
     if (next !== this.state.language) this.setState({ language: next });
   };
 
-  private normalizeTurlar = (raw: unknown, fallback = ""): string[] =>
+  private readonly normalizeTurlar = (raw: unknown, fallback = ""): string[] =>
     normalizeTurlarListSql(raw, fallback);
 
-  private handleMasterFilterChanged = (event: Event): void => {
+  private readonly handleMasterFilterChanged = (event: Event): void => {
     if (!this._isMounted) return;
     const d = panelEventDetail(event);
     if (!d?.filters) return;
@@ -221,7 +221,7 @@ export default class AgriIndicatorYield extends React.PureComponent<
     return where;
   }
 
-  private fetchValue = async (): Promise<void> => {
+  private readonly fetchValue = async (): Promise<void> => {
     const { layer, connectionStatus, yil } = this.state;
     if (!layer || connectionStatus !== "connected") return;
 

@@ -22,7 +22,7 @@ export function augmentWhereWithNdviClauses(opts: {
   dateClause: string;
   ndviDateLocked: boolean;
 }): string {
-  let where = opts.where;
+  const where = opts.where;
   if (opts.statusClause && where && where !== "1=0") {
     return andWhereIfActive(where, opts.statusClause);
   }

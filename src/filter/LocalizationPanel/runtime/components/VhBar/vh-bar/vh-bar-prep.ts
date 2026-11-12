@@ -45,7 +45,7 @@ export function getLatestNdviDateForBar(
     for (const f of primaryLayer.fields) {
       const name = f.name || "";
       if (!String(name).toLowerCase().startsWith(prefix.toLowerCase()))
-        continue;
+        { continue; }
       const rawSuffix = String(name).slice(prefix.length);
       const digitsOnly = rawSuffix.replace(/[^0-9]/g, "");
       const label =
@@ -165,9 +165,9 @@ export const executeComputeVhBarData = async (host: LocalizationHost): Promise<V
       host._vhBarUsedDate = date;
       host._vhBarUsedDateGeo = date ? geoKeyAtStart : null;
     },
-    setState: (patch) => host.setState(patch),
-    prefetchVhStatusUniqueIds: (date) => host.prefetchVhStatusUniqueIds(date),
-    log: (phase, detail) => agriLog(phase, detail),
+    setState: (patch) => { host.setState(patch); },
+    prefetchVhStatusUniqueIds: (date) => { host.prefetchVhStatusUniqueIds(date); },
+    log: (phase, detail) => { agriLog(phase, detail); },
     farmerUniqueIds: String(host.state.selectedFarmerInn || "").trim()
       ? host._farmerMapUniqueIds
       : null,

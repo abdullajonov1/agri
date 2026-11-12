@@ -1,6 +1,6 @@
 import type { AgriGraffWidgetState, ChartVegetationRow, VegetationIndex } from "../widget";
 import type { GraffWidgetProps } from "../graff-state";
-import { React } from "jimu-core";
+import { type React } from "jimu-core";
 import type { GraffPendingOverlayWalk } from "../graff-raster-overlay";
 import type { VegetationIndiceType, PolygonExportImageResult } from "../../../../gis/agri-polygon-api-source";
 import { graffLog } from "../graff-log";

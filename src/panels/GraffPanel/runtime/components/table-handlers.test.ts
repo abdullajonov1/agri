@@ -153,6 +153,53 @@ describe("resolveTablePageForUniqueid", () => {
     expect(where).toContain("maydon > 2.5");
   });
 
+  test("maydon sort: NULL areas sorted first are counted before every value", async () => {
+    const { layer, queryFeatureCount } = makeLayer(
+      [
+        { features: [{ attributes: { objectid: 5, maydon: 2.5 } }] },
+        { features: [{ attributes: { maydon: null } }] },
+      ],
+      0,
+    );
+    const host = makeHost({ featureLayer: layer, tableSort: { column: "maydon", order: "desc" } });
+    await resolveTablePageForUniqueid(host, "U");
+    const where = (queryFeatureCount.mock.calls[0] as Array<{ where: string }>)[0].where;
+    expect(where).toBe(
+      "(year=2024) AND (maydon IS NULL OR maydon > 2.5 OR (maydon = 2.5 AND objectid < 5))",
+    );
+  });
+
+  test("maydon sort: a row without area is placed inside the NULL block", async () => {
+    const last = makeLayer(
+      [
+        { features: [{ attributes: { objectid: 9, maydon: null } }] },
+        { features: [{ attributes: { maydon: 4 } }] },
+      ],
+      0,
+    );
+    await resolveTablePageForUniqueid(
+      makeHost({ featureLayer: last.layer, tableSort: { column: "maydon", order: "asc" } }),
+      "U",
+    );
+    expect((last.queryFeatureCount.mock.calls[0] as Array<{ where: string }>)[0].where).toBe(
+      "(year=2024) AND (maydon IS NOT NULL OR (maydon IS NULL AND objectid < 9))",
+    );
+    const first = makeLayer(
+      [
+        { features: [{ attributes: { objectid: 9, maydon: null } }] },
+        { features: [{ attributes: { maydon: null } }] },
+      ],
+      0,
+    );
+    await resolveTablePageForUniqueid(
+      makeHost({ featureLayer: first.layer, tableSort: { column: "maydon", order: "asc" } }),
+      "U",
+    );
+    expect((first.queryFeatureCount.mock.calls[0] as Array<{ where: string }>)[0].where).toBe(
+      "(year=2024) AND (maydon IS NULL AND objectid < 9)",
+    );
+  });
+
   test("fallback: id outside filter returns null; inside filter works", async () => {
     const outside = makeLayer([{ features: [] }, { features: [{ attributes: { objectid: 7 } }] }, { features: [] }], 0);
     await expect(resolveTablePageForUniqueid(makeHost({ featureLayer: outside.layer }), "U")).resolves.toBeNull();

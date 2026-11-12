@@ -76,7 +76,7 @@ export const getCustomStyles = (host: IndicatorWidgetHost): IndicatorCustomStyle
   const containerStyles: React.CSSProperties = {};
 
   if (borderRadiusCfg != null && Number.isFinite(borderRadiusCfg))
-    containerStyles.borderRadius = `${borderRadiusCfg}px`;
+    { containerStyles.borderRadius = `${borderRadiusCfg}px`; }
   if (textColorRaw) containerStyles.color = textColorRaw;
 
   if (hasBgOverride) {

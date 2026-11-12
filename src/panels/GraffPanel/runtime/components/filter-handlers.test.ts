@@ -290,7 +290,7 @@ describe("field and sort helpers", () => {
   test("getTableOrderByFields", () => {
     const base = { getMaydonSortFieldName: (): string => "maydon" };
     expect(fh.getTableOrderByFields(wiredHost({}, base))).toEqual(["objectid"]);
-    expect(fh.getTableOrderByFields(wiredHost({ tableSort: { column: "maydon", order: "asc" } }, base))).toEqual(["maydon ASC"]);
+    expect(fh.getTableOrderByFields(wiredHost({ tableSort: { column: "maydon", order: "asc" } }, base))).toEqual(["maydon ASC", "objectid ASC"]);
     expect(
       fh.getTableOrderByFields(
         wiredHost({ tableSort: { column: "maydon", order: "asc" }, featureLayer: layerOf([], { objectIdField: "OID" }) }, { getMaydonSortFieldName: (): null => null }),

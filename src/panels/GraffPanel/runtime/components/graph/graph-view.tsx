@@ -242,7 +242,7 @@ export const renderGraphLegend = (host: GraffWidgetHost) => {
             type="button"
             className={`index-btn-h${isActive ? " active" : ""}`}
             disabled={!regionalInteraction}
-            onClick={() => host.handleIndexChange(btn.key)}
+            onClick={() => { host.handleIndexChange(btn.key); }}
             style={{ "--legend-color": btn.color } as React.CSSProperties}
             aria-pressed={isActive}
           >

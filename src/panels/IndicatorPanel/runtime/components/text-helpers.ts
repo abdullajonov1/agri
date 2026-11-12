@@ -108,7 +108,7 @@ export const makeApostropheVariants = (host: IndicatorWidgetHost, s: string): st
   const set = new Set<string>();
 
   for (const a of variants) {
-    let v = s
+    const v = s
       .replace(/[\u02BB\u02BC\u2019\u2018\u2032\u2035`´ˊˋ]/g, a)
       .replace(/o['\u02BB\u02BC\u2019\u2018`´ˊˋ]/gi, "o" + a)
       .replace(/g['\u02BB\u02BC\u2019\u2018`´ˊˋ]/gi, "g" + a)

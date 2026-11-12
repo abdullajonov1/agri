@@ -53,14 +53,23 @@ function landYearClause(field: __esri.Field, yil: string): string {
   return buildYearLikeClause(yil, { field: field.name });
 }
 
+/**
+ * A tuman was chosen but this layer cannot filter by it: show nothing rather
+ * than silently widening to the whole viloyat.
+ */
+const NO_TUMAN_MATCH = "1=0";
+
 function landTumanClause(layer: LandLayerFields, tuman: string): string {
   const normalized = normalizeApos(tuman);
   if (/^\d+$/.test(normalized)) {
     const district = landField(layer, "district");
-    return district ? `${district.name} = '${Number(normalized)}'` : "";
+    if (!district) return NO_TUMAN_MATCH;
+    return NUMERIC_FIELD_TYPES.has(String(district.type || "").toLowerCase())
+      ? `${district.name} = ${Number(normalized)}`
+      : `${district.name} = '${Number(normalized)}'`;
   }
   const field = landField(layer, "tuman");
-  return field ? buildTumanEqualsSql(field.name, tuman) : "";
+  return field ? buildTumanEqualsSql(field.name, tuman) || NO_TUMAN_MATCH : NO_TUMAN_MATCH;
 }
 
 /** WHERE for one land layer, or "" when the scope has no usable year yet. */
@@ -163,8 +172,35 @@ function addLandLayer(map: __esri.Map, overlay: AgriLandOverlay): Promise<__esri
       return layer;
     });
     added.set(overlay, pending);
+    // A failed module load must not be cached: the next switch-on retries.
+    const current = pending;
+    current.catch(() => {
+      if (added?.get(overlay) === current) added.delete(overlay);
+    });
   }
   return pending;
+}
+
+/**
+ * A FeatureLayer whose load() failed (expired token, network) never loads
+ * again. Drop the copy this module added so the next sync builds a fresh one.
+ */
+async function forgetAddedLandLayer(
+  map: __esri.Map,
+  overlay: AgriLandOverlay,
+  layer: __esri.FeatureLayer,
+): Promise<void> {
+  const added = addedLayers.get(map);
+  const pending = added?.get(overlay);
+  if (!pending) return;
+  const ours = await pending.then((l) => l === layer, () => false);
+  if (!ours) return;
+  added.delete(overlay);
+  try {
+    map.remove(layer);
+  } catch {
+    /* map already destroyed */
+  }
 }
 
 function hideInactiveLandLayers(map: __esri.Map, active: AgriLandOverlay | null): void {
@@ -187,12 +223,12 @@ export function holdInactiveLandLayersHidden(
 ): () => void {
   const map = view.map;
   if (!map) return () => undefined;
-  const hide = (): void => hideInactiveLandLayers(map, getActive());
+  const hide = (): void => { hideInactiveLandLayers(map, getActive()); };
   hide();
   const handle = (map.allLayers as unknown as {
     on?: (name: "change", cb: () => void) => { remove: () => void };
   })?.on?.("change", hide);
-  return () => handle?.remove();
+  return () => { handle?.remove(); };
 }
 
 let latestSync = 0;
@@ -240,7 +276,12 @@ export async function syncAgriLandLayers(
   }
 
   const layer = findMapLandLayer(map, active) || (await addLandLayer(map, active));
-  await layer.load();
+  try {
+    await layer.load();
+  } catch (error) {
+    await forgetAddedLandLayer(map, active, layer);
+    throw error;
+  }
   if (sync !== latestSync) return null;
   const where = buildLandLayerWhere(layer, scope);
   const crop = active === "reserve" ? reserveCropWhere.trim() : "";

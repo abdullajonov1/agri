@@ -1,11 +1,11 @@
 import type { PieChartDatum, PieWidgetHost } from "../pie-host";
 import type { CssVarStyle } from "../../../panel-filter-detail";
-import { React } from "jimu-core";
-import { DataSourceComponent } from "jimu-core";
+import { React, DataSourceComponent } from "jimu-core";
+
 import { JimuMapViewComponent } from "jimu-arcgis";
 import { TriangleAlert } from "lucide-react";
 import { Button } from "jimu-ui";
-import { default as AgriChartLoader } from "../../../../shared/AgriChartLoader";
+import AgriChartLoader from "../../../../shared/AgriChartLoader";
 import { agriNoDataLabel } from "../../../../shared/agriNoDataLabel";
 
 export const renderRadarPieChart = (host: PieWidgetHost, _chartData: PieChartDatum[], _containerWidth: number = 300, _containerHeight: number = 300): JSX.Element => {
@@ -22,7 +22,6 @@ export function render(host: PieWidgetHost) {
     loading,
     error,
     categoryData,
-    activeSlice,
     selectedCategories,
     mapLoadingStatus,
     connectionStatus,
@@ -68,10 +67,10 @@ export function render(host: PieWidgetHost) {
     | "failed" = "idle";
   if (mapLoadingStatus === "loading") statusIndicator = "loading";
   else if (mapLoadingStatus === "loaded" && connectionStatus === "connecting")
-    statusIndicator = "connecting";
+    { statusIndicator = "connecting"; }
   else if (connectionStatus === "connected") statusIndicator = "connected";
   else if (mapLoadingStatus === "failed" || connectionStatus === "failed")
-    statusIndicator = "failed";
+    { statusIndicator = "failed"; }
 
   const showDebugInfo = false; // ✅ Disabled debug panel
 
@@ -194,7 +193,7 @@ export function render(host: PieWidgetHost) {
             <TriangleAlert className="agri-empty-state-icon" strokeWidth={1.7} aria-hidden="true" />
             <p>{error}</p>
             <Button
-              onClick={() => host.fetchCategoryData()}
+              onClick={() => { host.fetchCategoryData(); }}
               type="primary"
               size="sm"
             >
@@ -281,8 +280,8 @@ export function render(host: PieWidgetHost) {
                     key={entry.rawKey || entry.name}
                     className={`legend-item ${selectedCategories.some((selected) => host.normalizeName(selected) === host.normalizeName(entry.rawKey || entry.name)) ? "legend-item-selected" : ""}`}
                     onClick={() =>
-                      sliceInteractive &&
-                      host.handleSliceClick(entry, index)
+                      { sliceInteractive &&
+                      host.handleSliceClick(entry, index); }
                     }
                     disabled={!sliceInteractive}
                     style={

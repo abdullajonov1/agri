@@ -1,5 +1,5 @@
 import type { PieWidgetHost } from "../pie-host";
-import { DataSource, QueriableDataSource } from "jimu-core";
+import { type DataSource, type QueriableDataSource } from "jimu-core";
 import { buildPieStatsWhere } from "../../../../controller/agri-where-builder";
 import { getPieVhFilterUniqueIds } from "../../../../gis/agri-chart-filter-order";
 import { buildSpatialJoinWhere, queryAgriTuriCropMappings, getAgriTableDataLayer } from "../../../../gis/agri-table-data-source";
@@ -8,9 +8,9 @@ import type { AgriCropLanguage } from "../../../../shared/agri-crop-labels";
 import { rememberPieCropColor } from "../../../../shared/agri-crop-color-registry";
 import { escapeArcGIS } from "../../../../gis/feature-layer-data";
 import { getAgriDashboardBootstrap } from "../../../../data/agri-bootstrap";
-import { JimuMapView } from "jimu-arcgis";
-import { adjustHexColor as pieAdjustHexColor } from "../pie-colors";
-import { APOSTROPHE_VARIANTS as pieApostropheVariants } from "../pie-colors";
+import { type JimuMapView } from "jimu-arcgis";
+import { adjustHexColor as pieAdjustHexColor, APOSTROPHE_VARIANTS as pieApostropheVariants } from "../pie-colors";
+
 import { agroV5Log } from "../../../../gis/agri-debug-log";
 import { errorMessage, toPlainRecord } from "../../../../shared/agri-plain-object";
 import { readPanelEventDetail, readThemeIsDark } from "../../../panel-filter-detail";
@@ -86,9 +86,9 @@ export const onDataSourceCreated = (host: PieWidgetHost, ds: DataSource) => {
   if (typeof queriableDs.setListenSelection === "function") {
     queriableDs.setListenSelection(false);
   }
-  host.setState({ dataSource: queriableDs, error: null }, async () => {
+  host.setState({ dataSource: queriableDs, error: null }, () => {
     if (host.state.connectionStatus === "connected") {
-      await host.fetchCategoryData();
+      host.fetchCategoryData();
     }
   });
 };
@@ -406,7 +406,7 @@ export const waitForMapToLoad = (host: PieWidgetHost, jimuMapView: JimuMapView):
     }
 
     const timeout = setTimeout(
-      () => reject(new Error("Map load timeout")),
+      () => { reject(new Error("Map load timeout")); },
       host.CONNECTION_TIMEOUT_MS,
     );
     const watchHandle = jimuMapView.view.watch("ready", (isReady) => {
@@ -422,7 +422,7 @@ export const waitForMapToLoad = (host: PieWidgetHost, jimuMapView: JimuMapView):
 // Minimal connection: we just store the view and mark as connected
 export const connectToMap = async (host: PieWidgetHost, jimuMapView: JimuMapView): Promise<void> => {
   if (!jimuMapView?.view?.map)
-    throw new Error("Map view has no map property");
+    { throw new Error("Map view has no map property"); }
   return new Promise((resolve) => {
     host.setState(
       {
@@ -444,7 +444,7 @@ export const initializeAfterConnection = (host: PieWidgetHost): void => {
     !host.state.activeMapView ||
     host.state.connectionStatus !== "connected"
   )
-    return;
+    { return; }
 
   if (host.props.externalFilters) {
     const f = host.props.externalFilters;
@@ -456,7 +456,7 @@ export const initializeAfterConnection = (host: PieWidgetHost): void => {
         turi: f.turi || "",
         debugInfo: "External filters applied from props",
       },
-      () => host.fetchCategoryData(),
+      () => { host.fetchCategoryData(); },
     );
   } else {
     host.fetchCategoryData();
@@ -521,7 +521,7 @@ export const onActiveViewChange = async (host: PieWidgetHost, jimuMapView: JimuM
         connectionStatus: "connected",
         debugInfo: `Error: ${(err as Error).message}, continuing`,
       },
-      () => host.fetchCategoryData(),
+      () => { host.fetchCategoryData(); },
     );
   }
 };

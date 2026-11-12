@@ -212,7 +212,7 @@ export function componentDidMount(host: PieWidgetHost) {
           mapLoadingStatus: "loaded",
           debugInfo: "Timeout reached, proceeding",
         },
-        () => host.fetchCategoryData(),
+        () => { host.fetchCategoryData(); },
       );
     }
   }, host.CONNECTION_TIMEOUT_MS);
@@ -254,8 +254,8 @@ export const updateFiltersFromProps = (host: PieWidgetHost, filters: {
       host.fetchCategoryData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         300,
       );
     },
@@ -294,7 +294,7 @@ export function componentDidUpdate(host: PieWidgetHost, prevProps: AgriPieProps,
     host.state.connectionStatus === "connected"
   ) {
     setTimeout(
-      () => host._isMounted && host.initializeAfterConnection(),
+      () => { host._isMounted && host.initializeAfterConnection(); },
       100,
     );
   }
@@ -327,7 +327,7 @@ export function componentDidUpdate(host: PieWidgetHost, prevProps: AgriPieProps,
           error: null,
           debugInfo: "Proceeding after multiple failed attempts",
         },
-        () => host.fetchCategoryData(),
+        () => { host.fetchCategoryData(); },
       );
     }
   }

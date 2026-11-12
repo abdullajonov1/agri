@@ -2,7 +2,8 @@
  * Shared map-connection timing and JimuMapView resolution for Agro_widgetV5.
  * Keeps retry/poll limits in one place so dashboard + embedded panels stay aligned.
  */
-import type { JimuMapView } from "jimu-arcgis";
+import type * as JimuArcgis from "jimu-arcgis";
+type JimuMapView = JimuArcgis.JimuMapView;
 
 /** Dashboard shell: poll until MapView exists (~10.2 s max). */
 export const MAP_VIEW_WATCH_INTERVAL_MS = 300;
@@ -28,7 +29,7 @@ export function resolveJimuMapView(mapWidgetId: string): JimuMapView | null {
   if (!id) return null;
 
   try {
-    const { MapViewManager } = require("jimu-arcgis") as typeof import("jimu-arcgis");
+    const { MapViewManager } = require("jimu-arcgis") as typeof JimuArcgis;
     const group = MapViewManager.getInstance().getJimuMapViewGroup(id);
     const active = group?.getActiveJimuMapView?.();
     if (active?.view) return active;

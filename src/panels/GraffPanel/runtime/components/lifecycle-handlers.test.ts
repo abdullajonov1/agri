@@ -16,8 +16,8 @@ jest.mock("../../../../shared/map-connection-service", () => ({ MAP_CONNECTION_R
 
 import { asMock, makeStubHost } from "../__test-utils__/stub-host";
 import type { GraffWidgetHost } from "../graff-host";
-import type { AgriGraffWidgetState } from "../graff-state";
-import type { GraffWidgetProps } from "../graff-state";
+import type { AgriGraffWidgetState, GraffWidgetProps } from "../graff-state";
+
 import * as lh from "./lifecycle-handlers";
 
 const wired = (state: Partial<AgriGraffWidgetState> = {}, extra: Record<string, unknown> = {}): GraffWidgetHost =>

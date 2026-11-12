@@ -2,7 +2,6 @@
  * Lazy xlsx-populate — keeps Excel template styles/merges intact.
  * Loaded only when the user clicks the Excel toolbar button.
  */
-// @ts-nocheck
 
 export type PopulateSheet = {
   name: () => string;
@@ -32,13 +31,17 @@ let cached: Promise<XlsxPopulateModule> | null = null;
 
 export function loadXlsxPopulate(): Promise<XlsxPopulateModule> {
   if (!cached) {
-    cached = import("./xlsx-populate.browser.js").then((mod: any) => {
-      const X =
-        (mod && (mod.default || mod.XlsxPopulate || mod)) as XlsxPopulateModule;
+    cached = import("./xlsx-populate.browser.js").then((raw: unknown) => {
+      const mod = raw as { default?: unknown; XlsxPopulate?: unknown } | null;
+      const X = (mod && (mod.default || mod.XlsxPopulate || mod)) as XlsxPopulateModule;
       if (!X || typeof X.fromDataAsync !== "function") {
         throw new Error("xlsx-populate failed to load");
       }
       return X;
+    });
+    // A failed chunk load (network blip) must not break every later export.
+    cached.catch(() => {
+      cached = null;
     });
   }
   return cached;

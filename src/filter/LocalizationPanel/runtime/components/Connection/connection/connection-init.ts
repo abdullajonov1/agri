@@ -1,5 +1,5 @@
 import type { LocalizationHost } from "../../host";
-import { JimuMapView } from "jimu-arcgis";
+import { type JimuMapView } from "jimu-arcgis";
 import { getAgriServiceUrls } from "../../../../../../shared/agri-service-urls";
 import esriRequest from "esri/request";
 import { debugCatch, agriLog } from "../../localization-log";

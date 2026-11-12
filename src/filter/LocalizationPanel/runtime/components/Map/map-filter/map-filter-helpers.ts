@@ -309,28 +309,6 @@ export async function applyFiltersPersistent(
         /* map visual sync is best-effort; data-side filtering is unaffected */
       }
     }
-
-    const effectiveViloyat = effectiveViloyatForTable;
-    const layerDebug = featureLayers.map((fl) => {
-      const key = host.getLayerKey(fl);
-      const title = (fl?.title || fl?.id || key).toString();
-      const matchState = host.getLayerMatchStateForViloyat(
-        fl,
-        effectiveViloyat,
-      );
-      return {
-        title,
-        matchState,
-        definitionExpression: fl.definitionExpression || "1=0",
-        visible: fl?.visible,
-        minScale: fl?.minScale,
-        maxScale: fl?.maxScale,
-        effectiveScale: host.state.activeMapView?.view?.scale,
-      };
-    });
-    const activeLayerTitles = layerDebug
-      .filter((l) => l.definitionExpression !== "1=0")
-      .map((l) => l.title);
   }
   host._prevDefinitionExpression = buildDefinitionExpressionDigest(
     featureLayers || [],

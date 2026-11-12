@@ -161,7 +161,7 @@ export type IndexInfoMenuProps = IndexInfoDetailProps & {
 export const IndexInfoDetail = (props: IndexInfoDetailProps) => {
   const { selectedIndexInfoKey, language } = props;
   if (props.openToolbarMenu !== "indexInfo" || !selectedIndexInfoKey)
-    return null;
+    { return null; }
 
   const item = INDEX_INFO.find(
     (i) => i.key === selectedIndexInfoKey,
@@ -182,7 +182,7 @@ export const IndexInfoDetail = (props: IndexInfoDetailProps) => {
         role="dialog"
         aria-label={item.key}
         style={{ "--index-accent": item.color } as IndexAccentStyle}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); }}
       >
         <div className="agri-v20-index-info-detail-header">
           <div className="agri-v20-index-info-detail-title-row">
@@ -275,7 +275,7 @@ export const IndexInfoMenu = (props: IndexInfoMenuProps) => {
             role="button"
             tabIndex={0}
             style={{ "--index-accent": item.color } as IndexAccentStyle}
-            onClick={() => props.openIndexInfoDetail(item.key)}
+            onClick={() => { props.openIndexInfoDetail(item.key); }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();

@@ -1,11 +1,11 @@
 import type { RegionWidgetHost } from "../region-host";
 import type { AgriDisplayLanguage } from "../widget";
-import { React } from "jimu-core";
-import { DataSourceComponent } from "jimu-core";
+import { React, DataSourceComponent } from "jimu-core";
+
 import { JimuMapViewComponent } from "jimu-arcgis";
 import { ChevronLeft, TriangleAlert } from "lucide-react";
 import { SortDescIcon, SortAscIcon } from "../SortIcons";
-import { default as AgriChartLoader } from "../../../../shared/AgriChartLoader";
+import AgriChartLoader from "../../../../shared/AgriChartLoader";
 import { Button } from "jimu-ui";
 import { agriNoDataLabel } from "../../../../shared/agriNoDataLabel";
 import { AgriRegionBarChart } from "../AgriRegionBarChart";
@@ -38,7 +38,6 @@ export function render(host: RegionWidgetHost) {
   } = host.state;
 
   const labelColumnWidth = host.calculateDynamicYAxisWidth();
-  const yAxisWidth = labelColumnWidth + 2;
   const chartTrackRightInset = 0;
   const chartBarGap = 6;
 
@@ -146,24 +145,6 @@ export function render(host: RegionWidgetHost) {
           ? "Kamayish"
           : "Камайиш";
 
-  const selectYearTitle =
-    language === "en"
-      ? "📅 Select a year"
-      : language === "ru"
-      ? "📅 Выберите год"
-      : language === "uz_lat"
-        ? "📅 Yilni tanlang"
-        : "📅 Йилни танланг";
-
-  const selectYearBody =
-    language === "en"
-      ? "Select a year first to view statistics"
-      : language === "ru"
-      ? "Чтобы просматривать статистику, сначала выберите год"
-      : language === "uz_lat"
-        ? "Statistikani ko‘rish uchun avval yilni tanlang"
-        : "Статистикани кўриш учун аввал йилни танланг";
-
   const backButtonText =
     language === "en" ? "Back" : language === "ru" ? "Назад" : language === "uz_lat" ? "Orqaga" : "Орқага";
 
@@ -260,7 +241,7 @@ export function render(host: RegionWidgetHost) {
                           ? "is-collapsed"
                           : ""
                       }`}
-                      onClick={() => host.handleDisplayCountPillClick(count)}
+                      onClick={() => { host.handleDisplayCountPillClick(count); }}
                     >
                       {count}
                     </button>
@@ -273,7 +254,7 @@ export function render(host: RegionWidgetHost) {
                 type="button"
                 className="agri-v11-regional-stats-sort-button active"
                 onClick={host.cycleSortMode}
-                onMouseDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => { e.preventDefault(); }}
                 title={sortTitle}
                 aria-label={sortTitle}
               >

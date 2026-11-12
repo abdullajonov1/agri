@@ -51,6 +51,11 @@ jest.mock("jimu-ui", () => ({
     <input type="checkbox" role="switch" checked={checked} onChange={onChange} />
   ),
 }));
+const mockTypes: Record<string, string> = {};
+jest.mock("./webmap-source", () => ({
+  ...jest.requireActual("./webmap-source"),
+  readSettingDataSourceType: (id: string): string | undefined => mockTypes[id],
+}));
 jest.mock("./agri-popup-setting", () => ({ __esModule: true, default: () => <div>popup-panel</div> }));
 jest.mock("./agri-access-setting", () => ({ __esModule: true, default: () => <div>access-panel</div> }));
 
@@ -142,20 +147,48 @@ describe("Setting", () => {
   test("feature layer selection keeps the already-selected web map source", () => {
     const onChange = setup({ webMapDataSourceId: "wm" }, [ds("wm"), ds("fl1")]);
     const featureSelector = selectors.find((s) => s.isMultiple) as SelectorProps;
-    act(() => featureSelector.onChange([ds("fl2")]));
+    // The list shows the connected WebMap as selected, so it comes back in onChange.
+    act(() => featureSelector.onChange([ds("wm"), ds("fl2")]));
     const call = onChange.mock.calls[0][0];
     expect(call.useDataSources?.map((d) => d.dataSourceId)).toEqual(["fl2", "wm"]);
+    expect(call.config?.webMapDataSourceId).toBe("wm");
   });
 
-  test("web map selection replaces the previous web map and records its id", () => {
-    const onChange = setup({ webMapDataSourceId: "wmOld" }, [ds("wmOld"), ds("fl1")]);
-    const webMapSelector = selectors.find((s) => !s.isMultiple) as SelectorProps;
-    act(() => webMapSelector.onChange([ds("wmNew")]));
+  test("one Select data list shows every selected source and offers WebMaps", () => {
+    setup({ webMapDataSourceId: "wm" }, [ds("wm"), ds("fl1")]);
+    expect(selectors).toHaveLength(1);
+    const selector = selectors[0] as SelectorProps & { types: string[]; mustUseDataSource?: boolean };
+    const shown = selector.useDataSources as unknown as { asMutable: () => UseDataSource[] };
+    expect(shown.asMutable().map((d) => d.dataSourceId)).toEqual(["wm", "fl1"]);
+    expect(Array.from(selector.types)).toEqual(expect.arrayContaining(["WEB_MAP", "FEATURE_LAYER"]));
+    // Without mustUseDataSource the selector shows an inert "Connect to data" toggle.
+    expect(selector.mustUseDataSource).toBe(true);
+  });
+
+  test("a WebMap picked in the Data sources list becomes the connected map", () => {
+    mockTypes.wmNew = "WEB_MAP";
+    const onChange = setup({}, [ds("fl1")]);
+    const featureSelector = selectors.find((s) => s.isMultiple) as SelectorProps;
+    act(() => featureSelector.onChange([ds("fl1"), ds("wmNew")]));
     const call = onChange.mock.calls[0][0];
     expect(call.useDataSources?.map((d) => d.dataSourceId)).toEqual(["fl1", "wmNew"]);
     expect(call.config?.webMapDataSourceId).toBe("wmNew");
-    act(() => webMapSelector.onChange([]));
+    // Deselecting it there disconnects it.
+    act(() => featureSelector.onChange([ds("fl1")]));
     expect(onChange.mock.calls[1][0].config?.webMapDataSourceId).toBe("");
+    delete mockTypes.wmNew;
+  });
+
+  test("a second WebMap replaces the previous one and records its id", () => {
+    mockTypes.wmNew = "WEB_MAP";
+    const onChange = setup({ webMapDataSourceId: "wmOld" }, [ds("wmOld"), ds("fl1")]);
+    act(() => selectors[0].onChange([ds("wmOld"), ds("fl1"), ds("wmNew")]));
+    const call = onChange.mock.calls[0][0];
+    expect(call.useDataSources?.map((d) => d.dataSourceId)).toEqual(["fl1", "wmNew"]);
+    expect(call.config?.webMapDataSourceId).toBe("wmNew");
+    act(() => selectors[0].onChange([]));
+    expect(onChange.mock.calls[1][0].config?.webMapDataSourceId).toBe("");
+    delete mockTypes.wmNew;
   });
 
   test("map-settings request for this widget scrolls and highlights, others are ignored", () => {

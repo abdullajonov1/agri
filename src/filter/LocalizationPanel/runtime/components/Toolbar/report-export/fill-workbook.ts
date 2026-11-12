@@ -61,8 +61,23 @@ export function setVal(
   cell.value(typeof value === "number" && !Number.isFinite(value) ? 0 : value);
 }
 
+/** xlsx-populate keeps the parsed XML on private `_node` fields. */
+interface XmlNode {
+  name?: string;
+  attributes?: Record<string, unknown>;
+  children?: unknown[];
+}
+type WithXmlNode = { _node?: XmlNode };
+interface PopulateWorkbookInternals extends WithXmlNode {
+  _relationships?: WithXmlNode;
+  _contentTypes?: WithXmlNode;
+  _zip?: { remove?: (path: string) => void };
+}
+
+const xmlNodeOf = (value: unknown): XmlNode | undefined => (value as WithXmlNode | null)?._node;
+
 export function getStyleId(sheet: PopulateSheet, row: number, col: number): unknown {
-  return (sheet.cell(row, col) as any)._node?.attributes?.s;
+  return xmlNodeOf(sheet.cell(row, col))?.attributes?.s;
 }
 
 export function setStyleId(
@@ -71,7 +86,7 @@ export function setStyleId(
   col: number,
   styleId: unknown,
 ): void {
-  const node = (sheet.cell(row, col) as any)._node;
+  const node = xmlNodeOf(sheet.cell(row, col));
   if (!node?.attributes) return;
   if (styleId === undefined || styleId === null) delete node.attributes.s;
   else node.attributes.s = styleId;
@@ -86,7 +101,7 @@ export function setRowHeight(
   row: number,
   height: number | undefined,
 ): void {
-  sheet.row(row).height(height as any);
+  sheet.row(row).height(height);
 }
 
 function isJamiLabel(v: unknown): boolean {
@@ -158,7 +173,7 @@ function resizeDataRows(
   const dataHeight = rowHeight(sheet, sourceRow);
   const jamiHeight = rowHeight(sheet, jami);
 
-  const mergeMap = ((sheet as any)._mergeCells || {}) as Record<string, unknown>;
+  const mergeMap = ((sheet as { _mergeCells?: Record<string, unknown> })._mergeCells || {});
   const merges = Object.keys(mergeMap)
     .map((a) => ({ address: a, ref: parseMerge(a) }))
     .filter((m): m is { address: string; ref: MergeRef } => Boolean(m.ref));
@@ -220,7 +235,8 @@ function patchText(
     if (next !== v) setVal(sheet, row, col, next);
     return;
   }
-  const walk = (node: any): void => {
+  const walk = (value: unknown): void => {
+    const node = value as XmlNode | null;
     if (!node || !Array.isArray(node.children)) return;
     node.children = node.children.map((ch: unknown) =>
       typeof ch === "string" ? fn(ch) : (walk(ch), ch),
@@ -338,7 +354,7 @@ function fillTable(
 
   let sums: number[] = [];
   rows.forEach((row, i) => {
-    const r = layout!.first + i;
+    const r = layout.first + i;
     const values = spec.values(dataKey(row.key));
     if (!sums.length) sums = values.map(() => 0);
     setVal(sheet, r, 1, i + 1);
@@ -358,7 +374,7 @@ function fillTable(
   });
 
   spec.totals(sums).forEach((v, idx) => {
-    setVal(sheet, layout!.jami, spec.valueCol + idx, v);
+    setVal(sheet, layout.jami, spec.valueCol + idx, v);
   });
 }
 
@@ -517,9 +533,11 @@ function sheetByName(wb: PopulateWorkbook, ...names: string[]): PopulateSheet | 
  * relationship, which Excel reports as a corrupt file.
  */
 export function dropOrphanParts(wb: PopulateWorkbook): void {
-  const w = wb as any;
-  const isExternal = (n: any) =>
-    /externalLink|calcChain/.test(
+  const w = wb as unknown as PopulateWorkbookInternals;
+  const asNode = (n: unknown): XmlNode | undefined => n as XmlNode | undefined;
+  const isExternal = (raw: unknown): boolean => {
+    const n = asNode(raw);
+    return /externalLink|calcChain/.test(
       String(
         n?.attributes?.Type ||
           n?.attributes?.ContentType ||
@@ -527,19 +545,20 @@ export function dropOrphanParts(wb: PopulateWorkbook): void {
           "",
       ),
     );
+  };
   if (Array.isArray(w._node?.children)) {
     w._node.children = w._node.children.filter(
-      (n: any) => n?.name !== "externalReferences",
+      (n) => asNode(n)?.name !== "externalReferences",
     );
   }
   if (Array.isArray(w._relationships?._node?.children)) {
     w._relationships._node.children = w._relationships._node.children.filter(
-      (n: any) => !isExternal(n),
+      (n) => !isExternal(n),
     );
   }
   if (Array.isArray(w._contentTypes?._node?.children)) {
     w._contentTypes._node.children = w._contentTypes._node.children.filter(
-      (n: any) => !isExternal(n),
+      (n) => !isExternal(n),
     );
   }
   if (w._zip?.remove) {

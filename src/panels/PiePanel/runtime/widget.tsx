@@ -1,63 +1,88 @@
 import type { PieECharts } from "./echarts-setup";
-import { JimuMapView, JimuMapViewComponent } from "jimu-arcgis";
-import {
-  AllWidgetProps,
-  DataSource,
-  DataSourceComponent,
-  ImmutableArray,
-  QueriableDataSource,
-  React,
-} from "jimu-core";
-import { Button } from "jimu-ui";
-import { TriangleAlert } from "lucide-react";
-import AgriChartLoader from "../../../shared/AgriChartLoader";
-import { agriNoDataLabel } from "../../../shared/agriNoDataLabel";
-import { getAgriDashboardBootstrap } from "../../../data/agri-bootstrap";
-import {
-  buildSpatialJoinWhere,
-  expandUniqueIdsForAgriTable,
-  getAgriTableDataLayer,
-  queryAgriRegionDistrictMappings,
-  queryAgriTuriCropMappings,
-} from "../../../gis/agri-table-data-source";
-import { escapeArcGIS } from "../../../gis/feature-layer-data";
-import {
-  VH_CATEGORY_TO_NDVI_STATUS,
-  queryVegetationCropBreakdownForStatus,
-  queryVegetationCropStatsForStatus,
-  type VegetationCropBreakdownRow,
-} from "../../../gis/agri-vegetation-data-source";
-import {
-  getPieVhFilterUniqueIds,
-  getPieVhFilterUniqueIdsSig,
-} from "../../../gis/agri-chart-filter-order";
-import { agroV5Log } from "../../../gis/agri-debug-log";
+import { type JimuMapView } from "jimu-arcgis";
+import { type AllWidgetProps, type DataSource, type ImmutableArray, type QueriableDataSource, React } from "jimu-core";
 import { resolveInitialLanguage } from "../../../shared/agri-language";
-import { bindMasterFilter } from "../../../data/agri-filter-bus";
-import { getPieCategoryStatsCached } from "../../../data/agri-stats-store";
+import { MAX_MAP_CONNECTION_ATTEMPTS } from "../../../shared/map-connection-service";
+import { type AgriCropLanguage } from "../../../shared/agri-crop-labels";
+
+/* ---------- Component ---------- */
+
 import {
-  AREA_FIELD_PREFERRED_PIE,
-  findAreaFieldByPreferredNames,
-} from "../../../data/agri-area-field";
-import { getDashboardPack, waitForDashboardPackReady } from "../../../store/agri-dashboard-store";
-import { matchPieDashboardPack } from "../../../data/agri-dashboard-pack-match";
+  CROP_COLOR_MAP as pieCropColorMap,
+  PIE_SLICE_EDGE as pieSliceEdge,
+  FALLBACK_COLORS as pieFallbackColors,
+  APOSTROPHE_VARIANTS as pieApostropheVariants,
+  adjustHexColor as pieAdjustHexColor,
+} from "./pie-colors";
 import {
-  buildPieCategoriesFromMergedRows,
-  buildPieCategoriesFromPackRows,
-  syncPieSelectionAgainstCategories,
-} from "../../../data/agri-dashboard-pack-apply";
-import { buildPieStatsWhere } from "../../../controller/agri-where-builder";
+  getSliceBorderColor,
+  getSliceFillStyle,
+  initializeTheme,
+  handleThemeToggled,
+  onDataSourceCreated,
+  onDataSourceInfoChange,
+  findFieldByPossibleNames,
+  findCategoryField,
+  buildWhereClauseForDS,
+  buildPieVhWhereChunks,
+  normalizeName,
+  ensureCropIdMaps,
+  resolveCropIdToTuri,
+  resolveTuriToCropId,
+  cropIdsToTuriNames,
+  turiNamesToCropIds,
+  getCropColor as pieGetCropColor,
+  getCategoryDisplayName,
+  makeAposVariants,
+  eqAposSmart,
+  makeViloyatKey,
+  isRepublicLayer,
+  getDefaultFeatureLayer,
+  getFeatureLayerForViloyat,
+  resolveFeatureLayersFromUseDataSources,
+  buildViloyatKeyToLayerIndex,
+  ensureFeatureLayersResolved,
+  waitForMapToLoad,
+  connectToMap,
+  initializeAfterConnection,
+  onActiveViewChange,
+  retryMapConnection,
+} from "./components/chart-helpers";
 import {
-  MAP_CONNECTION_RETRY_MS,
-  MAX_MAP_CONNECTION_ATTEMPTS,
-} from "../../../shared/map-connection-service";
+  handleMasterFilterChange,
+  componentDidMount,
+  updateFiltersFromProps,
+  findAreaStatisticField,
+  queryCategoryStatsJSON,
+  componentDidUpdate,
+  componentWillUnmount,
+  selectCategoryByName,
+  schedulePieChartResize,
+  attachPieResizeObserver,
+  detachPieResizeObserver,
+  handleResize,
+  getChartDataForPie,
+  ensurePieChart,
+  formatCenterArea,
+  formatCenterPercent,
+  getCenterAllLabel,
+  isIpadLayout,
+  getPieCenterContent,
+  updatePieChart,
+  handleSliceClick,
+  applyCategoryFilter,
+  resolveNdviDateForVhPie,
+  resolveRegionDistrictForPie,
+  fetchPieCategoriesViaVegetation,
+  makeQueryKey,
+  fetchCategoryData,
+  _doFetchCategoryData,
+} from "./components/data-handlers";
 import {
-  getCropColor,
-  getCropDisplayName,
-  getTuriCropLookupKey,
-  normalizeCropName,
-  type AgriCropLanguage,
-} from "../../../shared/agri-crop-labels";
+  renderRadarPieChart,
+  render,
+} from "./components/render-panel";
+import type { PieChartDatum, PieWidgetHost } from "./pie-host";
 
 /* ---------- Types ---------- */
 
@@ -138,85 +163,6 @@ export interface AgriPieState {
   language: "uz_cyr" | "uz_lat" | "ru" | "en";
   isDarkTheme: boolean;
 }
-
-/* ---------- Component ---------- */
-
-import {
-  CROP_COLOR_MAP as pieCropColorMap,
-  PIE_SLICE_EDGE as pieSliceEdge,
-  FALLBACK_COLORS as pieFallbackColors,
-  APOSTROPHE_VARIANTS as pieApostropheVariants,
-  adjustHexColor as pieAdjustHexColor,
-} from "./pie-colors";
-import {
-  getSliceBorderColor,
-  getSliceFillStyle,
-  initializeTheme,
-  handleThemeToggled,
-  onDataSourceCreated,
-  onDataSourceInfoChange,
-  findFieldByPossibleNames,
-  findCategoryField,
-  buildWhereClauseForDS,
-  buildPieVhWhereChunks,
-  normalizeName,
-  ensureCropIdMaps,
-  resolveCropIdToTuri,
-  resolveTuriToCropId,
-  cropIdsToTuriNames,
-  turiNamesToCropIds,
-  getCropColor as pieGetCropColor,
-  getCategoryDisplayName,
-  makeAposVariants,
-  eqAposSmart,
-  makeViloyatKey,
-  isRepublicLayer,
-  getDefaultFeatureLayer,
-  getFeatureLayerForViloyat,
-  resolveFeatureLayersFromUseDataSources,
-  buildViloyatKeyToLayerIndex,
-  ensureFeatureLayersResolved,
-  waitForMapToLoad,
-  connectToMap,
-  initializeAfterConnection,
-  onActiveViewChange,
-  retryMapConnection,
-} from "./components/chart-helpers";
-import {
-  handleMasterFilterChange,
-  componentDidMount,
-  updateFiltersFromProps,
-  findAreaStatisticField,
-  queryCategoryStatsJSON,
-  componentDidUpdate,
-  componentWillUnmount,
-  selectCategoryByName,
-  schedulePieChartResize,
-  attachPieResizeObserver,
-  detachPieResizeObserver,
-  handleResize,
-  getChartDataForPie,
-  ensurePieChart,
-  formatCenterArea,
-  formatCenterPercent,
-  getCenterAllLabel,
-  isIpadLayout,
-  getPieCenterContent,
-  updatePieChart,
-  handleSliceClick,
-  applyCategoryFilter,
-  resolveNdviDateForVhPie,
-  resolveRegionDistrictForPie,
-  fetchPieCategoriesViaVegetation,
-  makeQueryKey,
-  fetchCategoryData,
-  _doFetchCategoryData,
-} from "./components/data-handlers";
-import {
-  renderRadarPieChart,
-  render,
-} from "./components/render-panel";
-import type { PieChartDatum, PieWidgetHost } from "./pie-host";
 export default class AgriPie extends React.PureComponent<
   AgriPieProps,
   AgriPieState
@@ -336,21 +282,21 @@ export default class AgriPie extends React.PureComponent<
   }
 
   initializeTheme = () => {
-    return initializeTheme(this);
+    initializeTheme(this);
   };
 
   handleThemeToggled = (event: Event) => {
-    return handleThemeToggled(this, event);
+    handleThemeToggled(this, event);
   };
 
   /* ---------- DS helpers ---------- */
 
   onDataSourceCreated = (ds: DataSource) => {
-    return onDataSourceCreated(this, ds);
+    onDataSourceCreated(this, ds);
   };
 
   onDataSourceInfoChange = (info: unknown) => {
-    return onDataSourceInfoChange(this, info);
+    onDataSourceInfoChange(this, info);
   };
 
   findFieldByPossibleNames(possibleNames: string[]): string | null {
@@ -470,7 +416,7 @@ export default class AgriPie extends React.PureComponent<
   };
 
   initializeAfterConnection = (): void => {
-    return initializeAfterConnection(this);
+    initializeAfterConnection(this);
   };
 
   onActiveViewChange = async (jimuMapView: JimuMapView) => {
@@ -478,16 +424,16 @@ export default class AgriPie extends React.PureComponent<
   };
 
   retryMapConnection = () => {
-    return retryMapConnection(this);
+    retryMapConnection(this);
   };
 
   /* ---------- Lifecycle ---------- */
   handleMasterFilterChange = (event: Event) => {
-    return handleMasterFilterChange(this, event);
+    handleMasterFilterChange(this, event);
   };
 
   componentDidMount() {
-    return componentDidMount(this);
+    componentDidMount(this);
   }
 
   updateFiltersFromProps = (filters: {
@@ -496,7 +442,7 @@ export default class AgriPie extends React.PureComponent<
     tuman?: string;
     turi?: string;
   }): void => {
-    return updateFiltersFromProps(this, filters);
+    updateFiltersFromProps(this, filters);
   };
   findAreaStatisticField(fl: __esri.FeatureLayer): string | null {
     return findAreaStatisticField(this, fl);
@@ -511,35 +457,35 @@ export default class AgriPie extends React.PureComponent<
   }
 
   componentDidUpdate(prevProps: AgriPieProps, prevState: AgriPieState) {
-    return componentDidUpdate(this, prevProps, prevState);
+    componentDidUpdate(this, prevProps, prevState);
   }
 
   componentWillUnmount() {
-    return componentWillUnmount(this);
+    componentWillUnmount(this);
   }
 
   /* ---------- Local UI helpers ---------- */
 
   selectCategoryByName = (name: string | null) => {
-    return selectCategoryByName(this, name);
+    selectCategoryByName(this, name);
   };
 
   _lastIpadLayout: boolean | null = null;
 
   schedulePieChartResize = (): void => {
-    return schedulePieChartResize(this);
+    schedulePieChartResize(this);
   };
 
   attachPieResizeObserver = (host: HTMLDivElement): void => {
-    return attachPieResizeObserver(this, host);
+    attachPieResizeObserver(this, host);
   };
 
   detachPieResizeObserver = (): void => {
-    return detachPieResizeObserver(this);
+    detachPieResizeObserver(this);
   };
 
   handleResize = () => {
-    return handleResize(this);
+    handleResize(this);
   };
 
   getChartDataForPie = () => {
@@ -583,7 +529,7 @@ export default class AgriPie extends React.PureComponent<
   };
 
   updatePieChart = (reason: "data" | "selection" = "data") => {
-    return updatePieChart(this, reason);
+    updatePieChart(this, reason);
   };
 
   /* ---------- Interactions ---------- */
@@ -592,7 +538,7 @@ export default class AgriPie extends React.PureComponent<
     data: { rawKey?: string; name?: string },
     index: number,
   ): void => {
-    return handleSliceClick(this, data, index);
+    handleSliceClick(this, data, index);
   };
   applyCategoryFilter = async (): Promise<void> => {
     return applyCategoryFilter(this);
@@ -631,7 +577,7 @@ export default class AgriPie extends React.PureComponent<
   }
 
   fetchCategoryData = (): void => {
-    return fetchCategoryData(this);
+    fetchCategoryData(this);
   };
   async _doFetchCategoryData(): Promise<void> {
     return _doFetchCategoryData(this);

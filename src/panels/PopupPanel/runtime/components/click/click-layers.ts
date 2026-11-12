@@ -7,7 +7,7 @@ import type { JimuMapView } from "jimu-arcgis";
 import type { AgriLayerLike, PopupLayerLike } from "../../popup-types";
 import type { AgriFieldLike } from "../../../../../gis/agri-layer-types";
 import { getAgriLayerMapKey, getQueryableLayer, isAgriAdminBoundaryLayer, isMapImageGroupSublayer, isQueryableFieldLayer, collectQueryableFieldLayers, getAllFeatureLayersFromMap, safeLoadMapLayer } from "../../../../../gis/feature-layer-data";
-import { default as Point } from "esri/geometry/Point";
+import Point from "esri/geometry/Point";
 
 type MaybeLayer = AgriLayerLike | null | undefined;
 

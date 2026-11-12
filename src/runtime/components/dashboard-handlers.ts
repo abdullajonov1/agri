@@ -1,9 +1,10 @@
 import type { DashboardChildProps, DashboardWidgetHost } from "../dashboard-host";
 import { setAccessConfig } from "../../shared/agri-access-config";
 import { setAgriServiceUrls } from "../../shared/agri-service-urls";
-import { getAppStore, AppMode, React, Immutable } from "jimu-core";
+import { installAgriCorsGuard } from "../../shared/agri-cors-guard";
+import { getAppStore, AppMode, type React, Immutable, type AllWidgetProps } from "jimu-core";
 import { agroV5Log } from "../../gis/agri-debug-log";
-import type { AllWidgetProps } from "jimu-core";
+
 import type { IMConfig, AgriPopupConfig } from "../../config";
 import type { AgriDashboardState, ChildSuffix } from "../widget";
 import type { IndicatorChildPropsSet } from "../AgriMapIndicatorDrawer";
@@ -72,6 +73,9 @@ const mountedAgriDashboardIds = new Set<string>();
 export const syncConfigSideEffects = (host: DashboardWidgetHost): void => {
   setAccessConfig(host.props.config?.accessConfig);
   setAgriServiceUrls(host.props.config?.serviceUrls);
+  // Before the WebMap and the panels start requesting: one failed request
+  // must not route the whole host through the (403) portal proxy.
+  void installAgriCorsGuard();
 };
 
 export function isBuilderDesignMode(host: DashboardWidgetHost): boolean {
@@ -349,8 +353,8 @@ export const handleMapPopupVisibility = (host: DashboardWidgetHost, event: Event
     );
     host.syncIndicatorOverlayLayout();
     if (open) {
-      requestAnimationFrame(() => host.syncIndicatorOverlayLayout());
-      window.setTimeout(() => host.syncIndicatorOverlayLayout(), 80);
+      requestAnimationFrame(() => { host.syncIndicatorOverlayLayout(); });
+      window.setTimeout(() => { host.syncIndicatorOverlayLayout(); }, 80);
     }
     if (shouldCollapseIndicators) {
       host.indicatorAnimTimer = setTimeout(() => {

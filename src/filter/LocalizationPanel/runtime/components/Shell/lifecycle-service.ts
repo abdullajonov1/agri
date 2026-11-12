@@ -80,7 +80,7 @@ export function componentDidMount(host: LocalizationHost) {
   );
 
   host.initializationTimer = setTimeout(
-    () => host.ensureInitialization(),
+    () => { host.ensureInitialization(); },
     3000,
   );
 }
@@ -152,7 +152,7 @@ export function componentWillUnmount(host: LocalizationHost) {
       host.state.featureLayer &&
       !isMapImageOwnedLayer(host.state.featureLayer)
     )
-      host.state.featureLayer.definitionExpression = "";
+      { host.state.featureLayer.definitionExpression = ""; }
   } catch (err) {
     debugCatch("componentWillUnmount:reset-definition-failed", err);
   }
@@ -184,6 +184,6 @@ export function componentDidUpdate(host: LocalizationHost, prevProps: Localizati
       prevState.notificationDays !== host.state.notificationDays ||
       prevState.notificationLoading !== host.state.notificationLoading)
   ) {
-    requestAnimationFrame(() => host.updateNotificationScrollHint());
+    requestAnimationFrame(() => { host.updateNotificationScrollHint(); });
   }
 }

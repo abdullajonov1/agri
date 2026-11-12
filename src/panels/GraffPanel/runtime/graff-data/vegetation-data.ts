@@ -234,9 +234,9 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
     });
 
     const firstPass = host.preparePolygonGraphSeries(data, []);
-    let paintedDate = firstPass.nextDate;
-    let paintedIndex = firstPass.nextIndexKey;
-    let paintedFingerprint = firstPass.fingerprint;
+    const paintedDate = firstPass.nextDate;
+    const paintedIndex = firstPass.nextIndexKey;
+    const paintedFingerprint = firstPass.fingerprint;
 
     // Start overlay before chart setState so TIFF decode overlaps React paint.
     // Early dates/pack path above shares the same cache / skip-if-applied key.
@@ -310,7 +310,7 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
     }
 
     const availableDatesSet = new Set(availableDates);
-    let scopedData = data
+    const scopedData = data
       .map((row) => {
         const matched = host.resolveAgainstAvailableDates(
           row.raster_date,

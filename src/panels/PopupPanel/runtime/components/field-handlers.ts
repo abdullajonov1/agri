@@ -1,6 +1,6 @@
 import type { PopupWidgetHost } from "../popup-host";
-import { default as esriRequest } from "esri/request";
-import { default as FeatureLayer } from "esri/layers/FeatureLayer";
+import esriRequest from "esri/request";
+import { type default as FeatureLayer } from "esri/layers/FeatureLayer";
 import type {
   AgriLayerLike,
   AttachmentItem,
@@ -19,7 +19,7 @@ import { bindMasterFilter } from "../../../../data/agri-filter-bus";
 import { AGRI_MAP_VIEW_READY_EVENT, AGRI_MAP_CLICK_EVENT, AGRI_XY_PAGE_CLOSED_EVENT } from "../../../../gis/agri-data-layer-roles";
 import { agriMapClickDebug } from "../../../../gis/agri-map-click-debug";
 import { getSelectedDsIds } from "../../../../gis/agri-data-source-engine";
-import { AllWidgetProps, QueriableDataSource } from "jimu-core";
+import { type AllWidgetProps, type QueriableDataSource } from "jimu-core";
 import { AGRI_ESRI_BLOB_TIMEOUT_MS } from "../../../../shared/agri-http";
 
 /** `props.useMapWidgetIds` read defensively (ImmutableArray or plain array). */
@@ -56,8 +56,8 @@ export function isImageContentType(host: PopupWidgetHost, ct?: string) {
 export function bytesToSize(host: PopupWidgetHost, n?: number): string {
   if (!n && n !== 0) return "";
   if (n === 0) return "0 B";
-  const k = 1024,
-    sizes = ["B", "KB", "MB", "GB", "TB"];
+  const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(n) / Math.log(k));
   return `${(n / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
 }
@@ -181,7 +181,7 @@ export const resolveFieldName = (host: PopupWidgetHost, key: string): string | n
     for (const k of Object.keys(fieldsObj)) {
       const f = fieldsObj[k];
       if (f?.name === key || f?.jimuName === key || k === key)
-        return f?.name || key;
+        { return f?.name || key; }
     }
   } catch (err) {
     // Schema unavailable — fall back to the clicked layer's fields below.

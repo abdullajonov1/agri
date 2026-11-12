@@ -79,6 +79,18 @@ describe("buildLandLayerWhere", () => {
     expect(buildLandLayerWhere({ fields: textFields }, { ...SCOPE, tuman: "Guliston" })).toContain("Guliston");
   });
 
+  it("compares a numeric `district` column without quotes", () => {
+    const fields = [...textFields.slice(0, 3), { name: "district", type: "integer" }] as __esri.Field[];
+    expect(buildLandLayerWhere({ fields }, { ...SCOPE, tuman: "1724" })).toContain("district = 1724");
+  });
+
+  it("a tuman the layer cannot filter by matches nothing (not the whole viloyat)", () => {
+    const noDistrict = textFields.filter((f) => f.name !== "district");
+    expect(buildLandLayerWhere({ fields: noDistrict }, { ...SCOPE, tuman: "1724" })).toContain("1=0");
+    const noTuman = textFields.filter((f) => f.name !== "tuman");
+    expect(buildLandLayerWhere({ fields: noTuman }, { ...SCOPE, tuman: "Guliston" })).toContain("1=0");
+  });
+
   it("is empty until the layer has a year column and a year is chosen", () => {
     expect(buildLandLayerWhere({ fields: textFields }, { ...SCOPE, yil: "" })).toBe("");
     expect(buildLandLayerWhere({ fields: [] }, SCOPE)).toBe("");
@@ -235,6 +247,38 @@ describe("syncAgriLandLayers", () => {
     await first;
     expect(r.visible).toBe(false);
     expect(u.visible).toBe(true);
+  });
+
+  it("a layer it added that failed to load is dropped and rebuilt on the next sync", async () => {
+    let attempt = 0;
+    class FlakyFeatureLayer {
+      url: string;
+      visible: boolean;
+      definitionExpression = "";
+      fields = textFields;
+      readonly fails = attempt++ === 0;
+      constructor(props: { url: string; visible: boolean }) {
+        this.url = props.url;
+        this.visible = props.visible;
+      }
+      load(): Promise<void> {
+        return this.fails ? Promise.reject(new Error("Token Required")) : Promise.resolve();
+      }
+    }
+    mockLoad.mockResolvedValue([FlakyFeatureLayer]);
+    const layers: FlakyFeatureLayer[] = [];
+    const map = {
+      allLayers: { toArray: () => [] },
+      add: jest.fn((layer: FlakyFeatureLayer) => layers.push(layer)),
+      remove: jest.fn((layer: FlakyFeatureLayer) => layers.splice(layers.indexOf(layer), 1)),
+    };
+    const view = { map } as unknown as __esri.MapView;
+    await expect(syncAgriLandLayers(view, "unused", SCOPE)).rejects.toThrow("Token Required");
+    expect(map.remove).toHaveBeenCalledTimes(1);
+    await syncAgriLandLayers(view, "unused", SCOPE);
+    expect(map.add).toHaveBeenCalledTimes(2);
+    expect(layers).toHaveLength(1);
+    expect(layers[0].visible).toBe(true);
   });
 });
 

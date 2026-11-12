@@ -10,16 +10,16 @@ function useReducedMotion(): boolean {
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function")
-      return;
+      { return; }
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const onChange = () => setReduced(Boolean(mq.matches));
+    const onChange = () => { setReduced(Boolean(mq.matches)); };
     onChange();
     if (typeof mq.addEventListener === "function")
-      mq.addEventListener("change", onChange);
+      { mq.addEventListener("change", onChange); }
     else mq.addListener(onChange);
     return () => {
       if (typeof mq.removeEventListener === "function")
-        mq.removeEventListener("change", onChange);
+        { mq.removeEventListener("change", onChange); }
       else mq.removeListener(onChange);
     };
   }, []);
@@ -127,7 +127,7 @@ export default function AgriAnimatedCount(
     };
 
     raf = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(raf);
+    return () => { window.cancelAnimationFrame(raf); };
   }, [animateFromOnMount, durationMs, reducedMotion, value]);
 
   const text =

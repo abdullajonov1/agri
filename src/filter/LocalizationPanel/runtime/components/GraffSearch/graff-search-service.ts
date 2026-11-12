@@ -4,7 +4,7 @@ import {
   getAgriTableDataLayer,
   queryAgriUniqueIdsForFarmerInn,
 } from "../../../../../gis/agri-table-data-source";
-import { React } from "jimu-core";
+import { type React } from "jimu-core";
 import { agriLog } from "../localization-log";
 import type { LocalizationHost } from "../host";
 import type { FilterState, GeoWidgetState, GraffSearchRecord } from "../../widget";
@@ -102,47 +102,47 @@ export const getGraffSearchFieldLabel = (
 ): string => {
   const lower = fieldName.toLowerCase();
   if (lower === "f_inn")
-    return language === "en"
+    { return language === "en"
       ? "TIN"
       : language === "ru"
         ? "ИНН"
         : language === "uz_lat"
           ? "STIR"
-          : "СТИР";
+          : "СТИР"; }
   if (lower === "uniqueid")
-    return language === "en"
+    { return language === "en"
       ? "TIN"
       : language === "ru"
         ? "ИНН"
         : language === "uz_lat"
           ? "STIR"
-          : "СТИР";
+          : "СТИР"; }
   if (lower === "tuman")
-    return language === "en" ? "District" : language === "ru" ? "Район" : language === "uz_lat" ? "Tuman" : "Туман";
+    { return language === "en" ? "District" : language === "ru" ? "Район" : language === "uz_lat" ? "Tuman" : "Туман"; }
   if (lower === "f_name")
-    return language === "en"
+    { return language === "en"
       ? "Farmer name"
       : language === "ru"
       ? "Название фермера"
       : language === "uz_lat"
         ? "Fermer nomi"
-        : "Фермер номи";
+        : "Фермер номи"; }
   if (lower === "maydon")
-    return language === "en"
+    { return language === "en"
       ? "Area"
       : language === "ru"
       ? "Площадь"
       : language === "uz_lat"
         ? "Maydon"
-        : "Майдон";
+        : "Майдон"; }
   if (lower === "turi" || lower === "uzspace")
-    return language === "en"
+    { return language === "en"
       ? "Crop type"
       : language === "ru"
       ? "Тип посева"
       : language === "uz_lat"
         ? "Ekin turi"
-        : "Экин тури";
+        : "Экин тури"; }
   if (lower === "vh") return language === "en" ? "VS" : language === "uz_lat" ? "VH" : "ВХ";
   return fieldName;
 };

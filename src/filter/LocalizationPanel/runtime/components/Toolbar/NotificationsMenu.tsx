@@ -92,7 +92,7 @@ export const NotificationsMenu = (props: NotificationsMenuProps) => {
             type="button"
             className="agri-v20-notifications-close"
             onClick={() =>
-              props.onClose()
+              { props.onClose(); }
             }
             aria-label="Close"
           >

@@ -55,6 +55,7 @@ jest.mock("./status-vh-window", () => {
 
 import { setAccessConfig } from "../../../shared/agri-access-config";
 import { clearAgriQueryGatewayCache } from "../../../data/agri-query-gateway";
+import { MAX_HEAVY_QUERIES_PER_SERVICE, resetStatsQueryScheduler } from "../../../data/agri-query-scheduler";
 import { VEG_PIXEL_AREA_HA } from "../veg-base";
 import {
   queryVegetationLatestStatusAreas,
@@ -110,6 +111,7 @@ const isGrouped = (q: FakeQuery): boolean => Boolean(q.groupByFieldsForStatistic
 beforeEach(() => {
   setAccessConfig(undefined);
   clearAgriQueryGatewayCache();
+  resetStatsQueryScheduler();
   localStorage.clear();
   vegetationLatestStatusCache.clear();
   vegetationLatestStatusCountsCache.clear();
@@ -250,12 +252,13 @@ describe("republic retry and season fallback", () => {
     lookbackStart,
   });
 
-  test("republic: a failed combined scan retries per viloyat, never walking raw rows", async () => {
+  test("republic: scanned per viloyat straight away (no combined scan), never walking raw rows", async () => {
     mockWindows = [win("1724"), win("1730")];
     const layer = useLayer((q) => {
       const where = String(q.where);
       const both = where.includes("region='1724'") && where.includes("region='1730'");
-      if (both) throw new Error("Error performing query operation");
+      // The combined republic scan times out on the server — it must not be sent.
+      if (both) throw new Error("combined republic scan sent");
       if (where.includes("region='1724'")) {
         return [{ uniqueid: "a1", ndvi_status: "yaxshi", crop_id: "10", last_date: day("2026-09-29"), row_count: 1, max_px_all: 100 }];
       }
@@ -266,8 +269,8 @@ describe("republic retry and season fallback", () => {
     expect(summary.fields.map((f) => f.uniqueId).sort()).toEqual(["a1", "b2"]);
     expect(Object.fromEntries(summary.rows.map((r) => [r.ndvi_status, r.count]))).toEqual({ yaxshi: 1, past: 1 });
     expect(layer.executed.every(isGrouped)).toBe(true);
-    // 16 combined slices (failed) + 16 per viloyat.
-    expect(layer.queryFeatures.mock.calls.length).toBeLessThanOrEqual(3 * SLICES);
+    // 16 slices per viloyat, no combined slices.
+    expect(layer.queryFeatures.mock.calls.length).toBe(2 * SLICES);
   });
 
   test("viloyat: registered fields with no window reading take their newest season reading, by uniqueid", async () => {
@@ -307,7 +310,7 @@ describe("republic retry and season fallback", () => {
     expect(fallback[0].where).not.toContain("'c3'");
   });
 
-  test("the Agri_table read starts alongside the vegetation scan, not after it", async () => {
+  test("the Agri_table read starts after the vegetation scan, not beside it (server overload)", async () => {
     mockWindows = [win("1724", "2026-06-01")];
     let releaseScan: () => void = () => undefined;
     const scanGate = new Promise<void>((resolve) => {
@@ -315,14 +318,25 @@ describe("republic retry and season fallback", () => {
     });
     useLayer(async () => {
       await scanGate;
-      return [];
+      return [{ uniqueid: "a1", ndvi_status: "yaxshi", crop_id: "10", last_date: day("2026-09-29"), row_count: 1, max_px_all: 100 }];
     });
     mockTableArea.mockResolvedValue(new Map());
     const pending = queryVegetationLatestStatusSummary({ date: "2026-09-30", region: 1724 });
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(mockTableArea).toHaveBeenCalledWith({ region: 1724, district: undefined, year: "2026" });
+    expect(mockTableArea).not.toHaveBeenCalled();
     releaseScan();
     await pending;
+    expect(mockTableArea).toHaveBeenCalledWith({ region: 1724, district: undefined, year: "2026" });
+  });
+
+  test("a failed slice cancels the scan's queued requests", async () => {
+    mockWindows = [win("1724")];
+    const layer = useLayer(() => {
+      throw new Error("Wait timeout for the request exceeded.");
+    });
+    await expect(queryVegetationLatestStatusSummary({ date: "2026-09-30", region: 1724 })).rejects.toThrow();
+    // The lane's in-flight grouped requests + one raw-fallback page — not all 16 slices.
+    expect(layer.queryFeatures.mock.calls.length).toBeLessThanOrEqual(MAX_HEAVY_QUERIES_PER_SERVICE + 1);
   });
 
   test("no lookback beyond the window → no table read for the fallback", async () => {

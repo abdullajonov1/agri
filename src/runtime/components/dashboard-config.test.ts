@@ -204,4 +204,9 @@ describe("getConnectedWebMapId", () => {
   test("is empty when the configured WebMap was removed from the data sources", () => {
     expect(getConnectedWebMapId({ webMapDataSourceId: "wm" }, [{ dataSourceId: "fl" }])).toBe("");
   });
+
+  test("a removed WebMap left in the config does not block the selected layers' WebMap", () => {
+    const layers = [{ dataSourceId: "wm2-layer1", rootDataSourceId: "wm2" }];
+    expect(getConnectedWebMapId({ webMapDataSourceId: "wm" }, layers, () => "WEB_MAP")).toBe("wm2");
+  });
 });

@@ -1,35 +1,9 @@
 /** @jsx jsx */
 /** @jsxFrag React.Fragment */
-import {
-  AppMode,
-  Immutable,
-  jsx,
-  React,
-  ReactDOM,
-  getAppStore,
-  type AllWidgetProps,
-} from "jimu-core";
-import LocalizationPanel from "../filter/LocalizationPanel";
-import RegionPanel from "../panels/RegionPanel";
-import PiePanel from "../panels/PiePanel";
-import BarPanel from "../panels/BarPanel";
-import DateIndexPanel from "../panels/DateIndexPanel/runtime/widget";
-import PopupPanel from "../panels/PopupPanel/runtime/widget";
-import GraffPanel from "../panels/GraffPanel";
-import { agriNoDataLabel } from "../shared/agriNoDataLabel";
-import AgriChartLoader from "../shared/AgriChartLoader";
-import { TriangleAlert } from "lucide-react";
-import EmbeddedAgriMap from "./embedded-agri-map";
-import AgriMapIndicatorDrawer, {
-  type IndicatorAnimPhase,
-  type IndicatorChildPropsSet,
-} from "./AgriMapIndicatorDrawer";
+import { jsx, React, type AllWidgetProps } from "jimu-core";
+import { type IndicatorAnimPhase, type IndicatorChildPropsSet } from "./AgriMapIndicatorDrawer";
 import type { JimuMapView } from "jimu-arcgis";
-import {
-  type AgriPopupConfig,
-  type IMConfig,
-  type IndicatorChildConfig,
-} from "../config";
+import { type AgriPopupConfig, type IMConfig } from "../config";
 // Panel CSS before dashboard so agri-dashboard.css layout rules win (donut stays circular).
 import "../panels/PiePanel/runtime/AgriPie.css";
 import "../panels/BarPanel/runtime/AgriBar.css";
@@ -37,46 +11,6 @@ import "../panels/PopupPanel/runtime/AgriPolygon.css";
 import "../panels/GraffPanel/runtime/AgriGraff.css";
 import "../filter/LocalizationPanel/runtime/AgriFilter.css";
 import "./agri-dashboard.css";
-import { setAccessConfig } from "../shared/agri-access-config";
-import { setAgriServiceUrls } from "../shared/agri-service-urls";
-import { clearDashboardCaches } from "../data/agri-dashboard-cache-clear";
-import {
-  MAP_VIEW_WATCH_INTERVAL_MS,
-  MAP_VIEW_WATCH_MAX_ATTEMPTS,
-  isMapViewReady,
-  resolveJimuMapView,
-} from "../shared/map-connection-service";
-import { agroV5Log } from "../gis/agri-debug-log";
-
-
-
-export type ChildSuffix =
-  | "localization"
-  | "region"
-  | "indicator"
-  | "indicator-yield"
-  | "indicator-unused-land"
-  | "indicator-reserve-land"
-  | "date-index"
-  | "pie"
-  | "graff"
-  | "bar"
-  | "popup";
-
-export interface AgriDashboardState {
-  indicatorsOpen: boolean;
-  indicatorsAnimPhase: IndicatorAnimPhase;
-  mapLoading: boolean;
-  /** Crop renderer / region-layer prepare — show map spinner until colors ready. */
-  mapSurfaceLoading: boolean;
-  mapNoData: boolean;
-  mapError: string;
-  /** True while one of the embedded dashboard data widgets is pending. */
-  dashboardLoading: boolean;
-  mapPopupOpen: boolean;
-  /** When true and popup is open, NDVI card docks left of the pinned popup. */
-  mapPopupPinned: boolean;
-}
 
 import {
   syncConfigSideEffects,
@@ -127,6 +61,36 @@ import {
   render,
 } from "./components/render-panel";
 import type { DashboardChildProps, DashboardWidgetHost } from "./dashboard-host";
+
+
+
+export type ChildSuffix =
+  | "localization"
+  | "region"
+  | "indicator"
+  | "indicator-yield"
+  | "indicator-unused-land"
+  | "indicator-reserve-land"
+  | "date-index"
+  | "pie"
+  | "graff"
+  | "bar"
+  | "popup";
+
+export interface AgriDashboardState {
+  indicatorsOpen: boolean;
+  indicatorsAnimPhase: IndicatorAnimPhase;
+  mapLoading: boolean;
+  /** Crop renderer / region-layer prepare — show map spinner until colors ready. */
+  mapSurfaceLoading: boolean;
+  mapNoData: boolean;
+  mapError: string;
+  /** True while one of the embedded dashboard data widgets is pending. */
+  dashboardLoading: boolean;
+  mapPopupOpen: boolean;
+  /** When true and popup is open, NDVI card docks left of the pinned popup. */
+  mapPopupPinned: boolean;
+}
 export default class AgriDashboard extends React.PureComponent<
   AllWidgetProps<IMConfig>,
   AgriDashboardState
@@ -179,7 +143,7 @@ lastMapWatchWidgetId = "";
   }
 
 syncConfigSideEffects = (): void => {
-    return syncConfigSideEffects(this);
+    syncConfigSideEffects(this);
   };
 
 isBuilderDesignMode(): boolean {
@@ -191,36 +155,36 @@ getUiLanguage(): string {
   }
 
   componentDidMount(): void {
-    return componentDidMount(this);
+    componentDidMount(this);
   }
 
   componentDidUpdate(
     prevProps: AllWidgetProps<IMConfig>,
     prevState: AgriDashboardState,
   ): void {
-    return componentDidUpdate(this, prevProps, prevState);
+    componentDidUpdate(this, prevProps, prevState);
   }
 
 toggleIndicatorsDrawer = (
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    return toggleIndicatorsDrawer(this, event);
+    toggleIndicatorsDrawer(this, event);
   };
 
   componentWillUnmount(): void {
-    return componentWillUnmount(this);
+    componentWillUnmount(this);
   }
 
 handleMapSurfaceLoading = (event: Event): void => {
-    return handleMapSurfaceLoading(this, event);
+    handleMapSurfaceLoading(this, event);
   };
 
 handleMapNoData = (event: Event): void => {
-    return handleMapNoData(this, event);
+    handleMapNoData(this, event);
   };
 
 handleMapPopupVisibility = (event: Event): void => {
-    return handleMapPopupVisibility(this, event);
+    handleMapPopupVisibility(this, event);
   };
 
 createPortalHost(): HTMLElement {
@@ -232,11 +196,11 @@ ensurePortalHost(): HTMLElement {
   }
 
 removePortalHost(): void {
-    return removePortalHost(this);
+    removePortalHost(this);
   }
 
 bringPortalHostToFront(): void {
-    return bringPortalHostToFront(this);
+    bringPortalHostToFront(this);
   }
 
 toPlainConfig(): Record<string, unknown> {
@@ -290,11 +254,11 @@ getActiveJimuMapView(): JimuMapView | null {
   }
 
 detachMapLoadingWatchers(): void {
-    return detachMapLoadingWatchers(this);
+    detachMapLoadingWatchers(this);
   }
 
 setMapLoading(mapLoading: boolean): void {
-    return setMapLoading(this, mapLoading);
+    setMapLoading(this, mapLoading);
   }
 
 getMapLoadingState(jimuMapView: JimuMapView | null): boolean {
@@ -302,15 +266,15 @@ getMapLoadingState(jimuMapView: JimuMapView | null): boolean {
   }
 
 updateMapLoadingState = (): void => {
-    return updateMapLoadingState(this);
+    updateMapLoadingState(this);
   };
 
 attachMapLoadingWatchers(): void {
-    return attachMapLoadingWatchers(this);
+    attachMapLoadingWatchers(this);
   }
 
 scheduleMapLoadingWatchers = (delay = 0): void => {
-    return scheduleMapLoadingWatchers(this, delay);
+    scheduleMapLoadingWatchers(this, delay);
   };
 
 getDashboardLoadingState(): boolean {
@@ -318,23 +282,23 @@ getDashboardLoadingState(): boolean {
   }
 
 updateDashboardLoadingState(): void {
-    return updateDashboardLoadingState(this);
+    updateDashboardLoadingState(this);
   }
 
 onWindowResize = (): void => {
-    return onWindowResize(this);
+    onWindowResize(this);
   };
 
 ensureLayoutObservers(): void {
-    return ensureLayoutObservers(this);
+    ensureLayoutObservers(this);
   }
 
 setupMapSlotObserver(): void {
-    return setupMapSlotObserver(this);
+    setupMapSlotObserver(this);
   }
 
 scheduleMapSlotLayout = (force = false): void => {
-    return scheduleMapSlotLayout(this, force);
+    scheduleMapSlotLayout(this, force);
   };
 
 findSharedLayoutSurface(): HTMLElement | null {
@@ -349,26 +313,26 @@ applyIndicatorOverlayBounds(
     slotEl: HTMLElement,
     overlayEl: HTMLElement,
   ): void {
-    return applyIndicatorOverlayBounds(this, slotEl, overlayEl);
+    applyIndicatorOverlayBounds(this, slotEl, overlayEl);
   }
 
 applyDateIndexOverlayBounds(
     slotEl: HTMLElement,
     overlayEl: HTMLElement,
   ): void {
-    return applyDateIndexOverlayBounds(this, slotEl, overlayEl);
+    applyDateIndexOverlayBounds(this, slotEl, overlayEl);
   }
 
 syncIndicatorOverlayLayout(): void {
-    return syncIndicatorOverlayLayout(this);
+    syncIndicatorOverlayLayout(this);
   }
 
 clearOverlayLayout(overlay: HTMLElement | null): void {
-    return clearOverlayLayout(this, overlay);
+    clearOverlayLayout(this, overlay);
   }
 
 clearIndicatorOverlayLayout(): void {
-    return clearIndicatorOverlayLayout(this);
+    clearIndicatorOverlayLayout(this);
   }
 
   render() {

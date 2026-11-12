@@ -56,10 +56,10 @@ export const fetchApiData = async (host: IndicatorWidgetHost) => {
     const baseParams = new URLSearchParams();
     if (selectedYil) baseParams.set("yil", selectedYil);
     if (selectedCropType)
-      baseParams.set(
+      { baseParams.set(
         "ekin_turi",
         host.normalizeUzbekForApi(selectedCropType),
-      );
+      ); }
     // Vegetatsiya Holati (AgriBar) never filters this indicator — no
     // "vh" query param is sent regardless of the current bar selection.
 
@@ -68,10 +68,10 @@ export const fetchApiData = async (host: IndicatorWidgetHost) => {
       host.props.config?.yerToifasParam || FILTER_FIELDS.TURI
     ).trim();
     if (selectedYerToifas)
-      baseParams.set(
+      { baseParams.set(
         ytfParamName,
         host.normalizeUzbekForApi(selectedYerToifas),
-      );
+      ); }
 
     // One request. The selected filter label is the API place name.
     const place = canonicalIndicatorApiPlaces(selectedViloyat, selectedTuman);
@@ -408,7 +408,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
       return;
     }
 
-    
+
 
     const q = fl.createQuery();
     q.where = where;

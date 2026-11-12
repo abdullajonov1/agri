@@ -1,6 +1,6 @@
 // VH Categories Widget - Display only. Filter state from AgriFilter via shared filter store.
 
-import { AllWidgetProps, React } from "jimu-core";
+import { type AllWidgetProps, React } from "jimu-core";
 import { TriangleAlert } from "lucide-react";
 import { useMemo } from "react";
 import {
@@ -142,7 +142,7 @@ export default class AgriBar extends React.PureComponent<
 > {
   _isMounted = false;
   private _unbindMasterFilter: (() => void) | null = null;
-  private _containerRef = React.createRef<HTMLDivElement>();
+  private readonly _containerRef = React.createRef<HTMLDivElement>();
   private _resizeObserver: ResizeObserver | null = null;
   /** True only after at least one VH bar payload finished (success or empty). */
   private _hasCompletedFetch = false;
@@ -172,17 +172,16 @@ export default class AgriBar extends React.PureComponent<
     this.handleVHSelectionClick = this.handleVHSelectionClick.bind(this);
     this.handleDisplayCountChange = this.handleDisplayCountChange.bind(this);
     this.toggleSortOrder = this.toggleSortOrder.bind(this);
-    this.handleThemeChange = this.handleThemeChange.bind(this);
     this.formatNumber = this.formatNumber.bind(this);
   }
 
-  private initializeTheme = () => {
+  private readonly initializeTheme = () => {
     const savedTheme = localStorage.getItem("agri_v11_app_theme");
     const isDarkTheme = savedTheme === "dark";
     this.setState({ isDarkTheme });
   };
 
-  private getLocalizedCategoryLabel = (
+  private readonly getLocalizedCategoryLabel = (
     category: string,
     language: "uz_cyr" | "uz_lat" | "ru" | "en",
   ): string => {
@@ -214,7 +213,7 @@ export default class AgriBar extends React.PureComponent<
     return category;
   };
 
-  private handleMasterFilterChange = (event: Event) => {
+  private readonly handleMasterFilterChange = (event: Event) => {
     const d = readPanelEventDetail(event);
     const filters = d.filters;
     if (!filters) return;
@@ -244,7 +243,7 @@ export default class AgriBar extends React.PureComponent<
         selectedTuman: nextTum,
         selectedtur: nextTur,
         selectedturlar: nextTurlar,
-        selectedVHCategory: nextVh ? nextVh : null,
+        selectedVHCategory: nextVh || null,
         loading: true,
         error: null,
         language: nextLanguage,
@@ -289,7 +288,7 @@ export default class AgriBar extends React.PureComponent<
       selectedtur: nextTur,
       selectedturlar: nextTurlar,
       // Keep VH selection in sync with master filter; clear when filter sends empty.
-      selectedVHCategory: nextVh ? nextVh : null,
+      selectedVHCategory: nextVh || null,
       vhData: nextVhData,
       loading: false,
       error: null,
@@ -361,7 +360,7 @@ export default class AgriBar extends React.PureComponent<
     }
   }
 
-  private _onReset = (): void => {
+  private readonly _onReset = (): void => {
     if (!this._isMounted) return;
     this._hasCompletedFetch = false;
     this.setState({
@@ -387,13 +386,13 @@ export default class AgriBar extends React.PureComponent<
     }
   }
 
-  handleThemeChange(event: CustomEvent<{ isDarkTheme?: boolean }> | Event): void {
+  handleThemeChange = (event: CustomEvent<{ isDarkTheme?: boolean }> | Event): void => {
     const detail = (event as CustomEvent<{ isDarkTheme?: boolean }>)?.detail;
     if (detail && typeof detail.isDarkTheme === "boolean") {
       const { isDarkTheme } = detail;
       this.setState({ isDarkTheme });
     }
-  }
+  };
 
   private updateFiltersFromProps(filters: AgriBarExternalFilters): void {
     this.setState({
@@ -486,7 +485,7 @@ export default class AgriBar extends React.PureComponent<
     return Number(value).toFixed(decimals);
   };
 
-  private formatCount = (value: number): string => {
+  private readonly formatCount = (value: number): string => {
     return new Intl.NumberFormat("ru-RU").format(Math.ceil(Number(value) || 0));
   };
 
@@ -652,9 +651,9 @@ export default class AgriBar extends React.PureComponent<
                         .join(" ")}
                       style={{ "--accent": item.color } as CssVarStyle}
                       onClick={() =>
-                        chartInteractive &&
+                        { chartInteractive &&
                         !showRefreshLoader &&
-                        this.handleVHSelectionClick(item)
+                        this.handleVHSelectionClick(item); }
                       }
                       onKeyDown={(e) => {
                         if (!chartInteractive || showRefreshLoader) return;

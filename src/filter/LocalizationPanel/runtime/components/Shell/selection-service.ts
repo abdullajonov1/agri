@@ -63,9 +63,9 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
 
   if (d.yil !== undefined) updates.yil = String(d.yil || "");
   if (d.viloyat !== undefined)
-    updates.viloyat = host.normalizeApos(d.viloyat || "");
+    { updates.viloyat = host.normalizeApos(d.viloyat || ""); }
   if (d.tuman !== undefined)
-    updates.tuman = host.normalizeApos(d.tuman || "");
+    { updates.tuman = host.normalizeApos(d.tuman || ""); }
   if (d.turlar !== undefined || d.turi !== undefined) {
     const nextTurlar = host.normalizeTurlar(d.turlar, d.turi || "");
     updates.turlar = nextTurlar;
@@ -102,14 +102,14 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
     if (!(host.state.polygonMode && d.source === "AgriGraffWidget")) {
       updates.ndviDate = String(d.ndviDate || "");
       if (updates.ndviDate !== host.state.ndviDate)
-        host._ndviBucketToIds = {};
+        { host._ndviBucketToIds = {}; }
     }
   }
 
   // Track whether a polygon chart is currently active in Graff
   if (d.polygonMode !== undefined) {
     updates.polygonMode = Boolean(d.polygonMode);
-    if (!Boolean(d.polygonMode)) {
+    if (!d.polygonMode) {
       updates.selectedGraffUniqueid = "";
       updates.selectedGraffUniqueidClickedAt = undefined;
     }
@@ -454,7 +454,7 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
           host.emitGraffTableSearchClear();
         }
         host.broadcastFilterState();
-        if (Boolean(updates.polygonMode ?? d.polygonMode)) {
+        if (updates.polygonMode ?? d.polygonMode) {
           host.schedulePolygonFilterGuards();
         }
         return;
@@ -502,7 +502,7 @@ export const handleWidgetSelection = async (host: LocalizationHost, event: Event
             tumanChanged,
             turiChanged,
           });
-          return;
+
         }
       } catch (e) {
         if (host._isMounted && isApplyCurrent()) {

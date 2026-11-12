@@ -43,4 +43,56 @@ export async function withStatsQuerySlot<T>(
 export function resetStatsQueryScheduler(): void {
   activeSlots = 0;
   waitQueue.length = 0;
+  heavyLanes.clear();
+}
+
+/**
+ * Heavy scans (the republic VH grouped scan, the Agri_table area download):
+ * at most this many requests in flight per service. Both scans used to send
+ * 16 uniqueid slices at once each; together with the per-region retry the
+ * server ran out of service instances ("Wait timeout for the request
+ * exceeded"), every request hit the 60 s client timeout, the VH bar never
+ * finished and so never reached the persistent cache (2026-11-05).
+ */
+export const MAX_HEAVY_QUERIES_PER_SERVICE = 4;
+
+interface HeavyLane {
+  active: number;
+  queue: Array<() => void>;
+}
+
+const heavyLanes = new Map<string, HeavyLane>();
+
+/**
+ * Run one request of a heavy scan when its service (`laneKey`, e.g. the
+ * layer URL) has a free slot. Wrap single requests, not whole loops, so a
+ * slot is never held while waiting for another one.
+ */
+export async function withHeavyQuerySlot<T>(
+  laneKey: string,
+  task: () => Promise<T>,
+  limit: number = MAX_HEAVY_QUERIES_PER_SERVICE,
+): Promise<T> {
+  const key = String(laneKey || "default");
+  let lane = heavyLanes.get(key);
+  if (!lane) {
+    lane = { active: 0, queue: [] };
+    heavyLanes.set(key, lane);
+  }
+  const current = lane;
+  if (current.active < Math.max(1, limit)) {
+    current.active += 1;
+  } else {
+    await new Promise<void>((resolve) => {
+      current.queue.push(resolve);
+    });
+  }
+  try {
+    return await task();
+  } finally {
+    const next = current.queue.shift();
+    // Hand the slot straight to the next waiter; free it only when none wait.
+    if (next) next();
+    else current.active = Math.max(0, current.active - 1);
+  }
 }

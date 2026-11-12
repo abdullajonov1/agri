@@ -159,6 +159,21 @@ describe("Fermer report (agri_crop)", () => {
     ]);
   });
 
+  test("pages are ordered, no probe query, no farmer data in the console", async () => {
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const log = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    await queryFarmerRows(scope);
+    // Paged grouped queries need a stable order or pages overlap.
+    expect(tableQueries[0].orderByFields).toEqual(tableQueries[0].groupByFieldsForStatistics);
+    for (const q of queries.filter((x) => x.start != null)) {
+      expect(q.orderByFields).toEqual(q.groupByFieldsForStatistics);
+    }
+    // The old one-off "year × plant_name" probe ran over the whole layer.
+    expect(queries.some((q) => String(q.where) === "1=1")).toBe(false);
+    expect(info).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+  });
+
   test("fills template rows with row-2 style", async () => {
     const rows = await queryFarmerRows(scope);
     const many = Array.from({ length: 12 }, (_, i) => ({ ...rows[i % 2] }));

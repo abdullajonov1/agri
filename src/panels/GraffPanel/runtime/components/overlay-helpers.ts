@@ -5,7 +5,6 @@ import { setVegetationOverlayContext, getVegetationOverlayDateForRegion } from "
 import type { VegetationIndiceType } from "../../../../gis/agri-polygon-api-source";
 import { getExportImageSeasonMonths, isRegionDateWithoutImagery, isRegionDateWithImagery, resolveExportImageWithDateWalk, pickExportRasterDate, fetchPolygonAvailableDates, fetchPolygonExportImageTiff } from "../../../../gis/agri-polygon-api-source";
 import { clearMapSelectionGraphics } from "../graff-map-utils";
-import { isMapImageOwnedLayer } from "../../../../gis/feature-layer-data";
 import { graffLog } from "../graff-log";
 import { arcgisEaseInOut } from "../../../../shared/agri-plain-object";
 
@@ -298,7 +297,7 @@ export const awaitPendingOverlayWalk = async (host: GraffWidgetHost, cleanId: st
   if (!pending || pending.uniqueid !== cleanId) return undefined;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<undefined>((resolve) => {
-    timer = setTimeout(() => resolve(undefined), timeoutMs);
+    timer = setTimeout(() => { resolve(undefined); }, timeoutMs);
   });
   try {
     const hit = await Promise.race([

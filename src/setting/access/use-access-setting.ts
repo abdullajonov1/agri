@@ -372,7 +372,7 @@ export function useAccessSetting(
                 config,
                 groupsInfo,
                 {
-                    alert: (message) => alert(message),
+                    alert: (message) => { alert(message); },
                     confirm: (message) => window.confirm(message),
                 },
             );

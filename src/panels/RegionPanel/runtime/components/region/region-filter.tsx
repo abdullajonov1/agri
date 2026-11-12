@@ -3,8 +3,8 @@ import { messageOf, panelEventDetail } from "../../../../panel-filter-detail";
 import { regionLog as regionLogFn } from "../../region-log";
 import { bindMasterFilter } from "../../../../../data/agri-filter-bus";
 import { detectIsDarkTheme, normalizeLanguage } from "../../../../../shared/agri-language";
-import type { WidgetSize, AgriRegionState } from "../../widget";
-import { JimuMapView } from "jimu-arcgis";
+import type { WidgetSize } from "../../widget";
+import { type JimuMapView } from "jimu-arcgis";
 import { getAgriTableDataLayer } from "../../../../../gis/agri-table-data-source";
 import { subscribeAgriLandOverlay } from "../../../../../store/agri-land-overlay-store";
 
@@ -175,7 +175,7 @@ export const setupResizeObserver = (regionHost: RegionWidgetHost) => {
   };
 
   updateSize();
-  regionHost._resizeObserver = new ResizeObserver(() => updateSize());
+  regionHost._resizeObserver = new ResizeObserver(() => { updateSize(); });
   if (regionHost._rootRef.current) {
     regionHost._resizeObserver.observe(regionHost._rootRef.current);
   }

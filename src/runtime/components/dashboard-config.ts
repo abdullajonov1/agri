@@ -49,7 +49,7 @@ export function toMutableUseDataSources(value: unknown): UseDataSource[] {
 
 /**
  * The WebMap the widget settings connect, or "" when they connect none:
- * 1. the WebMap picked in "ArcGIS Web Map" (must still be a selected source);
+ * 1. the WebMap picked in "Select data" (must still be a selected source);
  * 2. else the WebMap whose layers were picked in "Select data"
  *    (the selected layers' rootDataSourceId).
  * With nothing selected there is no map and the dashboard loads no data.
@@ -63,10 +63,10 @@ export function getConnectedWebMapId(
 ): string {
   const sources = toMutableUseDataSources(useDataSources);
   const webMapId = String(baseConfig?.webMapDataSourceId || "").trim();
-  if (webMapId) {
-    return sources.some((source) => String(source?.dataSourceId || "") === webMapId)
-      ? webMapId
-      : "";
+  // A WebMap removed from the app (Data panel) leaves its id in the config;
+  // the selected layers then still connect their own WebMap below.
+  if (webMapId && sources.some((source) => String(source?.dataSourceId || "") === webMapId)) {
+    return webMapId;
   }
   for (const source of sources) {
     const rootId = String(source?.rootDataSourceId || "").trim();

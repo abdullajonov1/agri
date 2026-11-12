@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { Immutable, React } from "jimu-core";
+import { Immutable, type React } from "jimu-core";
 import type { AllWidgetSettingProps } from "jimu-for-builder";
 import type { IMConfig } from "../../config";
 import { GLOBAL_ACCESS_ID, type AccessConfig } from "./access-model";

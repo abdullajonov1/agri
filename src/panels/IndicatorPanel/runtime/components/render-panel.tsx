@@ -1,9 +1,9 @@
 import type { IndicatorWidgetHost } from "../indicator-host";
-import { React } from "jimu-core";
-import { DataSourceComponent } from "jimu-core";
+import { React, DataSourceComponent } from "jimu-core";
+
 import { JimuMapViewComponent } from "jimu-arcgis";
-import { default as AgriDashboardSpinner } from "../../../../shared/AgriDashboardSpinner";
-import { default as AgriAnimatedCount } from "../../../../shared/AgriAnimatedCount";
+import AgriDashboardSpinner from "../../../../shared/AgriDashboardSpinner";
+import AgriAnimatedCount from "../../../../shared/AgriAnimatedCount";
 
 export function render(host: IndicatorWidgetHost) {
   const {
@@ -11,12 +11,7 @@ export function render(host: IndicatorWidgetHost) {
     loading,
     error,
     connectionStatus,
-    lastUpdate,
     selectedYil,
-    selectedViloyat,
-    selectedTuman,
-    selectedYerToifas,
-    groupResults,
     language,
   } = host.state;
 

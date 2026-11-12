@@ -99,7 +99,7 @@ function readRegion(value: unknown): number | null {
 
 function readIndex(value: unknown): VegetationIndiceType {
   const key = String(value || "").trim().toLowerCase();
-  return INDICES.indexOf(key as VegetationIndiceType) >= 0
+  return INDICES.includes(key as VegetationIndiceType)
     ? (key as VegetationIndiceType)
     : "ndvi";
 }
@@ -192,7 +192,7 @@ export default function FieldComparePanel(props: Props): JSX.Element {
       const mentionsPolygon = Object.prototype.hasOwnProperty.call(detail, "polygonMode")
         || Object.prototype.hasOwnProperty.call(detail, "uniqueid");
       const source = String(detail.source || "");
-      if (!mentionsPolygon || POLYGON_SOURCES.indexOf(source) < 0) return;
+      if (!mentionsPolygon || !POLYGON_SOURCES.includes(source)) return;
       const nextId = String(detail.uniqueid || "").replace(/[{}]/g, "").trim();
       if (detail.polygonMode !== true || !nextId) {
         clearField();
@@ -325,7 +325,7 @@ export default function FieldComparePanel(props: Props): JSX.Element {
         aria-label={copy.open}
         aria-expanded={open}
         title={copy.open}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => { event.stopPropagation(); }}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -343,7 +343,7 @@ export default function FieldComparePanel(props: Props): JSX.Element {
         role="dialog"
         aria-label={copy.title}
         aria-hidden={!open}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => { event.stopPropagation(); }}
       >
         <div className="agri-dashboard-compare-title">{copy.title}</div>
         <div className="agri-dashboard-compare-stage">
@@ -362,7 +362,7 @@ export default function FieldComparePanel(props: Props): JSX.Element {
             <button
               type="button"
               aria-label={copy.prev}
-              onClick={() => setCursor((current) => shiftMonth(current.year, current.month, -1))}
+              onClick={() => { setCursor((current) => shiftMonth(current.year, current.month, -1)); }}
             >
               ‹
             </button>
@@ -370,7 +370,7 @@ export default function FieldComparePanel(props: Props): JSX.Element {
             <button
               type="button"
               aria-label={copy.next}
-              onClick={() => setCursor((current) => shiftMonth(current.year, current.month, 1))}
+              onClick={() => { setCursor((current) => shiftMonth(current.year, current.month, 1)); }}
             >
               ›
             </button>

@@ -1,4 +1,4 @@
-import { React } from "jimu-core";
+import { type React } from "jimu-core";
 import "./AgriFilter.css";
 import { type ShownRegionYearLayer } from "../../../gis/feature-layer-data";
 import { logoutFromAccount } from "../../../shared/agri-logout";
@@ -131,18 +131,18 @@ export default class AgriLocalization
 
   /* ---------------------- Lifecycle ---------------------- */
   componentDidMount() {
-    return componentDidMount(this.host);
+    componentDidMount(this.host);
   }
 
   componentWillUnmount() {
-    return componentWillUnmount(this.host);
+    componentWillUnmount(this.host);
   }
 
   componentDidUpdate(
     prevProps: LocalizationWidgetProps,
     prevState: GeoWidgetState,
   ) {
-    return componentDidUpdate(this.host, prevProps, prevState);
+    componentDidUpdate(this.host, prevProps, prevState);
   }
 
   /* ---------------------- Widget Selection Handler (SINGLE ENTRY POINT) ---------------------- */
@@ -154,11 +154,11 @@ export default class AgriLocalization
   /* ---------------------- Broadcast Current State ---------------------- */
 
   handleRequestMasterFilterState = (): void => {
-    return handleRequestMasterFilterState(this.host);
+    handleRequestMasterFilterState(this.host);
   };
 
   broadcastFilterState = (opts?: { pendingOnly?: boolean }) => {
-    return broadcastFilterState(this.host, opts);
+    broadcastFilterState(this.host, opts);
   };
 
   ensureInitialization = async () => {
@@ -200,41 +200,41 @@ export default class AgriLocalization
   };
 
   initializeTheme = () => {
-    return initializeTheme(this.host);
+    initializeTheme(this.host);
   };
 
   applyThemeToDom = (isDarkTheme: boolean): void => {
-    return applyThemeToDom(this.host, isDarkTheme);
+    applyThemeToDom(this.host, isDarkTheme);
   };
 
   handleThemeChange = (event: ValueChangeEvent) => {
-    return handleThemeChange(this.host, event);
+    handleThemeChange(this.host, event);
   };
 
   handleDocumentClick = (event: MouseEvent): void => {
-    return handleDocumentClick(this.host, event);
+    handleDocumentClick(this.host, event);
   };
 
   toggleToolbarMenu = (
     menu: "yil" | "language" | "indexInfo" | "notifications",
   ): void => {
-    return toggleToolbarMenu(this.host, menu);
+    toggleToolbarMenu(this.host, menu);
   };
 
   hydrateNotificationCache = (): void =>
-    hydrateNotificationCache(this.host);
+    { hydrateNotificationCache(this.host); };
 
   onDashboardPackForNotifications = (pack: {
     phase?: string;
     filter?: { yil?: string };
   }): void =>
-    onDashboardPackForNotifications(this.host, pack);
+    { onDashboardPackForNotifications(this.host, pack); };
 
   beginNotificationPrefetch = (): void =>
-    beginNotificationPrefetch(this.host);
+    { beginNotificationPrefetch(this.host); };
 
   onNotificationsMenuOpened = (): void =>
-    onNotificationsMenuOpened(this.host);
+    { onNotificationsMenuOpened(this.host); };
 
   loadNotificationFeed = (): Promise<void> =>
     loadNotificationFeed(this.host);
@@ -249,7 +249,7 @@ export default class AgriLocalization
     formatFieldCount(this.host, value);
 
   updateNotificationScrollHint = (): void =>
-    updateNotificationScrollHint(this.host);
+    { updateNotificationScrollHint(this.host); };
 
   onNotificationBodyScroll = (): void => {
     this.updateNotificationScrollHint();
@@ -306,29 +306,29 @@ export default class AgriLocalization
   };
 
   handleYilChange = (event: ValueChangeEvent) => {
-    return handleYilChange(this.host, event);
+    handleYilChange(this.host, event);
   };
 
   applyLanguage = (lang: FilterState["language"]) => {
-    return applyLanguage(this.host, lang);
+    applyLanguage(this.host, lang);
   };
 
   applyYil = (selectedYil: string) => {
-    return applyYil(this.host, selectedYil);
+    applyYil(this.host, selectedYil);
   };
 
   applyThemeByValue = (value: "light" | "dark") => {
-    return applyThemeByValue(this.host, value);
+    applyThemeByValue(this.host, value);
   };
 
   emitGraffTableSearchChanged = (query: string, options?: { preserveSelection?: boolean }) =>
-    emitGraffTableSearchChanged(this.host, query, options);
+    { emitGraffTableSearchChanged(this.host, query, options); };
 
   emitGraffTableSearchClear = (options?: { preserveSelection?: boolean; }) =>
-    emitGraffTableSearchClear(this.host, options);
+    { emitGraffTableSearchClear(this.host, options); };
 
   emitGraffTableRowSelected = (record: GraffSearchRecord) =>
-    emitGraffTableRowSelected(this.host, record);
+    { emitGraffTableRowSelected(this.host, record); };
 
   getGraffDisplayFields = (): string[] =>
     getGraffDisplayFields(this.host);
@@ -349,26 +349,26 @@ export default class AgriLocalization
     runGraffAutoComplete(this.host, term);
 
   handleGraffSearchInputChange = (event: React.ChangeEvent<HTMLInputElement>) =>
-    handleGraffSearchInputChange(this.host, event);
+    { handleGraffSearchInputChange(this.host, event); };
 
   handleGraffSearchFocus = (): void =>
-    handleGraffSearchFocus(this.host);
+    { handleGraffSearchFocus(this.host); };
 
   clearFarmerSearchAndRestoreGeo = (): void =>
-    clearFarmerSearchAndRestoreGeo(this.host);
+    { clearFarmerSearchAndRestoreGeo(this.host); };
 
   handleGraffSearchClear = () =>
-    handleGraffSearchClear(this.host);
+    { handleGraffSearchClear(this.host); };
 
   handleGraffSearchRowClick = (record: GraffSearchRecord) =>
-    handleGraffSearchRowClick(this.host, record);
+    { handleGraffSearchRowClick(this.host, record); };
 
   applyFarmerSearchSelection = (inn: string): Promise<void> =>
     applyFarmerSearchSelection(this.host, inn);
 
 
   handleNdviDateChange = (event: ValueChangeEvent) => {
-    return handleNdviDateChange(this.host, event);
+    handleNdviDateChange(this.host, event);
   };
 
   /* ---------------------- WHERE Clause Builder ---------------------- */
@@ -401,7 +401,7 @@ export default class AgriLocalization
     nextTurlar: string[],
     resetGeography: boolean,
   ): void => {
-    return syncChartDimOrder(this.host, nextVh, nextTurlar, resetGeography);
+    syncChartDimOrder(this.host, nextVh, nextTurlar, resetGeography);
   };
 
   buildTurlarClause = (
@@ -462,7 +462,7 @@ export default class AgriLocalization
     executeComputeVhBarData(this.host);
 
   publishVhBarPartial = (vhBarData: VHBarData): void =>
-    publishVhBarPartial(this.host, vhBarData);
+    { publishVhBarPartial(this.host, vhBarData); };
 
   buildTableDateWhere(
     dateField: string,
@@ -497,7 +497,7 @@ export default class AgriLocalization
     getGeoScopedVhBarUsedDate(this.host);
 
   setVhUniqueIdCacheEntry = (key: string, ids: string[]): void =>
-    setVhUniqueIdCacheEntry(this.host, key, ids);
+    { setVhUniqueIdCacheEntry(this.host, key, ids); };
 
   buildVhMapUniqueIdCacheKey = (): string | null =>
     buildVhMapUniqueIdCacheKey(this.host);
@@ -507,7 +507,7 @@ export default class AgriLocalization
     isVhMapUniqueIdCacheWarm(this.host);
 
   prefetchVhStatusUniqueIds = (ndviDate: string): void =>
-    prefetchVhStatusUniqueIds(this.host, ndviDate);
+    { prefetchVhStatusUniqueIds(this.host, ndviDate); };
 
   resolveVhMapUniqueIds = (isCurrent?: () => boolean): Promise<string[] | null> =>
     resolveVhMapUniqueIds(this.host, isCurrent);

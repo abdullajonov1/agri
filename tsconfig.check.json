@@ -1,0 +1,7 @@
+{
+  "//": "Type check of this widget only (client-wide tsc stops on other widgets' syntax errors). Run from client/: npx tsc -p your-extensions/widgets/Agri3/Agro_widgetV5/tsconfig.check.json",
+  "extends": "../../../../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "allowJs": false },
+  "include": ["src", "../../../../types", "../../../../jimu-core/lib/types"],
+  "exclude": ["node_modules", "**/*.js", "**/*.mjs"]
+}

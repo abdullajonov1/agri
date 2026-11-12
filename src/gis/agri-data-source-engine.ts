@@ -53,7 +53,7 @@ export function toPlainArray<T = unknown>(val: unknown): T[] {
   if (Array.isArray(val)) return val as T[];
   const source = val as PlainArraySource;
   if (typeof source.asMutable === "function")
-    return source.asMutable({ deep: true }) as T[];
+    { return source.asMutable({ deep: true }) as T[]; }
   if (typeof source.toArray === "function") return source.toArray() as T[];
   return [];
 }
@@ -80,7 +80,7 @@ type ScoredDs = {
 export class AgriDataSourceEngine {
   private dsById: Record<string, QueriableDataSource> = {};
   private selectedIds: string[] = [];
-  private resolveCache = new Map<
+  private readonly resolveCache = new Map<
     string,
     Promise<ResolvedFeatureLayer | null>
   >();

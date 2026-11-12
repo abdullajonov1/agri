@@ -43,7 +43,7 @@ export const YilMenu = (props: YilMenuProps) => {
                 key={value}
                 type="button"
                 className={`agri-v20-option-item agri-v20-yil-option-item ${yil === value ? "is-active" : ""}`}
-                onClick={() => props.applyYil(value)}
+                onClick={() => { props.applyYil(value); }}
               >
                 {value}
               </button>

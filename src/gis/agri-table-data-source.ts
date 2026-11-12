@@ -18,6 +18,7 @@ import {
 import { type AgriAttributes, featureAttributeBag } from "./agri-layer-types";
 import { asStatisticDefinitions } from "../shared/agri-plain-object";
 import { agroV5Log } from "./agri-debug-log";
+import { withHeavyQuerySlot } from "../data/agri-query-scheduler";
 
 /** esri Query plus the REST paging props the JS API typings omit. */
 type AgriTableQuery = __esri.Query & {
@@ -476,6 +477,8 @@ export async function queryAgriTableAreaByUniqueId(
     const cropField = names.get("crop_id") || "crop_id";
     const regionField = names.get("region") || "region";
     const oidField = layer.objectIdField || "objectid";
+    const laneKey = String((layer as { url?: unknown }).url ?? "agri-table");
+    let failed = false;
     const out = new Map<string, AgriTableAreaRow[]>();
     const seenOids = new Set<number>();
 
@@ -487,44 +490,64 @@ export async function queryAgriTableAreaByUniqueId(
     }
     slices.push(`${AGRI_TABLE_JOIN_FIELD} >= '${AREA_UNIQUEID_BOUNDS[AREA_UNIQUEID_BOUNDS.length - 1]}'`);
 
+    const readSlice = async (slice: string): Promise<void> => {
+      let lastOid = -1;
+      for (let page = 0; page < AGRI_QUERY_MAX_PAGES; page++) {
+        const query: AgriTableQuery = layer.createQuery();
+        query.where = `(${where}) AND ${slice} AND ${oidField} > ${lastOid}`;
+        query.outFields = [AGRI_TABLE_JOIN_FIELD, regionField, cropField, areaField, oidField];
+        query.returnGeometry = false;
+        query.orderByFields = [`${oidField} ASC`];
+        query.resultRecordCount = AGRI_QUERY_PAGE_SIZE;
+        // 16 slices, but at most a few requests at a time on this service.
+        const result = await withHeavyQuerySlot(laneKey, async () => {
+          // A queued page of a read that already failed is not sent.
+          if (failed) throw new Error("Agri_table read cancelled");
+          try {
+            return await layer.queryFeatures(query);
+          } catch (error) {
+            // Mark the read before the slot passes to the next queued page.
+            failed = true;
+            throw error;
+          }
+        });
+        const features = result?.features ?? [];
+        pages += 1;
+        let pageMaxOid = lastOid;
+        for (const feature of features) {
+          const attrs = featureAttributeBag(feature);
+          const oid = Number(attrs[oidField]);
+          if (Number.isFinite(oid)) {
+            if (oid > pageMaxOid) pageMaxOid = oid;
+            // A row is counted once even if a page repeats.
+            if (seenOids.has(oid)) continue;
+            seenOids.add(oid);
+          }
+          const rawId = String(attrs[AGRI_TABLE_JOIN_FIELD] ?? "").trim();
+          const key = rawId.replace(/[{}]/g, "").trim().toLowerCase();
+          if (!key) continue;
+          const rows = out.get(key) || [];
+          rows.push({
+            uniqueId: rawId,
+            region: String(attrs[regionField] ?? "").trim(),
+            cropId: String(attrs[cropField] ?? "").trim(),
+            maydon: Number(attrs[areaField]) || 0,
+          });
+          out.set(key, rows);
+        }
+        // Short page = slice done; no OID progress = stop instead of looping.
+        if (features.length < AGRI_QUERY_PAGE_SIZE || !(pageMaxOid > lastOid)) return;
+        lastOid = pageMaxOid;
+      }
+    };
+
     await Promise.all(
       slices.map(async (slice) => {
-        let lastOid = -1;
-        for (let page = 0; page < AGRI_QUERY_MAX_PAGES; page++) {
-          const query: AgriTableQuery = layer.createQuery();
-          query.where = `(${where}) AND ${slice} AND ${oidField} > ${lastOid}`;
-          query.outFields = [AGRI_TABLE_JOIN_FIELD, regionField, cropField, areaField, oidField];
-          query.returnGeometry = false;
-          query.orderByFields = [`${oidField} ASC`];
-          query.resultRecordCount = AGRI_QUERY_PAGE_SIZE;
-          const result = await layer.queryFeatures(query);
-          const features = result?.features ?? [];
-          pages += 1;
-          let pageMaxOid = lastOid;
-          for (const feature of features) {
-            const attrs = featureAttributeBag(feature);
-            const oid = Number(attrs[oidField]);
-            if (Number.isFinite(oid)) {
-              if (oid > pageMaxOid) pageMaxOid = oid;
-              // A row is counted once even if a page repeats.
-              if (seenOids.has(oid)) continue;
-              seenOids.add(oid);
-            }
-            const rawId = String(attrs[AGRI_TABLE_JOIN_FIELD] ?? "").trim();
-            const key = rawId.replace(/[{}]/g, "").trim().toLowerCase();
-            if (!key) continue;
-            const rows = out.get(key) || [];
-            rows.push({
-              uniqueId: rawId,
-              region: String(attrs[regionField] ?? "").trim(),
-              cropId: String(attrs[cropField] ?? "").trim(),
-              maydon: Number(attrs[areaField]) || 0,
-            });
-            out.set(key, rows);
-          }
-          // Short page = slice done; no OID progress = stop instead of looping.
-          if (features.length < AGRI_QUERY_PAGE_SIZE || !(pageMaxOid > lastOid)) return;
-          lastOid = pageMaxOid;
+        try {
+          await readSlice(slice);
+        } catch (error) {
+          failed = true;
+          throw error;
         }
       }),
     );

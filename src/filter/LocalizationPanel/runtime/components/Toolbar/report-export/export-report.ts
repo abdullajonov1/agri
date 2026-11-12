@@ -12,7 +12,7 @@ function triggerDownload(blob: Blob, filename: string): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+  window.setTimeout(() => { URL.revokeObjectURL(url); }, 1500);
 }
 
 async function buildFile(scope: ReportScope): Promise<{ filename: string; buffer: ArrayBuffer }> {

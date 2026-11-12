@@ -2,13 +2,13 @@ import type { JimuMapView } from "jimu-arcgis";
 import type Extent from "esri/geometry/Extent";
 import type FeatureLayer from "esri/layers/FeatureLayer";
 import type MediaLayer from "esri/layers/MediaLayer";
-import type { AllWidgetProps, React } from "jimu-core";
+import type { React, ImmutableObject, UseDataSource } from "jimu-core";
 import type { DebouncedFunc } from "lodash";
 import type { PolygonExportImageResult, VegetationIndiceType } from "../../../gis/agri-polygon-api-source";
 import type { AgriGraffWidgetState, ConfiguredFilters, RecordData } from "./widget";
 import type { GraffWidgetProps, TimerHandle } from "./graff-state";
 import type { TaggedLayer } from "./components/spatial-candidates";
-import type { ImmutableObject, UseDataSource } from "jimu-core";
+
 
 /**
  * Widget members the extracted Graff modules read or call.

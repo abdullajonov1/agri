@@ -1,5 +1,5 @@
 import { vegetationSeriesByUniqueIdCache, getAgriVegetationIndicesLayer, queryVegFeatures, type VegetationRegionalTimeseriesParams, agriVegetationLog, VEG_AVG_FIELDS, vegetationRegionalTimeseriesCache, type VegetationScopeParams, vegetationAvailableDatesCache, formatArcgisDateToYmd, type VegetationLatestDateByRegion, vegetationLatestDatesByRegionCache, agriVhLog, type VegetationSeriesRow, type VegetationPolygonSeriesRow } from "./veg-base";
-import { escapeArcGIS } from "../../data/agri-sql";
+import { escapeArcGIS, isExactArcGisYmd } from "../../data/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import type { AgriAttributes, AgriStatisticJson } from "../agri-layer-types";
 import { asStatisticDefinitions } from "../../shared/agri-plain-object";
@@ -78,7 +78,8 @@ export async function queryVegetationSeriesForUniqueId(
 export async function queryVegetationRegionalTimeseries(
   params: VegetationRegionalTimeseriesParams,
 ): Promise<VegetationSeriesRow[]> {
-  if (!params.startDate || !params.endDate) {
+  // Exact YYYY-MM-DD only: the dates are written straight into the SQL below.
+  if (!isExactArcGisYmd(params.startDate) || !isExactArcGisYmd(params.endDate)) {
     agriVegetationLog("regionalTimeseries:SKIP-no-date-window", {
       region: params.region ?? null,
       district: params.district ?? null,

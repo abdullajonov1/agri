@@ -21,7 +21,7 @@ export function setAgriLandOverlay(next: AgriLandOverlay | null): void {
   activeOverlay = next;
   // A crop picked on the reserve chart only means something while reserve is on.
   if (next !== "reserve") setReserveCropFilter(null);
-  listeners.forEach((listener) => listener(next));
+  listeners.forEach((listener) => { listener(next); });
 }
 
 /**
@@ -45,7 +45,7 @@ export function getReserveCropFilter(): ReserveCropFilter | null {
 export function setReserveCropFilter(next: ReserveCropFilter | null): void {
   if (next?.key === reserveCropFilter?.key && next?.where === reserveCropFilter?.where) return;
   reserveCropFilter = next;
-  cropListeners.forEach((listener) => listener(next));
+  cropListeners.forEach((listener) => { listener(next); });
 }
 
 export function subscribeReserveCropFilter(listener: CropListener): () => void {

@@ -116,8 +116,8 @@ export const GraffSearchDropdown = (props: GraffSearchDropdownProps) => {
                 role="option"
                 className="agri-v20-graff-search-suggestion"
                 title={selectLabel}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => props.handleGraffSearchRowClick(record)}
+                onMouseDown={(event) => { event.preventDefault(); }}
+                onClick={() => { props.handleGraffSearchRowClick(record); }}
               >
                 <span className="agri-v20-graff-search-suggestion-main">
                   <span className="agri-v20-graff-search-suggestion-inn">

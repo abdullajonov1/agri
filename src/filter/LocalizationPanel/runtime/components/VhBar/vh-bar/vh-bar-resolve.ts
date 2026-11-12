@@ -305,7 +305,7 @@ export const resolveVhMapUniqueIds = async (
       const cachedRegion = host._vhUniqueIdCache[regionCacheKey];
       const parallelMatchesDate =
         ndviDate === dateCandidates[0] &&
-        usedCropScopedIds === cropIdsForUniqueIds.length > 0;
+        usedCropScopedIds === (cropIdsForUniqueIds.length > 0);
       if (cachedRegion) {
         regionChartIds = cachedRegion;
         host._vhRegionChartUniqueIds = cachedRegion;

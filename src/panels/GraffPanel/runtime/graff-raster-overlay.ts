@@ -1,4 +1,4 @@
-import { React } from "jimu-core";
+import { type React } from "jimu-core";
 import SpatialReference from "esri/geometry/SpatialReference";
 import Extent from "esri/geometry/Extent";
 import * as projection from "esri/geometry/projection";
@@ -148,7 +148,7 @@ export const applyGraffVegetationImageOverlay = async (
       advertisedDates.length
         ? advertisedDates
         : host._latestRasterDateByUniqueid.has(cleanId)
-          ? [host._latestRasterDateByUniqueid.get(cleanId)!]
+          ? [host._latestRasterDateByUniqueid.get(cleanId)]
           : [],
       {
         uniqueid: cleanId,
@@ -332,7 +332,7 @@ export const applyGraffVegetationImageOverlay = async (
   // selecteduniqueid directly closes that gap.
   const stillCurrent = (): boolean => {
     if (!host._isMounted || requestId !== host._vegetationImageRequestId)
-      return false;
+      { return false; }
     const currentClean = stripUniqueidBraces(host.state.selecteduniqueid);
     return currentClean === cleanId;
   };

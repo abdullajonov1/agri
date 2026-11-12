@@ -270,7 +270,9 @@ export const getTableOrderByFields = (host: GraffWidgetHost): string[] => {
   if (tableSort?.column === "maydon") {
     const maydonField = host.getMaydonSortFieldName();
     if (maydonField) {
-      return [`${maydonField} ${tableSort.order.toUpperCase()}`];
+      // objectid breaks ties: equal areas keep one stable order, the same one
+      // resolveTablePageForUniqueid counts with.
+      return [`${maydonField} ${tableSort.order.toUpperCase()}`, `${oidField} ASC`];
     }
   }
   return [oidField];
@@ -606,7 +608,7 @@ export const processExternalFilterUpdate = (host: GraffWidgetHost, sourceWidget:
     host.state.isProcessingExternalUpdate ||
     now - host.state.lastUpdateTimestamp < 300
   )
-    return;
+    { return; }
   if (Object.keys(updates).length === 0) return;
 
   const changed = Object.entries(updates).some(

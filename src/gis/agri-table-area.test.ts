@@ -5,7 +5,10 @@ const layerRef: {
   rows: Attrs[];
   fields: string[];
   executed: QueryRecord[];
-} = { rows: [], fields: [], executed: [] };
+  inFlight: number;
+  maxInFlight: number;
+  fail: boolean;
+} = { rows: [], fields: [], executed: [], inFlight: 0, maxInFlight: 0, fail: false };
 
 /** Apply `uniqueid < 'x'` / `uniqueid >= 'x'` slice predicates like the server. */
 const inSlice = (where: string, id: unknown): boolean => {
@@ -23,14 +26,19 @@ jest.mock("../shared/agri-singleton-layer-loader", () => ({
         objectIdField: "objectid",
         createQuery: () => ({}),
         // Like sgm: resultOffset is ignored; only `objectid > n` pages.
-        queryFeatures: (query: QueryRecord) => {
+        queryFeatures: async (query: QueryRecord) => {
           layerRef.executed.push({ ...query });
+          layerRef.inFlight += 1;
+          layerRef.maxInFlight = Math.max(layerRef.maxInFlight, layerRef.inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          layerRef.inFlight -= 1;
+          if (layerRef.fail) throw new Error("Wait timeout for the request exceeded.");
           const size = Number(query.resultRecordCount) || 2000;
           const after = Number(/objectid > (-?\d+)/.exec(String(query.where))?.[1] ?? -Infinity);
           const rows = layerRef.rows
             .filter((r) => inSlice(String(query.where), r.uniqueid) && Number(r.objectid) > after)
             .slice(0, size);
-          return Promise.resolve({ features: rows.map((attributes) => ({ attributes })) });
+          return { features: rows.map((attributes) => ({ attributes })) };
         },
       },
       fields: layerRef.fields,
@@ -41,14 +49,33 @@ jest.mock("../shared/agri-access-config", () => ({
 }));
 
 import { queryAgriTableAreaByUniqueId } from "./agri-table-data-source";
+import { MAX_HEAVY_QUERIES_PER_SERVICE, resetStatsQueryScheduler } from "../data/agri-query-scheduler";
 
 beforeEach(() => {
+  resetStatsQueryScheduler();
+  layerRef.inFlight = 0;
+  layerRef.maxInFlight = 0;
+  layerRef.fail = false;
   layerRef.rows = [];
   layerRef.fields = ["objectid", "uniqueid", "crop_id", "maydon", "yil", "region", "district"];
   layerRef.executed = [];
 });
 
 describe("queryAgriTableAreaByUniqueId", () => {
+  test("16 slices, but only a few requests on the server at a time", async () => {
+    layerRef.rows = Array.from({ length: 40 }, (_, i) => ({ objectid: i + 1, uniqueid: `${(i % 16).toString(16)}x${i}`, crop_id: "10", maydon: 1 }));
+    const out = await queryAgriTableAreaByUniqueId({ region: 1701, year: "2025" });
+    expect(out.size).toBe(40);
+    expect(layerRef.executed).toHaveLength(16);
+    expect(layerRef.maxInFlight).toBeLessThanOrEqual(MAX_HEAVY_QUERIES_PER_SERVICE);
+  });
+
+  test("a failed page stops the queued pages of the read", async () => {
+    layerRef.fail = true;
+    await expect(queryAgriTableAreaByUniqueId({ region: 1702, year: "2025" })).rejects.toThrow();
+    expect(layerRef.executed.length).toBeLessThanOrEqual(MAX_HEAVY_QUERIES_PER_SERVICE);
+  });
+
   test("groups rows per normalized uniqueid with crop and maydon; scope reaches every slice", async () => {
     layerRef.rows = [
       { objectid: 1, uniqueid: "{AB12}", region: 1724, crop_id: "6", maydon: 12.5 },

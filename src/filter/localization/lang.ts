@@ -3,18 +3,18 @@
  * Re-exports shared panel helpers for backward compatibility.
  */
 
+import {
+  ensureAgri3UzLatLanguageDefault,
+  normalizeLanguage,
+  type AgriLanguage,
+} from "../../shared/agri-language";
+
 export {
   AGRI3_LANG_PREF_KEY_V3,
   ensureAgri3UzLatLanguageDefault,
   normalizeLanguage,
   resolveInitialLanguage,
   type AgriLanguage as AgriUiLanguage,
-} from "../../shared/agri-language";
-
-import {
-  ensureAgri3UzLatLanguageDefault,
-  normalizeLanguage,
-  type AgriLanguage,
 } from "../../shared/agri-language";
 
 /** Align with Bar/Region/Popup localStorage; default first-run = O'zbek (Lotin). */

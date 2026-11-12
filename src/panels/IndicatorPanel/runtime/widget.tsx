@@ -1,51 +1,9 @@
-import { JimuMapView, JimuMapViewComponent } from "jimu-arcgis";
-import {
-  AllWidgetProps,
-  DataSource,
-  DataSourceComponent,
-  DataSourceStatus,
-  QueriableDataSource,
-  React,
-} from "jimu-core";
+import { type JimuMapView } from "jimu-arcgis";
+import { type AllWidgetProps, type DataSource, type QueriableDataSource, React } from "jimu-core";
 import throttle from "lodash/throttle";
 import type { DebouncedFunc } from "lodash";
-import AgriDashboardSpinner from "../../../shared/AgriDashboardSpinner";
-import AgriAnimatedCount from "../../../shared/AgriAnimatedCount";
-import {
-  buildSpatialJoinWhere,
-  expandUniqueIdsForAgriTable,
-  getAgriTableDataLayer,
-} from "../../../gis/agri-table-data-source";
-import { withAgriAccessWhere } from "../../../gis/feature-layer-data";
-import {
-  escapeLikeLiteral,
-  eqAposSmart,
-  normalizeApos,
-} from "../../../data/agri-sql";
-import {
-  detectIsDarkTheme,
-  normalizeLanguage,
-  resolveInitialLanguage,
-  type AgriLanguage,
-} from "../../../shared/agri-language";
-import { bindMasterFilter } from "../../../data/agri-filter-bus";
-import { buildTurlarSqlClause } from "../../../shared/agri-crop-labels";
-import {
-  MAP_CONNECTION_RETRY_MS,
-  MAX_MAP_CONNECTION_ATTEMPTS,
-} from "../../../shared/map-connection-service";
-import { buildIndicatorStatsWhere } from "../../../controller/agri-where-builder";
-import {
-  getDashboardPack,
-  waitForDashboardPackReady,
-} from "../../../store/agri-dashboard-store";
-import { matchIndicatorDashboardPack } from "../../../data/agri-dashboard-pack-match";
-import {
-  canConsumeIndicatorDashboardPack,
-  formatIndicatorStatValue,
-} from "../../../data/agri-dashboard-pack-apply";
-import { queryIndicatorOutStat } from "../../../data/agri-indicator-stats";
-import { normalizeTurlarListSql } from "../../../data/agri-turlar";
+import { detectIsDarkTheme, resolveInitialLanguage, type AgriLanguage } from "../../../shared/agri-language";
+import { MAX_MAP_CONNECTION_ATTEMPTS } from "../../../shared/map-connection-service";
 import "./KadastrIndicator.css";
 import {
   labelNoValue,
@@ -82,15 +40,39 @@ import {
 } from "./components/filter-handlers";
 
 
+import {
+  ensureInitialization,
+  retryMapConnection,
+  onActiveViewChange,
+  makeViloyatKeyForRouting,
+  getFeatureLayerForViloyat,
+  isRepublicLayer,
+  getDefaultFeatureLayer,
+  buildViloyatLayerIndex,
+  initializeMapConnection,
+  initializeMapConnectionOnce,
+  onDataSourceCreated,
+  onDataSourceInfoChange,
+} from "./components/map-handlers";
+import {
+  buildWhereClause,
+  buildApiUrl,
+  fetchGroupedStats,
+  fetchGroupedFirst,
+  fetchApiData,
+  fetchData,
+  setupAutoRefresh,
+  initializeTheme,
+  handleThemeChange,
+  getCustomStyles,
+} from "./components/data-handlers";
+import {
+  render,
+} from "./components/render-panel";
+import type { IndicatorWidgetHost } from "./indicator-host";
 
 
-const WIDGET_EVENTS = {
-  YIL_CHANGED: "yilChanged",
-  REGION_CHANGED: "regionChanged",
-  VEGETATION_STATUS_CHANGED: "vegetationStatusChanged",
-  CROP_TYPE_CHANGED: "cropTypeChanged",
-  RESET_ALL: "resetAllWidgets",
-};
+
 
 export interface IndicatorConfig {
   useApiDataSource?: boolean;
@@ -148,8 +130,6 @@ export interface IndicatorConfig {
   mapOverlayMode?: boolean;
 }
 
-import { FILTER_FIELDS } from "./indicator-constants";
-
 export interface VegetationStatsWidgetState {
   vegetationArea: number | null;
   loading: boolean;
@@ -203,37 +183,6 @@ export interface VegetationStatsWidgetState {
   /** App UI language (Russian by default — not Uzbek Cyrillic) */
   language: AgriLanguage;
 }
-
-import {
-  ensureInitialization,
-  retryMapConnection,
-  onActiveViewChange,
-  makeViloyatKeyForRouting,
-  getFeatureLayerForViloyat,
-  isRepublicLayer,
-  getDefaultFeatureLayer,
-  buildViloyatLayerIndex,
-  initializeMapConnection,
-  initializeMapConnectionOnce,
-  onDataSourceCreated,
-  onDataSourceInfoChange,
-} from "./components/map-handlers";
-import {
-  buildWhereClause,
-  buildApiUrl,
-  fetchGroupedStats,
-  fetchGroupedFirst,
-  fetchApiData,
-  fetchData,
-  setupAutoRefresh,
-  initializeTheme,
-  handleThemeChange,
-  getCustomStyles,
-} from "./components/data-handlers";
-import {
-  render,
-} from "./components/render-panel";
-import type { IndicatorWidgetHost } from "./indicator-host";
 export default class VegetationStatsWidget extends React.PureComponent<
   AllWidgetProps<IndicatorConfig>,
   VegetationStatsWidgetState
@@ -270,7 +219,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   };
 
   handleLanguageChange = (event: Event) => {
-    return handleLanguageChange(this, event);
+    handleLanguageChange(this, event);
   };
 
   constructor(props: AllWidgetProps<IndicatorConfig>) {
@@ -377,7 +326,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
         () => {
           if (this.props.config?.useApiDataSource) this.fetchApiData();
           else if (this.state.connectionStatus === "connected")
-            this.fetchData(true);
+            { this.fetchData(true); }
 
           setTimeout(() => (this._isResetting = false), 500);
         },
@@ -417,7 +366,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
     return buildTurlarClause(this, field, values);
   }
   componentDidMount() {
-    return componentDidMount(this);
+    componentDidMount(this);
   }
 
   shouldFetchForViloyat(): boolean {
@@ -425,7 +374,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   }
 
   handleMasterFilterChanged = (event: Event) => {
-    return handleMasterFilterChanged(this, event);
+    handleMasterFilterChanged(this, event);
   };
 
   /**
@@ -441,14 +390,14 @@ export default class VegetationStatsWidget extends React.PureComponent<
   };
 
   componentWillUnmount() {
-    return componentWillUnmount(this);
+    componentWillUnmount(this);
   }
 
   componentDidUpdate(
     prevProps: AllWidgetProps<IndicatorConfig>,
     prevState: VegetationStatsWidgetState,
   ) {
-    return componentDidUpdate(this, prevProps, prevState);
+    componentDidUpdate(this, prevProps, prevState);
   }
 
   // =========================
@@ -460,42 +409,42 @@ export default class VegetationStatsWidget extends React.PureComponent<
   };
 
   handleConstructionYearChanged = (event: Event) => {
-    return handleConstructionYearChanged(this, event);
+    handleConstructionYearChanged(this, event);
   };
 
   handleRegionChange = (event: Event): void => {
-    return handleRegionChange(this, event);
+    handleRegionChange(this, event);
   };
 
   handleYilChange = (event: Event): void => {
-    return handleYilChange(this, event);
+    handleYilChange(this, event);
   };
 
   handleWaterSupplyFilterChange = (event: CustomEvent) => {
-    return handleWaterSupplyFilterChange(this, event);
+    handleWaterSupplyFilterChange(this, event);
   };
 
   handleCategorySelection = (event: CustomEvent) => {
-    return handleCategorySelection(this, event);
+    handleCategorySelection(this, event);
   };
 
   handleKadastrFiltersChanged = (event: Event) => {
-    return handleKadastrFiltersChanged(this, event);
+    handleKadastrFiltersChanged(this, event);
   };
 
   handleKadastrFiltersReset = () =>
-    handleKadastrFiltersReset(this);
+    { handleKadastrFiltersReset(this); };
 
   handleVegetationStatusChange = (event: CustomEvent) => {
-    return handleVegetationStatusChange(this, event);
+    handleVegetationStatusChange(this, event);
   };
 
   handleCropTypeChange = (event: CustomEvent) => {
-    return handleCropTypeChange(this, event);
+    handleCropTypeChange(this, event);
   };
 
   refreshData = () => {
-    return refreshData(this);
+    refreshData(this);
   };
 
   // =========================
@@ -503,7 +452,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   readFiltersFromUrl(): void {
-    return readFiltersFromUrl(this);
+    readFiltersFromUrl(this);
   }
 
   // =========================
@@ -511,15 +460,15 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   ensureInitialization = () => {
-    return ensureInitialization(this);
+    ensureInitialization(this);
   };
 
   retryMapConnection() {
-    return retryMapConnection(this);
+    retryMapConnection(this);
   }
 
   onActiveViewChange = (jimuMapView: JimuMapView) => {
-    return onActiveViewChange(this, jimuMapView);
+    onActiveViewChange(this, jimuMapView);
   };
 
   makeViloyatKeyForRouting = (viloyat: string): string => {
@@ -558,11 +507,11 @@ export default class VegetationStatsWidget extends React.PureComponent<
   };
 
   onDataSourceCreated = (dataSource: DataSource) => {
-    return onDataSourceCreated(this, dataSource);
+    onDataSourceCreated(this, dataSource);
   };
 
   onDataSourceInfoChange = (info: unknown) => {
-    return onDataSourceInfoChange(this, info);
+    onDataSourceInfoChange(this, info);
   };
 
   // =========================
@@ -619,15 +568,15 @@ export default class VegetationStatsWidget extends React.PureComponent<
   // =========================
 
   setupAutoRefresh() {
-    return setupAutoRefresh(this);
+    setupAutoRefresh(this);
   }
 
   initializeTheme = (): void => {
-    return initializeTheme(this);
+    initializeTheme(this);
   };
 
   handleThemeChange = (event: Event): void => {
-    return handleThemeChange(this, event);
+    handleThemeChange(this, event);
   };
 
   // =========================

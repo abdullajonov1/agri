@@ -7,6 +7,7 @@ import {
   useAgriLandScope,
 } from "../gis/agri-land-layers";
 import { applyLandCropRenderer } from "../gis/agri-land-crop-renderer";
+import { agroV5Log } from "../gis/agri-debug-log";
 import {
   getAgriLandOverlay,
   toggleAgriLandOverlay,
@@ -15,6 +16,9 @@ import {
   useReserveCropFilter,
   type AgriLandOverlay,
 } from "../store/agri-land-overlay-store";
+
+const messageOfError = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error ?? "");
 
 export type LandLayersLanguage = "uz_lat" | "uz_cyr" | "ru" | "en";
 
@@ -85,8 +89,12 @@ export default function MapLandLayersPanel(props: Props): JSX.Element {
       ? (layer: __esri.FeatureLayer, isStale: () => boolean) =>
           applyLandCropRenderer(layer, overlay, scope, isStale)
       : undefined;
+    // A failed load is dropped inside syncAgriLandLayers, so switching the
+    // overlay off and on again (or the next scope change) retries it.
     void syncAgriLandLayers(view, overlay, scope, cropFilter?.where || "", colorByCrop).catch(
-      (): undefined => undefined,
+      (error: unknown) => {
+        agroV5Log("land-layers:sync-failed", { overlay, message: messageOfError(error) }, "map");
+      },
     );
   }, [view, overlay, scope, cropFilter]);
 
@@ -123,7 +131,7 @@ export default function MapLandLayersPanel(props: Props): JSX.Element {
           aria-label={copy.title}
           aria-expanded={open}
           title={copy.title}
-          onPointerDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => { event.stopPropagation(); }}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -141,7 +149,7 @@ export default function MapLandLayersPanel(props: Props): JSX.Element {
         role="group"
         aria-label={copy.title}
         aria-hidden={!open}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => { event.stopPropagation(); }}
       >
         {ROWS.map((row) => {
           const locked = isLocked(row, republic);

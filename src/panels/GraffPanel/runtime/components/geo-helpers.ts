@@ -129,7 +129,6 @@ export const ensureRegionDistrictForSelection = async (host: GraffWidgetHost): P
   const effectiveViloyat = host.normalizeApos(viloyat);
   const effectiveTuman = host.normalizeApos(tuman);
   const vilKey = host.makeRegionDistrictKey(effectiveViloyat);
-  const tumanKey = host.makeRegionDistrictKey(effectiveTuman);
 
   const storedRegionCode =
     host.state.regionalRegionCode != null &&

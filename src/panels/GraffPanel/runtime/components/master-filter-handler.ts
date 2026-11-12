@@ -186,11 +186,9 @@ function applyMasterFilterPlan(host: GraffWidgetHost, plan: MasterFilterPlan): v
       vegetationError: null,
       loadingVegetation: shouldRefreshGraph ? true : host.state.loadingVegetation,
       farmerInn: nextFarmerInn,
-      searchText: nextFarmerInn
-        ? nextFarmerInn
-        : shouldClearSearch
+      searchText: nextFarmerInn || (shouldClearSearch
           ? ""
-          : host.state.searchText,
+          : host.state.searchText),
       searchError: clearSearchMeta ? null : host.state.searchError,
       searchResultCount: clearSearchMeta ? null : host.state.searchResultCount,
       isSearchActive: nextFarmerInn
@@ -203,7 +201,7 @@ function applyMasterFilterPlan(host: GraffWidgetHost, plan: MasterFilterPlan): v
       loading: true,
       language: plan.nextLanguage,
     },
-    () => afterMasterFilterApplied(host, shouldClearPolygonSelection, vhChanged),
+    () => { afterMasterFilterApplied(host, shouldClearPolygonSelection, vhChanged); },
   );
 }
 

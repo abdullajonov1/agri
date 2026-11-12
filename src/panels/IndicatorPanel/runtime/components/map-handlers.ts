@@ -1,9 +1,9 @@
 import type { IndicatorWidgetHost } from "../indicator-host";
-import { JimuMapView } from "jimu-arcgis";
+import { type JimuMapView } from "jimu-arcgis";
 import { normalizeApos } from "../../../../data/agri-sql";
 import { FILTER_FIELDS } from "../indicator-constants";
 import { getAgriTableDataLayer } from "../../../../gis/agri-table-data-source";
-import { DataSource, QueriableDataSource, DataSourceStatus } from "jimu-core";
+import { type DataSource, type QueriableDataSource, DataSourceStatus } from "jimu-core";
 import { agriVhIndicatorLog } from "../../../../gis/agri-debug-log";
 import { errorMessage, toPlainRecord } from "../../../../shared/agri-plain-object";
 import { isRepublicFeatureLayer, pickDefaultFeatureLayer } from "../../../panel-layer-helpers";
@@ -139,7 +139,7 @@ export const buildViloyatLayerIndex = async (host: IndicatorWidgetHost, layers: 
       });
     }
   }
-  
+
 };
 
 export const initializeMapConnection = (host: IndicatorWidgetHost, jimuMapView: JimuMapView): Promise<void> => {
@@ -172,7 +172,7 @@ export const initializeMapConnectionOnce = async (host: IndicatorWidgetHost, jim
   const routed = host.getDefaultFeatureLayer(featureLayers);
   host._canonicalFeatureLayer = routed;
 
-  
+
 
   host.setState(
     {
@@ -211,13 +211,13 @@ export const onDataSourceCreated = (host: IndicatorWidgetHost, dataSource: DataS
       ) {
         if (host.shouldFetchForViloyat()) host.fetchData();
         else
-          host.setState({
+          { host.setState({
             loading: true,
             error: null,
             vegetationArea: null,
             totalArea: null,
             featureCount: 0,
-          });
+          }); }
       }
     },
   );

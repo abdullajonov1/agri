@@ -1,6 +1,6 @@
 import type { PopupWidgetHost } from "../popup-host";
 import { LineChart, BarChart3, Sprout, CalendarDays, Inbox, ChevronUp, Pin, MapPin, X, AlertTriangle, Settings2, FolderOpen, Paperclip, Download, MousePointerClick } from "lucide-react";
-import { default as AgriChartLoader } from "../../../../shared/AgriChartLoader";
+import AgriChartLoader from "../../../../shared/AgriChartLoader";
 import { React } from "jimu-core";
 import { AgriHiddenConnectors } from "../../../../gis/AgriHiddenConnectors";
 import { VEG_INDEX_FIELDS as popupVegIndexFields } from "../popup-constants";
@@ -237,7 +237,7 @@ export const renderChart = (host: PopupWidgetHost) => {
               fill={chartColor}
               opacity={hoverIndex == null || hoverIndex === bar.i ? 1 : 0.45}
               className="agri3-chart-bar"
-              onMouseEnter={() => host.setChartHover(bar.i)}
+              onMouseEnter={() => { host.setChartHover(bar.i); }}
             />
             <rect
               x={bar.x}
@@ -245,7 +245,7 @@ export const renderChart = (host: PopupWidgetHost) => {
               width={bar.barW}
               height={chartH}
               fill="transparent"
-              onMouseEnter={() => host.setChartHover(bar.i)}
+              onMouseEnter={() => { host.setChartHover(bar.i); }}
             />
           </g>
         ))}
@@ -281,14 +281,14 @@ export const renderChart = (host: PopupWidgetHost) => {
                 stroke={chartColor}
                 strokeWidth={hoverIndex === p.i ? 2.5 : 2}
                 className="agri3-chart-point"
-                onMouseEnter={() => host.setChartHover(p.i)}
+                onMouseEnter={() => { host.setChartHover(p.i); }}
               />
               <circle
                 cx={p.x}
                 cy={p.y}
                 r={12}
                 fill="transparent"
-                onMouseEnter={() => host.setChartHover(p.i)}
+                onMouseEnter={() => { host.setChartHover(p.i); }}
               />
             </g>
           ))}
@@ -367,7 +367,6 @@ export const renderChart = (host: PopupWidgetHost) => {
 export const renderPopup = (host: PopupWidgetHost) => {
   const {
     selectedAttrs,
-    selectedOID,
     loading,
     error,
     showPopup,
@@ -550,7 +549,7 @@ export const renderPopup = (host: PopupWidgetHost) => {
             {fields
               .filter(
                 (name) => {
-                  if (!selectedAttrs.hasOwnProperty(name)) return false;
+                  if (!Object.prototype.hasOwnProperty.call(selectedAttrs, name)) return false;
                   const val = selectedAttrs[name];
                   if (val == null || val === "") return false;
                   if (typeof val === "string" && !val.trim()) return false;
@@ -570,7 +569,7 @@ export const renderPopup = (host: PopupWidgetHost) => {
 
             {fields.filter(
               (name) =>
-                selectedAttrs.hasOwnProperty(name) &&
+                Object.prototype.hasOwnProperty.call(selectedAttrs, name) &&
                 selectedAttrs[name] != null &&
                 selectedAttrs[name] !== "",
             ).length === 0 && (
@@ -651,7 +650,7 @@ export const renderPopup = (host: PopupWidgetHost) => {
                         download={a.name || undefined}
                       >
                         <img
-                          src={a.previewObjectUrl!}
+                          src={a.previewObjectUrl}
                           alt={a.name || host.tr("attachment.imageFallback")}
                         />
                         <div

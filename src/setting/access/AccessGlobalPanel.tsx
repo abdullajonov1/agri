@@ -58,13 +58,13 @@ export function AccessGlobalPanel({ ctl }: PanelProps) {
                                 groupsLoading={ctl.groupsLoading}
                                 onCopyGroupId={ctl.copyGroupId}
                                 isSelected={selectedGroupKeys.includes(groupKey)}
-                                onToggleSelect={() => ctl.toggleGroupSelect(groupKey)}
-                                onEdit={() => ctl.openEditGlobalGroup(index, group)}
+                                onToggleSelect={() => { ctl.toggleGroupSelect(groupKey); }}
+                                onEdit={() => { ctl.openEditGlobalGroup(index, group); }}
                                 onDelete={() =>
-                                    ctl.setDialog({
+                                    { ctl.setDialog({
                                         type: "deleteGlobalGroup",
                                         payload: { groupIndex: index },
-                                    })
+                                    }); }
                                 }
                             />
                         );

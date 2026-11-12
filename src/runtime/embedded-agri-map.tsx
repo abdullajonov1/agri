@@ -10,7 +10,7 @@ import {
   type UseDataSource,
 } from "jimu-core";
 import {
-  JimuMapView,
+  type JimuMapView,
   MapViewManager,
   loadArcGISJSAPIModules,
 } from "jimu-arcgis";
@@ -24,6 +24,7 @@ import {
   setAgriAdminBordersVisible,
 } from "../gis/agri-admin-boundary-layer";
 import { looksLikeRegionYearLayerHaystack } from "../gis/feature-layer-data";
+import { installAgriCorsGuard, recreateDataSource } from "../shared/agri-cors-guard";
 import FieldComparePanel from "./field-compare-panel";
 import MapLandLayersPanel from "./map-land-layers-panel";
 
@@ -189,16 +190,16 @@ export default function EmbeddedAgriMap(props: Props) {
       setLanguage(normalizeMapLanguage(detail.lang || detail.language || detail.code));
     };
     document.addEventListener("languageChanged", handleLanguageChange);
-    return () => document.removeEventListener("languageChanged", handleLanguageChange);
+    return () => { document.removeEventListener("languageChanged", handleLanguageChange); };
   }, []);
 
   React.useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("agri-basemap-menu-open", basemapMenuOpen);
-    return () => root.classList.remove("agri-basemap-menu-open");
+    return () => { root.classList.remove("agri-basemap-menu-open"); };
   }, [basemapMenuOpen]);
-  // Only the WebMap chosen in the settings is opened. A selected feature
-  // layer's parent WebMap is NOT used as a silent fallback.
+  // Only the WebMap the settings connect is opened (render-panel resolves it:
+  // the WebMap picked in "Select data", or the WebMap of the picked layers).
   const effectiveRootDataSourceId = String(webMapDataSourceId || "").trim();
   const effectiveRootUseDataSource = webMapUseDataSource ||
     (effectiveRootDataSourceId
@@ -213,6 +214,24 @@ export default function EmbeddedAgriMap(props: Props) {
       ? DataSourceManager.getInstance().getDataSource(effectiveRootDataSourceId) || null
       : null,
   );
+  // One retry per WebMap: a failure caused by the JS API's host-wide proxy
+  // fallback (see agri-cors-guard) succeeds once the guard removed the rule.
+  const retriedRootIdRef = React.useRef("");
+  const retryRootDataSource = async (): Promise<void> => {
+    const id = effectiveRootDataSourceId;
+    if (id && retriedRootIdRef.current !== id) {
+      retriedRootIdRef.current = id;
+      await installAgriCorsGuard();
+      try {
+        setRootDataSource(await recreateDataSource(id));
+        return;
+      } catch {
+        /* still failing — report below */
+      }
+    }
+    onLoadingChangeRef.current?.(false);
+    onErrorRef.current?.("Web Map ma’lumot manbasini yaratib bo‘lmadi");
+  };
   const containerRef = React.useRef<HTMLDivElement>(null);
   const viewRef = React.useRef<__esri.MapView | null>(null);
   const mapRef = React.useRef<__esri.Map | null>(null);
@@ -377,14 +396,19 @@ export default function EmbeddedAgriMap(props: Props) {
     let disposed = false;
     let view: __esri.MapView | null = null;
     let jimuMapViewId = "";
-    let updatingHandle: { remove?: () => void } | null = null;
+    const updatingHandle: { remove?: () => void } | null = null;
 
     const initialize = async (): Promise<void> => {
       if (!containerRef.current) return;
       onLoadingChangeRef.current?.(true);
       try {
         const manager = MapViewManager.getInstance();
-        const ds = rootDataSource || (effectiveRootDataSourceId
+        // After the settings switch to another WebMap, `rootDataSource` still
+        // holds the previous one until DataSourceComponent reports the new
+        // one; opening it would pair the old map with the new data source id.
+        const ds = (rootDataSource && rootDataSource.id === effectiveRootDataSourceId
+          ? rootDataSource
+          : null) || (effectiveRootDataSourceId
           ? DataSourceManager.getInstance().getDataSource(effectiveRootDataSourceId)
           : null);
         // No WebMap chosen in the settings: open nothing (no basemap-only map).
@@ -538,7 +562,7 @@ export default function EmbeddedAgriMap(props: Props) {
           className="agri-dashboard-map-zoom-button"
           aria-label={basemapText.zoomIn}
           title={basemapText.zoomIn}
-          onPointerDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => { event.stopPropagation(); }}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -557,7 +581,7 @@ export default function EmbeddedAgriMap(props: Props) {
           className="agri-dashboard-map-zoom-button"
           aria-label={basemapText.zoomOut}
           title={basemapText.zoomOut}
-          onPointerDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => { event.stopPropagation(); }}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -578,7 +602,7 @@ export default function EmbeddedAgriMap(props: Props) {
         aria-label={fullscreenText}
         aria-pressed={isFullscreen}
         title={fullscreenText}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => { event.stopPropagation(); }}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -599,7 +623,7 @@ export default function EmbeddedAgriMap(props: Props) {
             aria-label={basemapText.choose}
             aria-expanded={basemapMenuOpen}
             title={basemapText.choose}
-            onPointerDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => { event.stopPropagation(); }}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -617,7 +641,7 @@ export default function EmbeddedAgriMap(props: Props) {
             <div
               className="agri-dashboard-basemap-menu"
               role="menu"
-              onPointerDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => { event.stopPropagation(); }}
             >
               <div className="agri-dashboard-basemap-menu-title">{basemapText.title}</div>
               {basemapText.items.map(([label, id]) => (
@@ -677,7 +701,10 @@ export default function EmbeddedAgriMap(props: Props) {
             // Plain (mutable) use-data-source object, exactly as before.
             useDataSource={effectiveRootUseDataSource as unknown as IMUseDataSource}
             widgetId={mapWidgetId}
-            onDataSourceCreated={(dataSource: DataSource) => setRootDataSource(dataSource)}
+            onDataSourceCreated={(dataSource: DataSource) => { setRootDataSource(dataSource); }}
+            // Without this the map waits for the data source forever and the
+            // loader never clears (WebMap deleted, no access, portal down).
+            onCreateDataSourceFailed={() => { void retryRootDataSource(); }}
           />
         </div>
       )}

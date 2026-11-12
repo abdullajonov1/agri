@@ -2,20 +2,20 @@
 /** @jsxFrag React.Fragment */
 import type { DashboardWidgetHost } from "../dashboard-host";
 import { getAppStore, AppMode, ReactDOM, React, jsx } from "jimu-core";
-import { default as AgriMapIndicatorDrawer } from "../AgriMapIndicatorDrawer";
-import { default as DateIndexPanel } from "../../panels/DateIndexPanel/runtime/widget";
-import { default as PopupPanel } from "../../panels/PopupPanel/runtime/widget";
-import { default as LocalizationPanel } from "../../filter/LocalizationPanel";
-import { default as RegionPanel } from "../../panels/RegionPanel";
-import { default as EmbeddedAgriMap } from "../embedded-agri-map";
-import { default as AgriGraffReserveSwap } from "../agri-graff-reserve-swap";
-import { default as AgriReserveLock } from "../agri-reserve-lock";
-import { default as AgriChartLoader } from "../../shared/AgriChartLoader";
+import AgriMapIndicatorDrawer from "../AgriMapIndicatorDrawer";
+import DateIndexPanel from "../../panels/DateIndexPanel/runtime/widget";
+import PopupPanel from "../../panels/PopupPanel/runtime/widget";
+import LocalizationPanel from "../../filter/LocalizationPanel";
+import RegionPanel from "../../panels/RegionPanel";
+import EmbeddedAgriMap from "../embedded-agri-map";
+import AgriGraffReserveSwap from "../agri-graff-reserve-swap";
+import AgriReserveLock from "../agri-reserve-lock";
+import AgriChartLoader from "../../shared/AgriChartLoader";
 import { TriangleAlert } from "lucide-react";
 import { agriNoDataLabel } from "../../shared/agriNoDataLabel";
-import { default as PiePanel } from "../../panels/PiePanel";
-import { default as GraffPanel } from "../../panels/GraffPanel";
-import { default as BarPanel } from "../../panels/BarPanel";
+import PiePanel from "../../panels/PiePanel";
+import GraffPanel from "../../panels/GraffPanel";
+import BarPanel from "../../panels/BarPanel";
 import { getConnectedWebMapId, toMutableUseDataSources } from "./dashboard-config";
 
 /** Data source type from the app config ("WEB_MAP", …), undefined if unknown. */
@@ -58,8 +58,8 @@ export function render(host: DashboardWidgetHost) {
   const popupConfig = host.getPopupConfig(baseConfig);
   const activeMapId = host.getActiveMapWidgetId();
   const allDataSources = toMutableUseDataSources(host.props.useDataSources);
-  // The WebMap the settings connect: picked in "ArcGIS Web Map", or the map
-  // whose layers were picked in "Select data". "" = nothing selected.
+  // The WebMap the settings connect: picked in "Select data" itself, or the
+  // map whose layers were picked there. "" = nothing selected.
   const connectedWebMapId = getConnectedWebMapId(
     baseConfig,
     host.props.useDataSources,
@@ -241,7 +241,7 @@ export function render(host: DashboardWidgetHost) {
                 }
                 host.setMapLoading(mapLoading);
               }}
-              onError={(mapError) => host.setState({ mapError })}
+              onError={(mapError) => { host.setState({ mapError }); }}
             />
             {!!host.state.mapError && (
               <div className="agri-dashboard-map-error" role="alert">

@@ -45,7 +45,7 @@ export const fetchDataWithCurrentState = async (host: LocalizationHost) => {
 
     if (!isCurrent()) return;
 
-    let totalCountFromService = perLayerCounts.reduce(
+    const totalCountFromService = perLayerCounts.reduce(
       (sum, value) => sum + value,
       0,
     );
@@ -64,6 +64,7 @@ export const fetchDataWithCurrentState = async (host: LocalizationHost) => {
       yil,
       viloyat,
       tuman,
+      activeLayers,
     });
     const hasScopedFilter =
       !!String(host.getEffectiveViloyat() || "").trim() ||

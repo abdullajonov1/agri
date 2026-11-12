@@ -6,7 +6,7 @@ import { warmPolygonApiConnection } from "../../../../gis/agri-polygon-api-sourc
 import { getAgriVegetationIndicesLayer } from "../../../../gis/agri-vegetation-data-source";
 import { bindMasterFilter } from "../../../../data/agri-filter-bus";
 import { isMapImageOwnedLayer } from "../../../../gis/feature-layer-data";
-import { AllWidgetProps, DataSource, QueriableDataSource } from "jimu-core";
+import { type DataSource, type QueriableDataSource } from "jimu-core";
 import type { AgriGraffWidgetState } from "../widget";
 import type { GraffWidgetProps } from "../graff-state";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../shared/map-connection-service";
@@ -47,7 +47,7 @@ export function componentDidMount(host: GraffWidgetHost) {
   host._unbindPopupPolygonSelection = (() => {
     const handler = host.handlePopupPolygonSelectionFastPath as EventListener;
     document.addEventListener("widgetSelectionChanged", handler);
-    return () => document.removeEventListener("widgetSelectionChanged", handler);
+    return () => { document.removeEventListener("widgetSelectionChanged", handler); };
   })();
   document.addEventListener(
     "agriGraff4TableSearchChanged",
@@ -72,19 +72,19 @@ export function componentDidMount(host: GraffWidgetHost) {
     if (!host._isMounted) return;
 
     const fields = host.getConfiguredFilterFields();
-    const blankLocal = fields.reduce(
+    const blankLocal = fields.reduce<Record<string, string>>(
       (acc, f) => {
         acc[f] = "";
         return acc;
       },
-      {} as Record<string, string>,
+      {},
     );
-    const blankExternal = fields.reduce(
+    const blankExternal = fields.reduce<Record<string, string>>(
       (acc, f) => {
         acc[f] = "";
         return acc;
       },
-      {} as Record<string, string>,
+      {},
     );
 
     // ✅ include vh
@@ -386,7 +386,7 @@ export const handleAppLanguageChanged = (host: GraffWidgetHost, event: Event): v
     v === "uz-latin" ||
     v === "uz"
   )
-    next = "uz_lat";
+    { next = "uz_lat"; }
   else if (
     v === "uz_cyr" ||
     v === "uz-cyr" ||
@@ -396,7 +396,7 @@ export const handleAppLanguageChanged = (host: GraffWidgetHost, event: Event): v
     v === "uz-cyrillic" ||
     v === "cyrillic"
   )
-    next = "uz_cyr";
+    { next = "uz_cyr"; }
   else return;
 
   if (next === host.state.language) return;

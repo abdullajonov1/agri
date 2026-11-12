@@ -43,7 +43,7 @@ export const LanguageMenu = (props: LanguageMenuProps) => {
             key={opt.value}
             type="button"
             className={`agri-v20-language-option agri-v20-compact-option-item ${language === opt.value ? "is-active" : ""}`}
-            onClick={() => props.applyLanguage(opt.value)}
+            onClick={() => { props.applyLanguage(opt.value); }}
             title={opt.fullLabel}
           >
             {opt.shortLabel}

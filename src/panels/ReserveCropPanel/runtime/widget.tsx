@@ -105,7 +105,7 @@ function ReserveColumn(props: {
       disabled={!item.where}
       data-fill={item.fill}
       style={style}
-      onClick={() => onSelect(item)}
+      onClick={() => { onSelect(item); }}
     >
       {/* Value, name and share sit on one line-up across all columns, like VH. */}
       <span className="agri-reserve-crop-head">

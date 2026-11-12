@@ -39,7 +39,7 @@ export async function fillFermerWorkbook(
 
   rows.forEach((row, i) => {
     const r = FIRST_ROW + i;
-    styles.forEach((s, c) => setStyleId(sheet, r, c + 1, s));
+    styles.forEach((s, c) => { setStyleId(sheet, r, c + 1, s); });
     setRowHeight(sheet, r, height);
     const values = [
       i + 1,
@@ -51,7 +51,7 @@ export async function fillFermerWorkbook(
       Math.round(row.hosildorlik * 100) / 100,
       row.maydon,
     ];
-    values.forEach((v, c) => setVal(sheet, r, c + 1, v));
+    values.forEach((v, c) => { setVal(sheet, r, c + 1, v); });
   });
 
   for (let r = Math.max(lastRow + 1, FIRST_ROW); r <= TEMPLATE_LAST_ROW; r++) {

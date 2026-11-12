@@ -196,7 +196,7 @@ export const runAutoSearch = async (host: GraffWidgetHost, termRaw: string) => {
       host.setState({
         selecteduniqueid: gid,
         searchText: term,
-        isSearchActive: true,  // Enable search WHERE filter
+        isSearchActive: true, // Enable search WHERE filter
         records: [],
         currentPage: 1,
         selectedNdviDate: null,
@@ -341,7 +341,7 @@ export const handleExternalTableRowSelected = async (host: GraffWidgetHost, even
 
   // Prepend record so handleRowClick can find it, then select it
   await new Promise<void>((resolve) =>
-    host.setState(
+    { host.setState(
       (prev) => {
         const alreadyIn = prev.records.some(
           (r) => String(r.uniqueid || "").replace(/[{}]/g, "") === selectedId,
@@ -350,7 +350,7 @@ export const handleExternalTableRowSelected = async (host: GraffWidgetHost, even
         return { records: [record, ...prev.records] };
       },
       resolve,
-    ),
+    ); },
   );
 
   await host.handleRowClick(record);
