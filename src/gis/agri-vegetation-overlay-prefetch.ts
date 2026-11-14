@@ -68,11 +68,11 @@ function writeSession(next: OverlayContext): void {
     if (next.lastDate) sessionStorage.setItem(SESSION_DATE_KEY, next.lastDate);
     else sessionStorage.removeItem(SESSION_DATE_KEY);
     if (next.lastIndex)
-      sessionStorage.setItem(SESSION_INDEX_KEY, next.lastIndex);
+      { sessionStorage.setItem(SESSION_INDEX_KEY, next.lastIndex); }
     if (next.regionId != null)
-      sessionStorage.setItem(SESSION_REGION_KEY, String(next.regionId));
+      { sessionStorage.setItem(SESSION_REGION_KEY, String(next.regionId)); }
     if (next.year != null)
-      sessionStorage.setItem(SESSION_YEAR_KEY, String(next.year));
+      { sessionStorage.setItem(SESSION_YEAR_KEY, String(next.year)); }
     if (next.lastDate && next.lastDateRegionId != null) {
       sessionStorage.setItem(
         SESSION_DATE_REGION_KEY,

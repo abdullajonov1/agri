@@ -1,6 +1,6 @@
 import type { PopupWidgetHost } from "../popup-host";
 import { getInitialTheme, t } from "../messages";
-import { React } from "jimu-core";
+import { type React } from "jimu-core";
 
 export function getPopupWidth(host: PopupWidgetHost, view?: __esri.MapView | __esri.SceneView | null): number {
   const margin = host.POPUP_MARGIN;

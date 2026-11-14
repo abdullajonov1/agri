@@ -5,6 +5,7 @@ import {
   normalizeCropKey,
   resolveCropRendererColor,
 } from "./crop-renderer";
+import { rememberPieCropColor, resetPieCropColors } from "../../shared/agri-crop-color-registry";
 import {
   andWhereIfActive,
   augmentWhereWithNdviClauses,
@@ -29,6 +30,18 @@ describe("crop renderer helpers", () => {
     expect(resolveCropRendererColor("Kosmik ekin")).toBe("#78909C");
     expect(resolveCropRendererColor("")).toBe("#78909C");
     expect(resolveCropRendererColor(null)).toBe("#78909C");
+  });
+
+  test("resolveCropRendererColor uses the pie's colour first, then the shared crop map", () => {
+    resetPieCropColors();
+    // Crop outside the fixed map: the pie gave it a slice colour.
+    rememberPieCropColor("Kosmik ekin", "#123456");
+    expect(resolveCropRendererColor("Kosmik ekin")).toBe("#123456");
+    // Cyrillic spelling folds onto the shared canonical key (bugdoy).
+    expect(resolveCropRendererColor("Буғдой")).toBe("#D9A300");
+    expect(resolveCropRendererColor("Pomidor")).toBe("#E53935");
+    resetPieCropColors();
+    expect(resolveCropRendererColor("Kosmik ekin")).toBe("#78909C");
   });
 
   test("hexToRgba parses or falls back to grey", () => {

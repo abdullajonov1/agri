@@ -1,30 +1,13 @@
 import {
-  DataSource,
+  type DataSource,
   DataSourceManager,
-  IMUseDataSource,
+  type IMUseDataSource,
   React,
 } from "jimu-core";
 import { type AllWidgetSettingProps } from "jimu-for-builder";
 import { type AgriPopupConfig, type IMConfig } from "../config";
 import type { FieldBearingLayer } from "./components/popup-data-sources";
 import type { PopupMenuFrame, SchemaFieldLike } from "./components/popup-field-utils";
-
-export type FieldInfo = {
-  name: string;
-  alias: string;
-  type: string;
-};
-
-export interface State {
-  dss: DataSource[] | null;
-  titleField: string;
-  zoomToSelection: boolean;
-  showMapPopup: boolean;
-  allFields: FieldInfo[];
-  fieldsToShowLocal: string[];
-  fieldOrder: string[];
-  popupFieldMenuOpen: boolean;
-}
 
 import {
   componentDidMount,
@@ -65,6 +48,23 @@ import {
   render,
 } from "./components/popup-setting-handlers";
 import type { PopupSettingHost } from "./popup-setting-host";
+
+export type FieldInfo = {
+  name: string;
+  alias: string;
+  type: string;
+};
+
+export interface State {
+  dss: DataSource[] | null;
+  titleField: string;
+  zoomToSelection: boolean;
+  showMapPopup: boolean;
+  allFields: FieldInfo[];
+  fieldsToShowLocal: string[];
+  fieldOrder: string[];
+  popupFieldMenuOpen: boolean;
+}
 export default class AgriPopupSettingPanel extends React.PureComponent<
   AllWidgetSettingProps<IMConfig>,
   State
@@ -96,30 +96,30 @@ popupMenuFrame: PopupMenuFrame | null = null;
   }
 
   componentDidMount(): void {
-    return componentDidMount(this);
+    componentDidMount(this);
   }
 
   componentDidUpdate(
     prev: Readonly<AllWidgetSettingProps<IMConfig>>,
     prevState: State,
   ): void {
-    return componentDidUpdate(this, prev, prevState);
+    componentDidUpdate(this, prev, prevState);
   }
 
   componentWillUnmount(): void {
-    return componentWillUnmount(this);
+    componentWillUnmount(this);
   }
 
 detachPopupFieldMenuListeners = () => {
-    return detachPopupFieldMenuListeners(this);
+    detachPopupFieldMenuListeners(this);
   };
 
 placePopupFieldMenu = () => {
-    return placePopupFieldMenu(this);
+    placePopupFieldMenu(this);
   };
 
 onPopupFieldMenuOutside = (event: MouseEvent) => {
-    return onPopupFieldMenuOutside(this, event);
+    onPopupFieldMenuOutside(this, event);
   };
 
 toPlainAgri(value: unknown): AgriPopupConfig {
@@ -135,11 +135,11 @@ ensureDashboardConfig(): IMConfig {
   }
 
 updateAgriConfig = (patch: Partial<AgriPopupConfig>) => {
-    return updateAgriConfig(this, patch);
+    updateAgriConfig(this, patch);
   };
 
 commitPopupFields = (fieldsToShow: string[], fieldOrder: string[]) => {
-    return commitPopupFields(this, fieldsToShow, fieldOrder);
+    commitPopupFields(this, fieldsToShow, fieldOrder);
   };
 
 orderedPopupFieldNames = (): string[] => {
@@ -147,11 +147,11 @@ orderedPopupFieldNames = (): string[] => {
   };
 
 togglePopupField = (name: string) => {
-    return togglePopupField(this, name);
+    togglePopupField(this, name);
   };
 
 reorderPopupOptions = (from: number, to: number) => {
-    return reorderPopupOptions(this, from, to);
+    reorderPopupOptions(this, from, to);
   };
 
 renderPopupFieldSelect = (fieldsToShow: string[]) => {
@@ -163,11 +163,11 @@ onChartFieldsMultiSelect = (
     _value: string | number,
     selectedValues: Array<string | number>,
   ) => {
-    return onChartFieldsMultiSelect(this, _evt, _value, selectedValues);
+    onChartFieldsMultiSelect(this, _evt, _value, selectedValues);
   };
 
 onAttachmentsToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    return onAttachmentsToggle(this, e);
+    onAttachmentsToggle(this, e);
   };
 
 initializeDataSources = async () => {
@@ -179,11 +179,11 @@ getUseDataSourceKey(value: unknown): string {
   }
 
 releaseOwnedDataSources = () => {
-    return releaseOwnedDataSources(this);
+    releaseOwnedDataSources(this);
   };
 
 cleanupDataSources = () => {
-    return cleanupDataSources(this);
+    cleanupDataSources(this);
   };
 
 createDataSources = async (useList: IMUseDataSource[]) => {
@@ -213,27 +213,27 @@ mergeFieldOrder(fields: FieldInfo[], saved: string[]): string[] {
   }
 
 onChartEnabledToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    return onChartEnabledToggle(this, e);
+    onChartEnabledToggle(this, e);
   };
 
 onChartTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    return onChartTypeChange(this, e);
+    onChartTypeChange(this, e);
   };
 
 onChartTitleChange = (val: string) => {
-    return onChartTitleChange(this, val);
+    onChartTitleChange(this, val);
   };
 
 onChartColorChange = (color: string) => {
-    return onChartColorChange(this, color);
+    onChartColorChange(this, color);
   };
 
 onZoomToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    return onZoomToggle(this, e);
+    onZoomToggle(this, e);
   };
 
 onPopupToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    return onPopupToggle(this, e);
+    onPopupToggle(this, e);
   };
 
 formatFieldLabel = (f: FieldInfo): string => {

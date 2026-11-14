@@ -2,7 +2,7 @@
  * Per-uniqueid AVG(ndvi) / MAX(px_all) statistics — single page and the
  * uniqueid-prefix sharded continuation for truncated results.
  */
-import { getAgriVegetationIndicesLayer, queryVegFeatures, agriVhLog, buildVegetationScopeClauses, type VegetationAvgNdviUniqueRow, vegetationAvgNdviOidCursorCache, VEG_PIXEL_AREA_HA, vegetationAvgNdviByUniqueIdCache } from "./veg-base";
+import { vegAccessCacheTag, getAgriVegetationIndicesLayer, queryVegFeatures, agriVhLog, buildVegetationScopeClauses, type VegetationAvgNdviUniqueRow, vegetationAvgNdviOidCursorCache, VEG_PIXEL_AREA_HA, vegetationAvgNdviByUniqueIdCache } from "./veg-base";
 import { escapeArcGIS } from "../../data/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import type { AgriLayerWithMaxRecordCount } from "../agri-layer-types";
@@ -32,7 +32,7 @@ export async function queryVegetationAvgNdviByUniqueIdPaged(params: {
   clauses.push("uniqueid IS NOT NULL");
   clauses.push("ndvi IS NOT NULL");
   const baseWhere = clauses.join(" AND ");
-  const cacheKey = `v9h-avg-ndvi-paged|${baseWhere}`;
+  const cacheKey = `v9h-avg-ndvi-paged|${baseWhere}${vegAccessCacheTag()}`;
 
   return rememberAsync({
     memory: vegetationAvgNdviOidCursorCache,
@@ -185,7 +185,7 @@ export async function queryVegetationAvgNdviByUniqueIdOnce(params: {
   clauses.push("uniqueid IS NOT NULL");
   clauses.push("ndvi IS NOT NULL");
   const where = clauses.join(" AND ");
-  const cacheKey = `v9h-avg-ndvi-stats|${where}`;
+  const cacheKey = `v9h-avg-ndvi-stats|${where}${vegAccessCacheTag()}`;
 
   return rememberAsync({
     memory: vegetationAvgNdviByUniqueIdCache,

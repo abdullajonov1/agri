@@ -29,11 +29,10 @@ export const fetchApiData = async (host: IndicatorWidgetHost) => {
     return;
   }
 
-  const requestId = ++host._requestId;
+  const requestId = invalidateInFlight(host);
   let controller: AbortController | null = null;
 
   try {
-    if (host._abortController) host._abortController.abort();
     controller = new AbortController();
     host._abortController = controller;
     const signal = controller.signal;
@@ -56,10 +55,10 @@ export const fetchApiData = async (host: IndicatorWidgetHost) => {
     const baseParams = new URLSearchParams();
     if (selectedYil) baseParams.set("yil", selectedYil);
     if (selectedCropType)
-      baseParams.set(
+      { baseParams.set(
         "ekin_turi",
         host.normalizeUzbekForApi(selectedCropType),
-      );
+      ); }
     // Vegetatsiya Holati (AgriBar) never filters this indicator — no
     // "vh" query param is sent regardless of the current bar selection.
 
@@ -68,10 +67,10 @@ export const fetchApiData = async (host: IndicatorWidgetHost) => {
       host.props.config?.yerToifasParam || FILTER_FIELDS.TURI
     ).trim();
     if (selectedYerToifas)
-      baseParams.set(
+      { baseParams.set(
         ytfParamName,
         host.normalizeUzbekForApi(selectedYerToifas),
-      );
+      ); }
 
     // One request. The selected filter label is the API place name.
     const place = canonicalIndicatorApiPlaces(selectedViloyat, selectedTuman);
@@ -120,11 +119,20 @@ export const fetchApiData = async (host: IndicatorWidgetHost) => {
     if (host._abortController === controller) host._abortController = null;
   }
 };
+/** Supersede any in-flight request so its late result cannot overwrite newer state. */
+const invalidateInFlight = (host: IndicatorWidgetHost): number => {
+  const requestId = ++host._requestId;
+  if (host._abortController) host._abortController.abort();
+  host._abortController = null;
+  return requestId;
+};
+
 export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boolean) => {
   if (host.props.config?.useApiDataSource) return host.fetchApiData();
 
   if (!host.shouldFetchForViloyat()) {
     // Year not published yet — stay in loading, never paint "0"/"-".
+    invalidateInFlight(host);
     host.setState({
       loading: true,
       error: null,
@@ -141,11 +149,13 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
       widgetId: host.props?.id,
       vh: host.state.selectedVegetationStatus,
     });
+    invalidateInFlight(host);
     host.setState({ loading: true, error: null });
     return;
   }
 
   if (host.props.config?.groupByField) {
+    invalidateInFlight(host);
     if (vhActive) {
       agriVhIndicatorLog("3-grouped-stats-yoli", { widgetId: host.props?.id });
     }
@@ -408,7 +418,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
       return;
     }
 
-    
+
 
     const q = fl.createQuery();
     q.where = where;

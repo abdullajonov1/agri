@@ -1,9 +1,10 @@
 import type { DashboardChildProps, DashboardWidgetHost } from "../dashboard-host";
 import { setAccessConfig } from "../../shared/agri-access-config";
 import { setAgriServiceUrls } from "../../shared/agri-service-urls";
-import { getAppStore, AppMode, React, Immutable } from "jimu-core";
+import { installAgriCorsGuard } from "../../shared/agri-cors-guard";
+import { getAppStore, AppMode, type React, Immutable, type AllWidgetProps } from "jimu-core";
 import { agroV5Log } from "../../gis/agri-debug-log";
-import type { AllWidgetProps } from "jimu-core";
+
 import type { IMConfig, AgriPopupConfig } from "../../config";
 import type { AgriDashboardState, ChildSuffix } from "../widget";
 import type { IndicatorChildPropsSet } from "../AgriMapIndicatorDrawer";
@@ -72,6 +73,9 @@ const mountedAgriDashboardIds = new Set<string>();
 export const syncConfigSideEffects = (host: DashboardWidgetHost): void => {
   setAccessConfig(host.props.config?.accessConfig);
   setAgriServiceUrls(host.props.config?.serviceUrls);
+  // Before the WebMap and the panels start requesting: one failed request
+  // must not route the whole host through the (403) portal proxy.
+  void installAgriCorsGuard();
 };
 
 export function isBuilderDesignMode(host: DashboardWidgetHost): boolean {
@@ -88,6 +92,29 @@ export function getUiLanguage(host: DashboardWidgetHost): string {
   } catch {
     return "uz_lat";
   }
+}
+
+const fieldCompareListeners = new WeakMap<DashboardWidgetHost, EventListener>();
+
+function collapseIndicatorsForCompare(host: DashboardWidgetHost): void {
+  const visible =
+    host.state.indicatorsOpen ||
+    host.state.indicatorsAnimPhase === "expanded" ||
+    host.state.indicatorsAnimPhase === "expanding";
+  if (!visible) return;
+  if (host.indicatorAnimTimer) {
+    clearTimeout(host.indicatorAnimTimer);
+    host.indicatorAnimTimer = null;
+  }
+  host.setState({
+    indicatorsOpen: false,
+    indicatorsAnimPhase: "collapsing",
+  });
+  host.indicatorAnimTimer = setTimeout(() => {
+    host.indicatorAnimTimer = null;
+    if (!host.dashboardRootRef.current) return;
+    host.setState({ indicatorsAnimPhase: "collapsed" });
+  }, 720);
 }
 
 export function componentDidMount(host: DashboardWidgetHost): void {
@@ -121,6 +148,12 @@ export function componentDidMount(host: DashboardWidgetHost): void {
     "agriMapPopupVisibility",
     host.handleMapPopupVisibility as EventListener,
   );
+  const onFieldCompare: EventListener = (event) => {
+    const detail = (event as CustomEvent<{ open?: boolean }>).detail;
+    if (detail?.open === true) collapseIndicatorsForCompare(host);
+  };
+  fieldCompareListeners.set(host, onFieldCompare);
+  document.addEventListener("agriFieldCompareToggled", onFieldCompare);
   requestAnimationFrame(() => {
     host.ensurePortalHost();
     host.forceUpdate(() => {
@@ -190,6 +223,14 @@ export const toggleIndicatorsDrawer = (host: DashboardWidgetHost, event: React.M
     indicatorsOpen: opening,
     indicatorsAnimPhase: opening ? "expanding" : "collapsing",
   });
+  if (opening) {
+    document.dispatchEvent(
+      new CustomEvent("agriIndicatorsDrawerToggled", {
+        detail: { open: true },
+        bubbles: true,
+      }),
+    );
+  }
 
   host.indicatorAnimTimer = setTimeout(
     () => {
@@ -223,6 +264,11 @@ export function componentWillUnmount(host: DashboardWidgetHost): void {
     "agriMapPopupVisibility",
     host.handleMapPopupVisibility as EventListener,
   );
+  const onFieldCompare = fieldCompareListeners.get(host);
+  if (onFieldCompare) {
+    document.removeEventListener("agriFieldCompareToggled", onFieldCompare);
+    fieldCompareListeners.delete(host);
+  }
   host.dashboardRootRef.current?.classList.remove("agri-popup-open");
   host.dashboardRootRef.current?.classList.remove("agri-popup-pinned");
   host.dashboardResizeObserver?.disconnect();
@@ -307,8 +353,8 @@ export const handleMapPopupVisibility = (host: DashboardWidgetHost, event: Event
     );
     host.syncIndicatorOverlayLayout();
     if (open) {
-      requestAnimationFrame(() => host.syncIndicatorOverlayLayout());
-      window.setTimeout(() => host.syncIndicatorOverlayLayout(), 80);
+      requestAnimationFrame(() => { host.syncIndicatorOverlayLayout(); });
+      window.setTimeout(() => { host.syncIndicatorOverlayLayout(); }, 80);
     }
     if (shouldCollapseIndicators) {
       host.indicatorAnimTimer = setTimeout(() => {

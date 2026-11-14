@@ -113,3 +113,11 @@ describe("buildTurlarSqlClause", () => {
     expect(two).toBe(one);
   });
 });
+
+describe("reserve land crop names", () => {
+  it("translates Poliz ekinlari in every language", () => {
+    expect(getCropDisplayName("Poliz ekinlari", "ru")).toBe("Бахчевые культуры");
+    expect(getCropDisplayName("Полиз экинлари", "en")).toBe("Melon crops");
+    expect(getCropDisplayName("poliz ekinlari", "uz_cyr")).toBe("Полиз экинлари");
+  });
+});

@@ -10,6 +10,10 @@ import {
   type AgriTuriCropMappingRow,
 } from "../gis/agri-table-data-source";
 import {
+  getAccessWhereHash,
+  onAccessWhereChange,
+} from "../shared/agri-access-config";
+import {
   AGRI_PERSIST_TTL_MS,
   getAgriPersistentCache,
   removeAgriPersistentCache,
@@ -23,15 +27,21 @@ export interface AgriDashboardBootstrap {
 
 const BOOTSTRAP_NS = "bootstrap";
 /** Bump when mapping semantics change (majority-vote district codes, counts). */
-const BOOTSTRAP_KEY = "mappings-v3";
+const BOOTSTRAP_KEY_PREFIX = "mappings-v3";
+
+/** Persisted key includes the access WHERE hash (mappings bake access in). */
+export function getAgriBootstrapKey(): string {
+  return `${BOOTSTRAP_KEY_PREFIX}-${getAccessWhereHash()}`;
+}
 
 let bootstrapPromise: Promise<AgriDashboardBootstrap> | null = null;
 
 export function getAgriDashboardBootstrap(): Promise<AgriDashboardBootstrap> {
   if (!bootstrapPromise) {
+    const bootstrapKey = getAgriBootstrapKey();
     const persisted = getAgriPersistentCache<AgriDashboardBootstrap>(
       BOOTSTRAP_NS,
-      BOOTSTRAP_KEY,
+      bootstrapKey,
     );
     if (
       persisted &&
@@ -53,7 +63,7 @@ export function getAgriDashboardBootstrap(): Promise<AgriDashboardBootstrap> {
         };
         setAgriPersistentCache(
           BOOTSTRAP_NS,
-          BOOTSTRAP_KEY,
+          bootstrapKey,
           payload,
           AGRI_PERSIST_TTL_MS,
         );
@@ -69,5 +79,12 @@ export function getAgriDashboardBootstrap(): Promise<AgriDashboardBootstrap> {
 
 export function clearAgriDashboardBootstrapCache(): void {
   bootstrapPromise = null;
-  removeAgriPersistentCache(BOOTSTRAP_NS, BOOTSTRAP_KEY);
+  removeAgriPersistentCache(BOOTSTRAP_NS, getAgriBootstrapKey());
+}
+
+// Guarded: tests may mock the access module without the listener registry.
+if (typeof onAccessWhereChange === "function") {
+  onAccessWhereChange(() => {
+    bootstrapPromise = null;
+  });
 }

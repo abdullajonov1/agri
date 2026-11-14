@@ -25,16 +25,7 @@ import {
 import { extractGraffYearToken } from "../data/agri-graff-date";
 import { findAreaFieldByPreferredNames } from "../data/agri-area-field";
 import { makeRegionDistrictKey } from "../filter/localization/geo-keys";
-import { VH_TO_NDVI_STATUS } from "../filter/localization/vh-constants";
-import {
-  emptyDashboardPack,
-  type DashboardFilterSlice,
-  type DashboardGraffPack,
-  type DashboardIndicatorPack,
-  type DashboardPack,
-  type DashboardPiePack,
-  type DashboardRegionPack,
-} from "../types/dashboard-pack";
+import { emptyDashboardPack, type DashboardFilterSlice, type DashboardGraffPack, type DashboardIndicatorPack, type DashboardPiePack, type DashboardRegionPack } from "../types/dashboard-pack";
 import { patchDashboardPack, setDashboardPack, getDashboardPack, getPersistedDashboardPack } from "../store/agri-dashboard-store";
 import {
   buildIndicatorStatsWhere,
@@ -199,7 +190,7 @@ async function prefetchIndicatorPack(
 }
 
 /**
- * Graff regional timeseries — includes VH status when filter.vh is set.
+ * Graff regional timeseries — does not send ndviStatus (series is VH-independent).
  * Polygon uniqueid remains panel-owned (not in DashboardFilterSlice).
  */
 async function prefetchGraffPack(
@@ -266,16 +257,12 @@ async function prefetchGraffPack(
     districtNum !== undefined && Number.isFinite(districtNum)
       ? districtNum
       : null;
-  const vh = String(filter.vh || "").trim();
-  const ndviStatus = vh ? VH_TO_NDVI_STATUS[vh] || undefined : undefined;
-
   const scopeKey = buildGraffRegionalScopeKey({
     region,
     district,
     cropIds,
     startDate,
     endDate,
-    vh,
   });
 
   // No viloyat: default chart is NDVI-only — do not AVG SAVI/EVI/… yet.
@@ -288,7 +275,6 @@ async function prefetchGraffPack(
     cropIds,
     startDate,
     endDate,
-    ndviStatus,
     avgFields,
   });
 
@@ -422,6 +408,14 @@ async function runController(
   }
 }
 
+/** Invalidate older in-flight runs and cancel any pending debounced run. */
+function supersedePendingWork(): void {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = null;
+  inFlight = null;
+  generation += 1;
+}
+
 /**
  * Schedule controller work after a master filter snapshot.
  * Replaces bare warmup — warmup is included inside the controller.
@@ -450,12 +444,14 @@ export function scheduleDashboardController(
   // Same filter already packed in memory (or multi-key localStorage hydrate).
   const existing = getDashboardPack();
   if (existing.phase === "ready" && existing.key === key) {
+    supersedePendingWork();
     lastKey = key;
     return;
   }
 
   const fromDisk = getPersistedDashboardPack(key);
   if (fromDisk) {
+    supersedePendingWork();
     lastKey = key;
     setDashboardPack(fromDisk);
     return;
@@ -478,9 +474,12 @@ export function scheduleDashboardController(
     );
   }
 
+  // The newest scheduled key is authoritative: drop any pending timer for an older key.
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = null;
+
   if (key === lastKey && inFlight) return;
 
-  if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
     if (key === lastKey && inFlight) return;

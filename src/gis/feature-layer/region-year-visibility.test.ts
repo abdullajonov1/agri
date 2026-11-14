@@ -6,8 +6,10 @@ jest.mock("jimu-arcgis", () => ({
   loadArcGISJSAPIModules: () => Promise.reject(new Error("no arcgis in tests")),
 }));
 
+import { TRANSIENT_FAILURE_RETRY_MS } from "./detached-query";
 import { preloadRegionYearMapImages, syncRegionYearLayerVisibility } from "./region-year-visibility";
 import type { AgriLayerLike, AgriMapLike } from "../agri-layer-types";
+import { setAgriLandOverlay } from "../../store/agri-land-overlay-store";
 import { collection, fields, makeLayer } from "./__test-utils__/fake-layer";
 
 const polyFields = fields(["distrct_id", "esriFieldTypeInteger"], ["turi", "esriFieldTypeString"]);
@@ -69,6 +71,23 @@ describe("syncRegionYearLayerVisibility", () => {
     expect(fergana2024.visible).toBe(false);
   });
 
+  test("a land overlay keeps the matched layer filtered but hidden", () => {
+    const { map, fergana2025 } = buildMap();
+    setAgriLandOverlay("unused");
+    try {
+      const shown = syncRegionYearLayerVisibility(map, {
+        yil: "2025",
+        viloyat: "Farg'ona",
+        turi: "paxta",
+      });
+      expect(shown.map((s) => s.layer)).toEqual([fergana2025]);
+      expect(fergana2025.visible).toBe(false);
+      expect(fergana2025.definitionExpression).toContain("turi='paxta'");
+    } finally {
+      setAgriLandOverlay(null);
+    }
+  });
+
   test("without a region every region-year layer is hidden", () => {
     const { map, andijan2025, fergana2025 } = buildMap();
     expect(syncRegionYearLayerVisibility(map, { yil: "2025" })).toEqual([]);
@@ -127,6 +146,30 @@ describe("preloadRegionYearMapImages", () => {
 
     await preloadRegionYearMapImages(map, "2025");
     expect(failLoad).toHaveBeenCalledTimes(1);
+  });
+
+  test("transient preload failure is retried after the TTL, 404 is not", async () => {
+    jest.useFakeTimers();
+    try {
+      const flaky = jest
+        .fn<Promise<void>, []>()
+        .mockRejectedValueOnce({ details: { httpStatus: 503 } })
+        .mockResolvedValue(undefined);
+      const a = makeLayer({ type: "map-image", title: "agri andijan 2031", url: "https://h/flaky/MapServer", load: flaky });
+      const gone = jest.fn(() => Promise.reject({ details: { httpStatus: 404 } }));
+      const b = makeLayer({ type: "map-image", title: "agri buxoro 2031", url: "https://h/gone/MapServer", load: gone });
+      const map = { layers: collection<AgriLayerLike>([a, b]) };
+      await preloadRegionYearMapImages(map, "2031");
+      jest.advanceTimersByTime(TRANSIENT_FAILURE_RETRY_MS - 1);
+      await preloadRegionYearMapImages(map, "2031");
+      expect(flaky).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(2);
+      await preloadRegionYearMapImages(map, "2031");
+      expect(flaky).toHaveBeenCalledTimes(2);
+      expect(gone).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test("region filter restricts which parents are loaded", async () => {

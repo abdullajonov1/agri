@@ -2,27 +2,70 @@
 /** @jsxFrag React.Fragment */
 import type { DashboardWidgetHost } from "../dashboard-host";
 import { getAppStore, AppMode, ReactDOM, React, jsx } from "jimu-core";
-import { default as AgriMapIndicatorDrawer } from "../AgriMapIndicatorDrawer";
-import { default as DateIndexPanel } from "../../panels/DateIndexPanel/runtime/widget";
-import { default as PopupPanel } from "../../panels/PopupPanel/runtime/widget";
-import { default as LocalizationPanel } from "../../filter/LocalizationPanel";
-import { default as RegionPanel } from "../../panels/RegionPanel";
-import { default as EmbeddedAgriMap } from "../embedded-agri-map";
-import { default as AgriChartLoader } from "../../shared/AgriChartLoader";
+import AgriMapIndicatorDrawer from "../AgriMapIndicatorDrawer";
+import DateIndexPanel from "../../panels/DateIndexPanel/runtime/widget";
+import PopupPanel from "../../panels/PopupPanel/runtime/widget";
+import LocalizationPanel from "../../filter/LocalizationPanel";
+import RegionPanel from "../../panels/RegionPanel";
+import EmbeddedAgriMap from "../embedded-agri-map";
+import AgriGraffReserveSwap from "../agri-graff-reserve-swap";
+import AgriReserveLock from "../agri-reserve-lock";
+import AgriChartLoader from "../../shared/AgriChartLoader";
 import { TriangleAlert } from "lucide-react";
 import { agriNoDataLabel } from "../../shared/agriNoDataLabel";
-import { default as PiePanel } from "../../panels/PiePanel";
-import { default as GraffPanel } from "../../panels/GraffPanel";
-import { default as BarPanel } from "../../panels/BarPanel";
-import { toMutableUseDataSources } from "./dashboard-config";
+import PiePanel from "../../panels/PiePanel";
+import GraffPanel from "../../panels/GraffPanel";
+import BarPanel from "../../panels/BarPanel";
+import { getConnectedWebMapId, toMutableUseDataSources } from "./dashboard-config";
+
+/** Data source type from the app config ("WEB_MAP", …), undefined if unknown. */
+function readAppDataSourceType(dataSourceId: string): string | undefined {
+  const type = getAppStore().getState().appConfig?.dataSources?.[dataSourceId]?.type;
+  return type ? String(type) : undefined;
+}
+
+/** Full-size message shown instead of the dashboard (design mode / no map). */
+function renderDashboardNotice(title: string, message: string) {
+  return (
+    <div
+      className="agri-dashboard-v3"
+      role="status"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 240,
+        height: "100%",
+        padding: 24,
+        background: "#1d2031",
+        color: "#e8edf7",
+        textAlign: "center",
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.78 }}>{message}</div>
+      </div>
+    </div>
+  );
+}
 
 export function render(host: DashboardWidgetHost) {
   const baseConfig = host.toPlainConfig();
   const indicatorConfig = host.getIndicatorConfig(baseConfig);
   const popupConfig = host.getPopupConfig(baseConfig);
   const activeMapId = host.getActiveMapWidgetId();
-  const webMapDataSourceId = String(baseConfig.webMapDataSourceId || "");
   const allDataSources = toMutableUseDataSources(host.props.useDataSources);
+  // The WebMap the settings connect: picked in "Select data" itself, or the
+  // map whose layers were picked there. "" = nothing selected.
+  const connectedWebMapId = getConnectedWebMapId(
+    baseConfig,
+    host.props.useDataSources,
+    readAppDataSourceType,
+  );
+  const webMapDataSourceId = connectedWebMapId;
   const webMapUseDataSource = allDataSources.find(
     (source) => String(source?.dataSourceId || "") === webMapDataSourceId,
   );
@@ -40,34 +83,26 @@ export function render(host: DashboardWidgetHost) {
   // lightweight throughout Design mode. Preview/published runtime mounts the
   // complete dashboard. This avoids resolving every configured map sublayer
   // while the settings panel is being opened or edited.
+  const dashboardTitle = String(
+    host.props.manifest?.label ||
+      host.props.manifest?.name ||
+      "Agro Space Monitoring",
+  );
   if (isBuilderDesignPreview) {
-    return (
-      <div
-        className="agri-dashboard-v3"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: 240,
-          padding: 24,
-          background: "#1d2031",
-          color: "#e8edf7",
-          textAlign: "center",
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-            {host.props.manifest?.label ||
-              host.props.manifest?.name ||
-              "Agro Space Monitoring"}
-          </div>
-          <div style={{ fontSize: 13, opacity: 0.78 }}>
-            {webMapDataSourceId || allDataSources.length > 0
-              ? "Data source ulangan. Natijani Preview rejimida ko‘ring."
-              : "Widget sozlamalaridan Web Map yoki data source ulang."}
-          </div>
-        </div>
-      </div>
+    return renderDashboardNotice(
+      dashboardTitle,
+      connectedWebMapId
+        ? "Xarita ulangan. Natijani Preview rejimida ko‘ring."
+        : "Widget sozlamalarida Web Map yoki uning qatlamlarini (Select data) tanlang.",
+    );
+  }
+  // Nothing loads until the settings connect a WebMap: the panels below are
+  // what query the services, so none of them mounts without it (and the
+  // embedded map never opens a basemap-only map).
+  if (!connectedWebMapId) {
+    return renderDashboardNotice(
+      dashboardTitle,
+      "Xarita ulanmagan. Widget sozlamalarida Web Map yoki uning qatlamlarini tanlang — ulanmaguncha ma’lumotlar yuklanmaydi.",
     );
   }
   const showMapLoader =
@@ -206,7 +241,7 @@ export function render(host: DashboardWidgetHost) {
                 }
                 host.setMapLoading(mapLoading);
               }}
-              onError={(mapError) => host.setState({ mapError })}
+              onError={(mapError) => { host.setState({ mapError }); }}
             />
             {!!host.state.mapError && (
               <div className="agri-dashboard-map-error" role="alert">
@@ -245,13 +280,19 @@ export function render(host: DashboardWidgetHost) {
 
         <div className="agri-dashboard-bottom-row" aria-label="Charts">
           <div className="agri-dashboard-widget-slot">
-            <PiePanel {...host.childProps("pie", baseConfig)} />
+            <AgriReserveLock>
+              <PiePanel {...host.childProps("pie", baseConfig)} />
+            </AgriReserveLock>
           </div>
           <div className="agri-dashboard-widget-slot">
-            <GraffPanel {...host.childProps("graff", baseConfig)} />
+            <AgriGraffReserveSwap>
+              <GraffPanel {...host.childProps("graff", baseConfig)} />
+            </AgriGraffReserveSwap>
           </div>
           <div className="agri-dashboard-widget-slot">
-            <BarPanel {...host.childProps("bar", baseConfig)} />
+            <AgriReserveLock>
+              <BarPanel {...host.childProps("bar", baseConfig)} />
+            </AgriReserveLock>
           </div>
         </div>
       </div>

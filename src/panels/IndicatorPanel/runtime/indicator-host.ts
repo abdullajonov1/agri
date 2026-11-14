@@ -9,6 +9,7 @@ export interface IndicatorWidgetHost {
   state: VegetationStatsWidgetState;
   setState: React.Component<AllWidgetProps<IndicatorConfig>, VegetationStatsWidgetState>["setState"];
   _isMounted: boolean;
+  _viewReadyWatchHandle?: { remove(): void } | null;
   _isResetting: boolean;
   getFieldType: (name: string) => string | null;
   normalizeUzbekForApi: (s: string) => string;

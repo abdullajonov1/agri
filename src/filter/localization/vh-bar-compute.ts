@@ -1,32 +1,17 @@
 /**
- * VH bar compute pipeline — ndvi_status by raster_date.
+ * VH bar compute pipeline — hectares per ndvi_status, each field once with its
+ * newest status inside its crop's last 10 days (Bug'doy: Mart–Aprel, Paxta:
+ * Iyun–Sentabr; see status-vh-window).
  * LocalizationPanel supplies deps; this module has no React class state.
  */
 
 import type { ChartFilterFlags } from "../../gis/agri-chart-filter-order";
-import {
-  queryVegetationAvailableDates,
-  queryVegetationDistinctRegions,
-  queryVegetationLatestDatesByRegion,
-  queryVegetationMaxRasterDate,
-  REPUBLIC_VH_USE_STATUS_STATS,
-  REGION_VH_BAR_USE_STATUS_STATS,
-} from "../../gis/agri-vegetation-data-source";
-import {
-  getVhBarStatusCountsByRegionScopesCached,
-  getVhBarStatusCountsByStatusCached,
-  getVhBarStatusCountsCached,
-} from "../../data/agri-stats-store";
-import {
-  aggregateVhServiceRows,
-  buildEmptyVhBarData,
-  type VhServiceStatusRow,
-} from "./vh-bar-aggregate";
+import { queryVegetationAvailableDates } from "../../gis/agri-vegetation-data-source";
+import { getVhBarLatestStatusCountsCached } from "../../data/agri-stats-store";
+import { queryStatusCountsSummary } from "../../gis/vegetation/status/status-counts-summary";
+import { aggregateVhServiceRows, buildEmptyVhBarData } from "./vh-bar-aggregate";
 import type { VHBarData } from "./vh-constants";
 import { errorMessage } from "../../shared/agri-plain-object";
-
-/** Same cap as LocalizationPanel uniqueid date walk — avoid year-long empty probes. */
-const MAX_VH_BAR_DATE_WALK = 8;
 
 export type VhBarComputeStateSlice = {
   viloyat: string;
@@ -61,6 +46,76 @@ export type VhBarComputeDeps = {
   /** Header STIR selection — uniqueids of that farmer's parcels. */
   farmerUniqueIds?: string[] | null;
 };
+
+type VhBarCountsArgs = {
+  year: number;
+  region: number | undefined;
+  district: number | undefined;
+  date: string;
+  cropIds: string[] | undefined;
+  uniqueIds: string[] | undefined;
+};
+
+/** Status-counts summary first (null / failure → the per-crop window scan). */
+function loadVhBarCounts(useSummary: boolean, args: VhBarCountsArgs) {
+  const summaryPromise = useSummary
+    ? queryStatusCountsSummary({
+        year: args.year,
+        region: args.region,
+        district: args.district,
+        cropIds: args.cropIds,
+      }).catch(() => null)
+    : Promise.resolve(null);
+  return summaryPromise.then((summary) =>
+    summary
+      ? { counts: summary, fromSummary: true }
+      : getVhBarLatestStatusCountsCached({
+          region: args.region,
+          district: args.district,
+          date: args.date,
+          cropIds: args.cropIds,
+          uniqueIds: args.uniqueIds,
+        }).then((counts) => ({ counts, fromSummary: false })),
+  );
+}
+
+type DatesScope = { selectedYear: string; republic: boolean; locked: boolean };
+
+function filterYearDates(
+  raw: readonly string[] | null | undefined,
+  selectedYear: string,
+): string[] {
+  return (raw || []).filter((date) => String(date).startsWith(`${selectedYear}-`));
+}
+
+function publishUsedDate(
+  deps: VhBarComputeDeps,
+  usedDate: string | null,
+  scope: { republic: boolean; locked: boolean },
+): void {
+  deps.setVhBarUsedDate(usedDate);
+  if (!usedDate || scope.republic) return;
+  deps.prefetchVhStatusUniqueIds(usedDate);
+  if (!scope.locked && deps.state.ndviDate !== usedDate) {
+    deps.setState({ ndviDate: usedDate });
+  }
+}
+
+/** Background continuation of the summary path once the calendar dates arrive. */
+function applySummaryDates(
+  deps: VhBarComputeDeps,
+  raw: readonly string[] | null | undefined,
+  scope: DatesScope,
+): void {
+  if (!deps.isMounted()) return;
+  const knownDates = filterYearDates(raw, scope.selectedYear);
+  if (knownDates.length) deps.setState({ ndviDateOptions: knownDates });
+  const usedDate = knownDates.reduce<string | null>(
+    (max, date) => (max === null || String(date) > max ? String(date) : max),
+    null,
+  );
+  publishUsedDate(deps, usedDate, scope);
+}
 
 export async function executeVhBarCompute(
   deps: VhBarComputeDeps,
@@ -130,7 +185,9 @@ export async function executeVhBarCompute(
         ),
       )
     : [];
-  if (selectedTurlar.length > 0 && cropIds.length !== selectedTurlar.length) {
+  // Unresolved crop → empty bar. Compare per turi, not list lengths: two
+  // spellings of one crop (Noxot / No'xat) share a crop_id and dedupe above.
+  if (selectedTurlar.some((turi) => !deps.resolveCropIdForTuri(turi))) {
     return zeroResult;
   }
 
@@ -156,231 +213,81 @@ export async function executeVhBarCompute(
   const farmerFilter = farmerUniqueIds.length ? farmerUniqueIds : undefined;
 
   const forcedNdvi = (deps.state.ndviDate || "").trim();
-
-  // --- Republic: sum per-viloyat status buckets (no nation-wide uniqueid page) ---
-  // Farmer STIR selection always needs a viloyat (Localization sets it from
-  // the search row); skip the republic aggregate when farmerFilter is set.
-  if (!effectiveViloyat && !farmerFilter) {
-    try {
-      let regionScopes: Array<{ region: number; date: string }> = [];
-      if (deps.state.ndviDateLocked && forcedNdvi) {
-        // Locked calendar day: every viloyat on that same raster_date.
-        const regions = await queryVegetationDistinctRegions({
-          year: selectedYear,
-        });
-        regionScopes = regions.map((region) => ({
-          region,
-          date: forcedNdvi,
-        }));
-      } else {
-        // Unlocked: each viloyat's own latest date in the year.
-        regionScopes = await queryVegetationLatestDatesByRegion({
-          year: selectedYear,
-        });
-      }
-      if (!deps.isMounted()) return null;
-      if (!regionScopes.length) {
-        deps.setVhBarUsedDate(null);
-        return zeroResult;
-      }
-
-      let rows: VhServiceStatusRow[] = [];
-      if (REPUBLIC_VH_USE_STATUS_STATS) {
-        try {
-          rows = await getVhBarStatusCountsByRegionScopesCached(
-            regionScopes,
-            cropFilter,
-          );
-          if (!rows.length) {
-            const exactGroups = await Promise.all(
-              regionScopes.map((scope) =>
-                getVhBarStatusCountsCached({
-                  region: scope.region,
-                  date: scope.date,
-                  cropIds: cropFilter,
-                }),
-              ),
-            );
-            rows = exactGroups.flat();
-          }
-        } catch {
-          const exactGroups = await Promise.all(
-            regionScopes.map((scope) =>
-              getVhBarStatusCountsCached({
-                region: scope.region,
-                date: scope.date,
-                cropIds: cropFilter,
-              }),
-            ),
-          );
-          rows = exactGroups.flat();
-        }
-      } else {
-        const exactGroups = await Promise.all(
-          regionScopes.map((scope) =>
-            getVhBarStatusCountsCached({
-              region: scope.region,
-              date: scope.date,
-              cropIds: cropFilter,
-            }),
-          ),
-        );
-        rows = exactGroups.flat();
-      }
-
-      if (!deps.isMounted()) return null;
-      const result = aggregateVhServiceRows(rows);
-      const usedWindowEnd = regionScopes.reduce(
-        (max, scope) => (!max || scope.date > max ? scope.date : max),
-        "" as string,
-      );
-      deps.setVhBarUsedDate(usedWindowEnd || null);
-      deps.log("computeVhBarData:republic-result", {
-        year: selectedYear,
-        regionCount: regionScopes.length,
-        regionScopes,
-        lockedDate: deps.state.ndviDateLocked ? forcedNdvi || null : null,
-        totalAreaHa: result.totalCount,
-        categories: result.categories.map((category) => ({
-          category: category.category,
-          areaHa: category.count,
-          fieldCount: category.fieldCount,
-        })),
-      });
-      return result;
-    } catch (error) {
-      deps.log("computeVhBarData:republic-failed", {
-        error: errorMessage(error),
-      });
-      return null;
-    }
-  }
-
-  // --- Viloyat / tuman: prefer MAX(date) + capped walk; status-stats when gated ---
-  let candidates: string[];
-  if (deps.state.ndviDateLocked && forcedNdvi) {
-    candidates = [forcedNdvi];
-  } else {
-    const maxDatePromise = queryVegetationMaxRasterDate({
-      region: regionNum,
-      district: districtNum,
-      year: selectedYear,
-      cropId: cropFilter?.length === 1 ? cropFilter[0] : undefined,
-    }).catch(() => null as string | null);
-
-    const datesPromise = queryVegetationAvailableDates({
-      region: regionNum,
-      district: districtNum,
-    }).catch(() => [] as string[]);
-
-    const [maxDate, knownDatesRaw] = await Promise.all([
-      maxDatePromise,
-      datesPromise,
-    ]);
-    if (!deps.isMounted()) return null;
-
-    let knownDates = (knownDatesRaw || []).filter((date) =>
-      String(date).startsWith(`${selectedYear}-`),
-    );
-    if (deps.isMounted() && knownDates.length) {
-      deps.setState({ ndviDateOptions: knownDates });
-    }
-
-    const newestFirst = knownDates.slice().reverse();
-    const ordered: string[] = [];
-    const pushUnique = (d: string | null | undefined) => {
-      const v = String(d || "").trim();
-      if (!v || ordered.includes(v)) return;
-      ordered.push(v);
-    };
-    // MAX(raster_date) first — one RT that usually has rows; then newest known.
-    pushUnique(maxDate);
-    for (const d of newestFirst) pushUnique(d);
-
-    if (!ordered.length) {
-      deps.setVhBarUsedDate(null);
-      return zeroResult;
-    }
-    candidates = ordered.slice(0, MAX_VH_BAR_DATE_WALK);
-  }
+  const locked = Boolean(deps.state.ndviDateLocked && forcedNdvi);
+  // Locked calendar day caps every crop's window end; otherwise each crop
+  // runs to its own newest raster_date in the selected year.
+  const endBound = locked ? forcedNdvi : `${selectedYear}-12-31`;
+  const republic = !effectiveViloyat && !farmerFilter;
+  const startedAt = Date.now();
 
   try {
-    let bestResult: VHBarData | null = null;
-    let usedDate: string | null = null;
+    // Calendar options (viloyat / tuman only) load beside the VH stats.
+    const datesPromise = republic
+      ? Promise.resolve([] as string[])
+      : queryVegetationAvailableDates({
+          region: regionNum,
+          district: districtNum,
+        }).catch(() => [] as string[]);
 
-    for (const ndviDate of candidates) {
-      let rows: VhServiceStatusRow[] = [];
-      // Farmer STIR: always use uniqueid-aware counts (status-stats has no ids).
-      if (REGION_VH_BAR_USE_STATUS_STATS && !farmerFilter) {
-        try {
-          rows = await getVhBarStatusCountsByStatusCached({
-            region: regionNum,
-            district: districtNum,
-            date: ndviDate,
-            cropIds: cropFilter,
-          });
-        } catch {
-          rows = [];
-        }
-      }
-      if (!rows.length) {
-        try {
-          rows = await getVhBarStatusCountsCached({
-            region: regionNum,
-            district: districtNum,
-            date: ndviDate,
-            cropIds: cropFilter,
-            uniqueIds: farmerFilter,
-          });
-        } catch {
-          continue;
-        }
-      }
-      if (!deps.isMounted()) return null;
+    const useSummary = !locked && !farmerFilter;
+    const { counts, fromSummary } = await loadVhBarCounts(useSummary, {
+      year: Number(selectedYear),
+      region: republic ? undefined : regionNum,
+      district: republic ? undefined : districtNum,
+      date: endBound,
+      cropIds: cropFilter,
+      uniqueIds: farmerFilter,
+    });
+    // Old scan path keeps waiting for the calendar; the summary path never does.
+    const knownDatesRaw = fromSummary ? null : await datesPromise;
+    if (!deps.isMounted()) return null;
 
-      const aggregated = aggregateVhServiceRows(rows);
-      if (aggregated.totalCount > 0) {
-        bestResult = aggregated;
-        usedDate = ndviDate;
-        break;
-      }
+    const result = aggregateVhServiceRows(counts.rows);
+    if (fromSummary) {
+      void datesPromise
+        .then((raw) =>
+          { applySummaryDates(deps, raw, { selectedYear, republic, locked }); },
+        )
+        .catch((error) =>
+          { deps.log("computeVhBarData:summary-dates-failed", {
+            error: errorMessage(error),
+          }); },
+        );
     }
-
-    if (!bestResult) {
+    if (!fromSummary) {
+      const knownDates = filterYearDates(knownDatesRaw, selectedYear);
+      if (knownDates.length) deps.setState({ ndviDateOptions: knownDates });
+    }
+    if (result.totalCount <= 0) {
       deps.setVhBarUsedDate(null);
       return zeroResult;
     }
 
-    deps.setVhBarUsedDate(usedDate);
-    if (usedDate) {
-      deps.prefetchVhStatusUniqueIds(usedDate);
-      if (
-        deps.isMounted() &&
-        !deps.state.ndviDateLocked &&
-        deps.state.ndviDate !== usedDate
-      ) {
-        deps.setState({ ndviDate: usedDate });
-      }
+    const usedDate = fromSummary ? null : counts.endDate || null;
+    if (!fromSummary) {
+      publishUsedDate(deps, usedDate, { republic, locked });
     }
 
-    deps.log("computeVhBarData:region-result", {
+    deps.log(republic ? "computeVhBarData:republic-result" : "computeVhBarData:region-result", {
+      ms: Date.now() - startedAt,
       year: selectedYear,
-      region: regionNum ?? null,
-      district: districtNum ?? null,
-      usedDate,
+      region: republic ? null : regionNum ?? null,
+      district: republic ? null : districtNum ?? null,
       cropIds: cropFilter || null,
-      statusStats: REGION_VH_BAR_USE_STATUS_STATS,
-      totalAreaHa: bestResult.totalCount,
-      categories: bestResult.categories.map((category) => ({
+      lockedDate: locked ? forcedNdvi : null,
+      fromSummary,
+      windowStart: counts.startDate || null,
+      windowEnd: usedDate,
+      totalAreaHa: result.totalCount,
+      categories: result.categories.map((category) => ({
         category: category.category,
         areaHa: category.count,
         fieldCount: category.fieldCount,
       })),
     });
-
-    return bestResult;
+    return result;
   } catch (error) {
-    deps.log("computeVhBarData:region-failed", {
+    deps.log(republic ? "computeVhBarData:republic-failed" : "computeVhBarData:region-failed", {
       error: errorMessage(error),
     });
     return null;

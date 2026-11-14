@@ -2,7 +2,7 @@
 // Shows sum(maydon) from the current reserve-land inventory.
 // All reserve-layer-compatible dashboard filters apply.
 
-import { AllWidgetProps, React } from "jimu-core";
+import { type AllWidgetProps, React } from "jimu-core";
 import AgriDashboardSpinner from "../../../shared/AgriDashboardSpinner";
 import AgriAnimatedCount from "../../../shared/AgriAnimatedCount";
 import { getAgriReserveLandLayer } from "../../../gis/agri-reserve-land-data-source";
@@ -138,7 +138,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     );
   }
 
-  private handleThemeChange = (event: Event): void => {
+  private readonly handleThemeChange = (event: Event): void => {
     const detail = (event as CustomEvent<PanelFilterDetail | null>)?.detail;
     if (detail?.theme) {
       this.setState({ isDarkTheme: detail.theme === "dark" });
@@ -147,14 +147,14 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     }
   };
 
-  private handleLanguageChange = (event: Event): void => {
+  private readonly handleLanguageChange = (event: Event): void => {
     if (!this._isMounted) return;
     const d = panelEventDetail(event);
     const next = normalizeLanguage(d.lang ?? d.language ?? d.code);
     if (next !== this.state.language) this.setState({ language: next });
   };
 
-  private normalizeTurlar = (raw: unknown, fallback = ""): string[] => {
+  private readonly normalizeTurlar = (raw: unknown, fallback = ""): string[] => {
     const values = Array.isArray(raw) ? raw : fallback ? [fallback] : [];
     return Array.from(
       new Set(
@@ -165,7 +165,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     );
   };
 
-  private buildStringInClause = (field: string, values: string[]): string => {
+  private readonly buildStringInClause = (field: string, values: string[]): string => {
     const normalized = Array.from(
       new Set(values.map((value) => String(value || "").trim()).filter(Boolean)),
     );
@@ -176,7 +176,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
       .join(",")})`;
   };
 
-  private handleMasterFilterChanged = (event: Event): void => {
+  private readonly handleMasterFilterChanged = (event: Event): void => {
     if (!this._isMounted) return;
     const d = panelEventDetail(event);
     if (!d?.filters) return;
@@ -237,14 +237,14 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     );
   };
 
-  private extractYear = (raw: unknown): string =>
+  private readonly extractYear = (raw: unknown): string =>
     String(raw ?? "").match(/\b(18|19|20)\d{2}\b/)?.[0] ??
     String(raw ?? "").replace(/[^\d]/g, "");
 
-  private makeCropKey = (raw: unknown): string =>
+  private readonly makeCropKey = (raw: unknown): string =>
     getTuriCropLookupKey(raw);
 
-  private getCropIdMap = async (
+  private readonly getCropIdMap = async (
     layer: __esri.FeatureLayer,
   ): Promise<Map<string, string[]>> => {
     if (!this._cropIdMapPromise) {
@@ -271,8 +271,12 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
             const key = this.makeCropKey(row.turi);
             const cropId = String(row.cropId || "").trim();
             if (!key || !cropId) continue;
-            if (!idsByTuri.has(key)) idsByTuri.set(key, new Set<string>());
-            idsByTuri.get(key)!.add(cropId);
+            let ids = idsByTuri.get(key);
+            if (!ids) {
+              ids = new Set<string>();
+              idsByTuri.set(key, ids);
+            }
+            ids.add(cropId);
           }
           const result = new Map<string, string[]>();
           idsByTuri.forEach((ids, key) => result.set(key, Array.from(ids)));
@@ -293,7 +297,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     return this._cropIdMapPromise;
   };
 
-  private resolveCropIds = (
+  private readonly resolveCropIds = (
     turlar: string[],
     cropIdMap: Map<string, string[]>,
   ): string[] =>
@@ -332,7 +336,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     return withAgriAccessWhere(clauses.join(" AND "));
   }
 
-  private fetchValue = async (): Promise<void> => {
+  private readonly fetchValue = async (): Promise<void> => {
     const { layer, connectionStatus, yil } = this.state;
     if (!layer || connectionStatus !== "connected") return;
     if (!this._hasMasterFilter) return;

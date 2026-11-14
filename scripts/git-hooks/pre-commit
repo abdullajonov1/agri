@@ -1,21 +1,41 @@
 #!/bin/sh
-# agri-main pre-commit gate. Install once: git config core.hooksPath scripts/git-hooks
+# Agro_widgetV5 pre-commit gate. Install once: git config core.hooksPath scripts/git-hooks
 # Skip in an emergency: git commit --no-verify
 set -e
 WIDGET_DIR="$(git rev-parse --show-toplevel)"
-CLIENT_DIR="$WIDGET_DIR/../../.."
+
+# Walk up to the ExB client folder (the one holding your-extensions/), so the
+# hook works wherever the widget sits under your-extensions/widgets/.
+CLIENT_DIR="$WIDGET_DIR"
+while [ ! -d "$CLIENT_DIR/your-extensions" ]; do
+  PARENT="$(dirname "$CLIENT_DIR")"
+  if [ "$PARENT" = "$CLIENT_DIR" ]; then
+    echo "[pre-commit] ExB client folder not found above $WIDGET_DIR" >&2
+    exit 1
+  fi
+  CLIENT_DIR="$PARENT"
+done
+W="${WIDGET_DIR#"$CLIENT_DIR"/}"
 cd "$CLIENT_DIR"
 LOG="$(mktemp)"
 trap 'rm -f "$LOG"' EXIT
 
 echo "[pre-commit] quality gate"
-node your-extensions/widgets/agri-main/scripts/check-quality.mjs > /dev/null
+node "$W/scripts/check-quality.mjs" > /dev/null
 echo "[pre-commit] network timeouts"
-node your-extensions/widgets/agri-main/scripts/check-network-timeouts.mjs
+node "$W/scripts/check-network-timeouts.mjs"
+echo "[pre-commit] types"
+# The jimu-core SDK itself reports one missing module; only widget errors fail.
+npx tsc -p "$W/tsconfig.check.json" > "$LOG" 2>&1 || true
+if grep "error TS" "$LOG" | grep -v "^jimu-core/" > /dev/null; then
+  grep "error TS" "$LOG" | grep -v "^jimu-core/"
+  exit 1
+fi
 echo "[pre-commit] eslint"
-npx eslint your-extensions/widgets/agri-main/src --ext .ts,.tsx
+npx eslint "$W/src" --ext .ts,.tsx
 echo "[pre-commit] jest"
-if ! npx jest -c your-extensions/widgets/agri-main/jest.config.js --silent > "$LOG" 2>&1; then
+# The client's root jest config fails every suite (TS5103); use the widget's own.
+if ! npx jest -c "$W/jest.config.js" --runInBand "$W/src" --silent > "$LOG" 2>&1; then
   grep -E "^FAIL|●|^Tests:|^Test Suites:" "$LOG" || cat "$LOG"
   exit 1
 fi

@@ -38,6 +38,7 @@ import {
   vegetationRecentDaysCacheKey,
   VH_CATEGORY_TO_NDVI_STATUS,
   type VegetationRecentDayGroup,
+  vegAccessCacheTag,
 } from "./veg-base";
 import {
   DEFAULT_VEG_FIELDS,
@@ -467,5 +468,41 @@ describe("queryDistinctFieldCount", () => {
     mockLoadModules.mockRejectedValue(new Error("offline"));
     const layer = makeFakeVegLayer(() => []);
     await expect(queryDistinctFieldCount(layer, "a=1", "u")).resolves.toBeNull();
+  });
+});
+
+describe("vegAccessCacheTag", () => {
+  const regionRule = (value: string) => ({
+    fullAccessGroups: [],
+    rules: [
+      {
+        id: "r1",
+        title: "Region",
+        field: "region",
+        rules: [{ id: "a1", operator: "equal" as const, value, groups: ["g1"] }],
+      },
+    ],
+  });
+
+  test("is empty when no access config applies", () => {
+    expect(vegAccessCacheTag()).toBe("");
+  });
+
+  test("differs between access scopes and is stable for the same scope", () => {
+    mockUserGroups.ids = ["g1"];
+    setAccessConfig(regionRule("1724"));
+    const a = vegAccessCacheTag();
+    setAccessConfig(regionRule("1703"));
+    const b = vegAccessCacheTag();
+    setAccessConfig(regionRule("1724"));
+    expect(a).not.toBe("");
+    expect(b).not.toBe("");
+    expect(a).not.toBe(b);
+    expect(vegAccessCacheTag()).toBe(a);
+  });
+
+  test("denied access gets its own tag", () => {
+    setAccessConfig(regionRule("1724"));
+    expect(vegAccessCacheTag()).not.toBe("");
   });
 });

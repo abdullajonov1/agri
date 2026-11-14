@@ -75,6 +75,12 @@ export const CROP_LABELS: Record<string, CropLabelEntry> = {
   ozuqa: { uz_cyr: "Озуқа", uz_lat: "Ozuqa", ru: "Корма", en: "Fodder" },
   loviya: { uz_cyr: "Ловия", uz_lat: "Loviya", ru: "Фасоль", en: "Beans" },
   poliz: { uz_cyr: "Полиз", uz_lat: "Poliz", ru: "Бахчевые", en: "Melons" },
+  polizekinlari: {
+    uz_cyr: "Полиз экинлари",
+    uz_lat: "Poliz ekinlari",
+    ru: "Бахчевые культуры",
+    en: "Melon crops",
+  },
   tariq: { uz_cyr: "Тариқ", uz_lat: "Tariq", ru: "Просо", en: "Millet" },
   bog: { uz_cyr: "Боғ", uz_lat: "Bog'", ru: "Сад", en: "Orchard" },
   yeryongoq: {

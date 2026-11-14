@@ -12,7 +12,8 @@
 export { dateEqualsClause } from "../data/agri-sql";
 
 export { agriVhLog, agriVegetationLog, getAgriVegetationIndicesUrl, getAgriVegetationIndicesLayer, VEG_AVG_FIELDS_CORE, formatArcgisDateToYmd, dateRangeInclusiveClause, REPUBLIC_VH_USE_STATUS_STATS, REGION_VH_BAR_USE_STATUS_STATS, VH_CATEGORY_TO_NDVI_STATUS, peekVegetationRecentDayRegionCounts } from "./vegetation/veg-base";
+export type { VhCropWindow } from "./vegetation/status/status-vh-window";
 export type { AgriVegetationLayerHandle, VegetationSeriesRow, VegetationPolygonSeriesRow, VegetationRegionalTimeseriesParams, VegetationScopeParams, VegetationLatestDateByRegion, VegetationAvgNdviUniqueRow, VegetationStatusCountsParams, VegetationStatusCount, VegetationUniqueIdsForStatusParams, VegetationCropBreakdownParams, VegetationCropBreakdownRow, VegetationRecentRegionRow, VegetationRecentDayGroup } from "./vegetation/veg-base";
 export { queryVegetationSeriesForUniqueId, queryVegetationRegionalTimeseries, queryVegetationAvailableDates, queryVegetationLatestDatesByRegion, queryVegetationDistinctCropIds, queryVegetationDistinctRegions, queryVegetationDistinctDistricts, queryVegetationMaxRasterDate, queryVegetationMaxRasterDateByRegion } from "./vegetation/veg-series";
-export { queryVegetationStatusCounts, queryVegetationStatusCountsByStatus, queryVegetationUniqueIdsForStatus, queryVegetationCropStatsForStatus, queryVegetationCropBreakdownForStatus } from "./vegetation/veg-status";
+export { queryVegetationStatusCounts, queryVegetationStatusCountsByStatus, queryVegetationUniqueIdsForStatus, queryVegetationCropStatsForStatus, queryVegetationCropBreakdownForStatus, queryVegetationLatestStatusCounts, queryVegetationLatestStatusSummary, resolveVhStatusWindows, VH_STATUS_WINDOW_DAYS, VH_CROP_SEASON_MONTHS } from "./vegetation/veg-status";
 export { queryVegetationAvgNdviByUniqueId, queryVegetationStatusCountsByRegionScopes, queryVegetationRecentDayRegionCounts } from "./vegetation/veg-top";

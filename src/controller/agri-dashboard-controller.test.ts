@@ -42,6 +42,7 @@ import {
   setDashboardPack,
 } from "../store/agri-dashboard-store";
 import { emptyDashboardPack, type DashboardPack } from "../types/dashboard-pack";
+import { buildGraffRegionalScopeKey } from "../data/agri-graff-stats";
 import { VH_TO_NDVI_STATUS } from "../filter/localization/vh-constants";
 
 interface TableLayerStub {
@@ -240,7 +241,7 @@ describe("scheduleDashboardController", () => {
     expect(timeseriesMock).not.toHaveBeenCalled();
   });
 
-  test("VH active defers pie/indicator but still packs region and graff with ndvi status", async () => {
+  test("VH active defers pie/indicator but still packs region and graff without ndvi status", async () => {
     const vh = Object.keys(VH_TO_NDVI_STATUS)[0];
     scheduleDashboardController(detail({ yil: "2024", vh }));
     await runScheduled();
@@ -250,8 +251,15 @@ describe("scheduleDashboardController", () => {
     expect(pack.indicator).toBeNull();
     expect(pack.region).not.toBeNull();
     expect(pieRowsMock).not.toHaveBeenCalled();
-    expect(timeseriesMock.mock.calls[0][0]).toEqual(
-      expect.objectContaining({ ndviStatus: VH_TO_NDVI_STATUS[vh] }),
+    expect(timeseriesMock.mock.calls[0][0].ndviStatus).toBeUndefined();
+    expect(pack.graff?.scopeKey).toBe(
+      buildGraffRegionalScopeKey({
+        region: null,
+        district: null,
+        cropIds: [],
+        startDate: "2024-01-01",
+        endDate: "2024-12-31",
+      }),
     );
   });
 
@@ -311,5 +319,49 @@ describe("scheduleDashboardController", () => {
     const pack = await waitForPhase("ready");
     expect(pack.filter.yil).toBe("2024");
     expect(regionRowsMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("A -> B -> A while A is in flight ends with the pack for A", async () => {
+    let releaseA: (v: unknown) => void = () => undefined;
+    regionRowsMock.mockImplementationOnce(
+      () => new Promise((resolve) => { releaseA = resolve; }),
+    );
+    scheduleDashboardController(detail({ yil: "2024" }));
+    await runScheduled();
+    expect(regionRowsMock).toHaveBeenCalledTimes(1);
+
+    scheduleDashboardController(detail({ yil: "2022" }));
+    scheduleDashboardController(detail({ yil: "2024" }));
+    await runScheduled();
+    releaseA({ rows: [{ name: "A", maydon: 10 }], totalArea: 10 });
+    await runScheduled();
+    const pack = await waitForPhase("ready");
+
+    expect(pack.phase).toBe("ready");
+    expect(pack.filter.yil).toBe("2024");
+    expect(regionRowsMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("switching to a cached B while A is in flight keeps B after A resolves", async () => {
+    const filterB = extractDashboardFilterSlice(detail({ yil: "2023" }));
+    const keyB = buildDashboardPackKey(filterB);
+    setDashboardPack(emptyDashboardPack({ phase: "ready", key: keyB, filter: filterB }));
+    setDashboardPack(emptyDashboardPack({ phase: "idle" }));
+
+    let releaseA: (v: unknown) => void = () => undefined;
+    regionRowsMock.mockImplementationOnce(
+      () => new Promise((resolve) => { releaseA = resolve; }),
+    );
+    scheduleDashboardController(detail({ yil: "2024" }));
+    await runScheduled();
+    expect(regionRowsMock).toHaveBeenCalledTimes(1);
+
+    scheduleDashboardController(detail({ yil: "2023" }));
+    expect(getDashboardPack().key).toBe(keyB);
+    releaseA({ rows: [{ name: "A", maydon: 10 }], totalArea: 10 });
+    await runScheduled();
+
+    expect(getDashboardPack().key).toBe(keyB);
+    expect(getDashboardPack().filter.yil).toBe("2023");
   });
 });

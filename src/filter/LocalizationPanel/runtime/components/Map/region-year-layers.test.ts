@@ -1,3 +1,4 @@
+jest.mock("../localization-log", () => ({ agriLog: jest.fn() }));
 jest.mock("../../../../../gis/feature-layer-data", () => ({
   preloadRegionYearMapImages: jest.fn(() => Promise.resolve(2)),
   refreshRegionYearMapExports: jest.fn(),
@@ -24,6 +25,7 @@ import {
   waitForShownRegionYearRedraw,
   warmYearRegionMapImages,
 } from "./region-year-layers";
+import { agriLog } from "../localization-log";
 
 const MAP = { id: "map" } as unknown as __esri.Map;
 
@@ -63,6 +65,18 @@ describe("region-year-layers", () => {
       warmYearRegionMapImages(makeFakeHost({ state: { activeMapView: mapView() }, getEffectiveViloyat: () => "A" }));
       warmYearRegionMapImages(makeFakeHost({ state: { activeMapView: mapView(), yil: "2025" }, getEffectiveViloyat: () => "" }));
       expect(jest.mocked(preloadRegionYearMapImages)).not.toHaveBeenCalled();
+    });
+
+    test("logs a rejected preload instead of leaving it unhandled", async () => {
+      jest.mocked(preloadRegionYearMapImages).mockRejectedValueOnce(new Error("service gone"));
+      const host = makeFakeHost({ state: { activeMapView: mapView(), yil: "2025" }, getEffectiveViloyat: () => "A" });
+      warmYearRegionMapImages(host);
+      await flush();
+      expect(jest.mocked(agriLog)).toHaveBeenCalledWith("map:warm-year-region-layers:FAILED", {
+        yil: "2025",
+        viloyat: "A",
+        error: "service gone",
+      });
     });
 
     test("handles zero loaded layers", async () => {

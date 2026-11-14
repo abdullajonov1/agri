@@ -22,19 +22,22 @@ export const scrollSelectedRowIntoCenter = (host: GraffWidgetHost): void => {
       ) || null;
   }
   if (!row) return;
-  try {
-    row.scrollIntoView({
-      block: "center",
-      behavior: "smooth",
-      inline: "nearest",
-    });
-  } catch {
-    const rowTop = row.offsetTop;
-    const nextTop = Math.max(
-      0,
-      rowTop + row.offsetHeight / 2 - container.clientHeight / 2,
-    );
+  // Scroll ONLY the table container. row.scrollIntoView() also scrolls every
+  // overflow:hidden ancestor (card, Graff/Zaxira swap slot, ExB page) when the
+  // row cannot be centred (last rows of a page) — the whole card then slides
+  // up and the "JADVAL" title / header get cut off on the portal.
+  const rowRect = row.getBoundingClientRect();
+  const boxRect = container.getBoundingClientRect();
+  const rowTopInContainer = rowRect.top - boxRect.top + container.scrollTop;
+  const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+  const nextTop = Math.min(
+    maxTop,
+    Math.max(0, rowTopInContainer + rowRect.height / 2 - container.clientHeight / 2),
+  );
+  if (typeof container.scrollTo === "function") {
     container.scrollTo({ top: nextTop, behavior: "smooth" });
+  } else {
+    container.scrollTop = nextTop;
   }
 };
 
@@ -54,6 +57,29 @@ export const scheduleScrollSelectedRowIntoCenter = (host: GraffWidgetHost): void
 
 export const buildUniqueidWhere = (host: GraffWidgetHost, uniqueid: string): string =>
   buildUniqueidPlainOrBracedWhere(uniqueid);
+
+/**
+ * Where the database puts NULL areas (first or last) differs by engine; the
+ * table's own first row tells. Same ORDER BY as getTableOrderByFields.
+ */
+async function nullsSortFirst(
+  layer: __esri.FeatureLayer,
+  whereClause: string,
+  maydonField: string,
+  oidField: string,
+  desc: boolean,
+): Promise<boolean> {
+  const q = layer.createQuery();
+  q.where = whereClause;
+  q.outFields = [maydonField];
+  q.orderByFields = [`${maydonField} ${desc ? "DESC" : "ASC"}`, `${oidField} ASC`];
+  q.returnGeometry = false;
+  q.num = 1;
+  const first = (await layer.queryFeatures(q))?.features?.[0];
+  if (!first) return false;
+  const value: unknown = first.attributes?.[maydonField];
+  return value === null || value === undefined;
+}
 
 /** Count rows that sort before the selected feature (same order as the table). */
 export async function resolveTablePageForUniqueid(host: GraffWidgetHost, uniqueid: string): Promise<number | null> {
@@ -97,6 +123,8 @@ export async function resolveTablePageForUniqueid(host: GraffWidgetHost, uniquei
       if (!Number.isFinite(oidProbe)) return null;
       const inFilterQ = layer.createQuery();
       inFilterQ.where = `(${whereClause}) AND (${oidField} = ${oidProbe})`;
+      // Same fields as findQ: the maydon sort needs the row's area.
+      inFilterQ.outFields = findQ.outFields;
       inFilterQ.returnGeometry = false;
       inFilterQ.num = 1;
       const inFilter = (await layer.queryFeatures(inFilterQ))?.features?.[0];
@@ -110,14 +138,23 @@ export async function resolveTablePageForUniqueid(host: GraffWidgetHost, uniquei
 
     let beforeWhere = `(${whereClause}) AND (${oidField} < ${oid})`;
     if (host.state.tableSort?.column === "maydon" && maydonField) {
-      const maydonNum = Number(attrs[maydonField]);
+      const desc = host.state.tableSort.order === "desc";
+      const nullsFirst = await nullsSortFirst(layer, whereClause, maydonField, oidField, desc);
+      const raw = attrs[maydonField];
+      const maydonNum = raw === null || raw === undefined || raw === "" ? NaN : Number(raw);
+      let before: string;
       if (Number.isFinite(maydonNum)) {
-        const cmp = host.state.tableSort.order === "desc" ? ">" : "<";
-        beforeWhere =
-          `(${whereClause}) AND (` +
+        const cmp = desc ? ">" : "<";
+        before =
           `${maydonField} ${cmp} ${maydonNum} OR (` +
-          `${maydonField} = ${maydonNum} AND ${oidField} < ${oid}))`;
+          `${maydonField} = ${maydonNum} AND ${oidField} < ${oid})`;
+        if (nullsFirst) before = `${maydonField} IS NULL OR ${before}`;
+      } else {
+        // The selected row has no area: it sits in the NULL block.
+        const inNullBlock = `${maydonField} IS NULL AND ${oidField} < ${oid}`;
+        before = nullsFirst ? inNullBlock : `${maydonField} IS NOT NULL OR (${inNullBlock})`;
       }
+      beforeWhere = `(${whereClause}) AND (${before})`;
     }
 
     const beforeCount = await layer.queryFeatureCount({

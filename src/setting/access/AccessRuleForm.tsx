@@ -23,7 +23,7 @@ function IncludeValuesEditor({ form }: { form: RuleFormController }) {
                     className="dialogInput"
                     placeholder="Значение"
                     value={form.newListValue}
-                    onChange={(e) => form.setNewListValue(e.target.value)}
+                    onChange={(e) => { form.setNewListValue(e.target.value); }}
                 />
 
                 <button className="smallButton" onClick={form.addValueToInList}>
@@ -40,12 +40,12 @@ function IncludeValuesEditor({ form }: { form: RuleFormController }) {
                             className="dialogInput"
                             placeholder="Значение"
                             value={value}
-                            onChange={(e) => form.updateValueInList(index, e.target.value)}
+                            onChange={(e) => { form.updateValueInList(index, e.target.value); }}
                         />
 
                         <button
                             className="miniIconButton danger"
-                            onClick={() => form.removeValueFromInList(index)}
+                            onClick={() => { form.removeValueFromInList(index); }}
                         >
                             ×
                         </button>
@@ -75,7 +75,7 @@ export function AccessRuleForm({ form, selectedField }: AccessRuleFormProps) {
                     <button
                         key={tab.operator}
                         className={ruleOperator === tab.operator ? "active" : ""}
-                        onClick={() => form.setRuleOperator(tab.operator)}
+                        onClick={() => { form.setRuleOperator(tab.operator); }}
                     >
                         {tab.label}
                     </button>
@@ -87,7 +87,7 @@ export function AccessRuleForm({ form, selectedField }: AccessRuleFormProps) {
                     className="dialogInput"
                     placeholder="Значение"
                     value={form.ruleValue}
-                    onChange={(e) => form.setRuleValue(e.target.value)}
+                    onChange={(e) => { form.setRuleValue(e.target.value); }}
                 />
             )}
 
@@ -97,14 +97,14 @@ export function AccessRuleForm({ form, selectedField }: AccessRuleFormProps) {
                         className="dialogInput"
                         placeholder="От"
                         value={form.ruleFrom}
-                        onChange={(e) => form.setRuleFrom(e.target.value)}
+                        onChange={(e) => { form.setRuleFrom(e.target.value); }}
                     />
 
                     <input
                         className="dialogInput"
                         placeholder="До"
                         value={form.ruleTo}
-                        onChange={(e) => form.setRuleTo(e.target.value)}
+                        onChange={(e) => { form.setRuleTo(e.target.value); }}
                     />
                 </div>
             )}

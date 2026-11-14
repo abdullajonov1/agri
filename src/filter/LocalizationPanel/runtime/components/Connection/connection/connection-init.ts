@@ -1,5 +1,5 @@
 import type { LocalizationHost } from "../../host";
-import { JimuMapView } from "jimu-arcgis";
+import { type JimuMapView } from "jimu-arcgis";
 import { getAgriServiceUrls } from "../../../../../../shared/agri-service-urls";
 import esriRequest from "esri/request";
 import { debugCatch, agriLog } from "../../localization-log";
@@ -115,7 +115,12 @@ export const attachMapClickDispatcher = (host: LocalizationHost, jimuMapView: Ji
     });
   });
 };
+export const removeViewReadyWatch = (host: LocalizationHost): void => {
+  host._viewReadyWatchHandle?.remove();
+  host._viewReadyWatchHandle = null;
+};
 export const onActiveViewChange = (host: LocalizationHost, jimuMapView: JimuMapView) => {
+  removeViewReadyWatch(host);
   if (!jimuMapView) {
     host.setState({
       activeMapView: null,
@@ -143,10 +148,12 @@ export const onActiveViewChange = (host: LocalizationHost, jimuMapView: JimuMapV
       const h = jimuMapView.view.watch("ready", (isReady) => {
         if (isReady) {
           h.remove();
+          if (host._viewReadyWatchHandle === h) host._viewReadyWatchHandle = null;
           captureHomeExtent();
           host.initializeMapConnection(jimuMapView);
         }
       });
+      host._viewReadyWatchHandle = h;
     }
   });
 };

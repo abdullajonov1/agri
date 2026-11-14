@@ -76,7 +76,7 @@ const makeCtx = (overrides: Partial<GraffChartRenderCtx> = {}): GraffChartRender
   isIpadLayout: false,
   isMultiIndexMode: false,
   finalIndices: ["ndvi"],
-  indexColorMap: { ndvi: "#00d084", savi: "#1", rvi: "#2", ci: "#3", evi: "#4", ndwi: "#5" },
+  indexColorMap: { ndvi: "#00d084", savi: "#1", rvi: "#2", ci: "#3", evi: "#4", ndwi: "#5", ndre: "#6" },
   scales: { xScale: (_d: Date, i = 0): number => 60 + i * 60, yScale: (v: number): number => 170 - v * 160 },
   lineSeries: series,
   yAxisTickValues: [0, 0.5, 1, 5],

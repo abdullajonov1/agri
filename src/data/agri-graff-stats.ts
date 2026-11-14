@@ -10,7 +10,6 @@ import type {
 } from "../gis/agri-table-data-source";
 import { getGraffRegionalTimeseriesCached } from "./agri-stats-store";
 import { makeRegionDistrictKey } from "../filter/localization/geo-keys";
-import { VH_TO_NDVI_STATUS } from "../filter/localization/vh-constants";
 
 export type GraffRegionalTimeseriesRow = {
   date: string;
@@ -30,12 +29,15 @@ export type GraffRegionalTimeseriesRow = {
   ndwi: number;
   ndwi_min: number;
   ndwi_max: number;
+  ndre: number;
+  ndre_min: number;
+  ndre_max: number;
   polygon_count: number;
   [key: string]: unknown;
 };
 
-const GRAFF_AVERAGE_FIELDS = ["ndvi", "savi", "rvi", "ci", "evi", "ndwi"] as const;
-const GRAFF_RANGE_FIELDS = ["ndvi", "savi", "rvi", "ci", "ndwi"] as const;
+const GRAFF_AVERAGE_FIELDS = ["ndvi", "savi", "rvi", "ci", "evi", "ndwi", "ndre"] as const;
+const GRAFF_RANGE_FIELDS = ["ndvi", "savi", "rvi", "ci", "ndwi", "ndre"] as const;
 
 type GraffMergeBucket = {
   /** First row seen for the date — carries non-index columns through. */
@@ -157,17 +159,14 @@ export function buildGraffRegionalScopeKey(opts: {
   cropIds: string[];
   startDate: string;
   endDate: string;
-  vh?: string;
 }): string {
-  const vh = String(opts.vh || "").trim();
+  // The regional series is VH-independent, so vh is not part of the key.
   return JSON.stringify({
     region: opts.region,
     district: opts.district,
     cropIds: opts.cropIds.slice().sort(),
     startDate: opts.startDate || null,
     endDate: opts.endDate || null,
-    vh: vh || null,
-    ndviStatus: vh ? VH_TO_NDVI_STATUS[vh] || null : null,
   });
 }
 

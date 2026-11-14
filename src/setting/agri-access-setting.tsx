@@ -31,7 +31,7 @@ function AccessRulesList({ ctl }: ModalPartProps) {
 
             <div
                 className={`modalItem ${selectedId === GLOBAL_ACCESS_ID ? "selected" : ""}`}
-                onClick={() => ctl.selectLeftItem(GLOBAL_ACCESS_ID)}
+                onClick={() => { ctl.selectLeftItem(GLOBAL_ACCESS_ID); }}
             >
                 <div className="modalItemTitle">Full access / Полный доступ</div>
                 <div className="modalItemInfo">
@@ -44,7 +44,7 @@ function AccessRulesList({ ctl }: ModalPartProps) {
                     <div
                         key={item.id}
                         className={`modalItem ${selectedId === item.id ? "selected" : ""}`}
-                        onClick={() => ctl.selectLeftItem(item.id)}
+                        onClick={() => { ctl.selectLeftItem(item.id); }}
                     >
                         <div className="modalItemTitle">{item.title}</div>
                         <div className="modalItemInfo">
@@ -153,7 +153,7 @@ export default function AgriAccessSettingPanel(
                         type="primary"
                         size="sm"
                         className="accessSettingsButton"
-                        onClick={() => ctl.setShowModal(true)}
+                        onClick={() => { ctl.setShowModal(true); }}
                     >
                         Настройка доступа / Access settings
                     </Button>

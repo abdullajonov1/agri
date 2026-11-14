@@ -59,7 +59,7 @@ export const schedulePolygonFilterGuards = (host: LocalizationHost): void => {
   [0, 300, 900].forEach((delay) => {
     host._polygonFilterGuardTimers.push(
       setTimeout(
-        () => host.reassertPolygonGeographyFilter(`after-${delay}ms`),
+        () => { host.reassertPolygonGeographyFilter(`after-${delay}ms`); },
         delay,
       ),
     );

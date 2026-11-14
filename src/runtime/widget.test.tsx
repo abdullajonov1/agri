@@ -48,11 +48,15 @@ function immutable<T>(value: T): T {
   return (Immutable as unknown as (input: T) => T)(value);
 }
 
-const makeProps = (config: Record<string, unknown> = {}): AllWidgetProps<IMConfig> =>
+/** Default: a WebMap is chosen in the settings (the dashboard's precondition). */
+const makeProps = (
+  config: Record<string, unknown> = {},
+  useDataSources: Array<{ dataSourceId: string; rootDataSourceId?: string }> = [{ dataSourceId: "wm" }],
+): AllWidgetProps<IMConfig> =>
   ({
     id: "dash",
-    config: immutable(config),
-    useDataSources: immutable([]),
+    config: immutable({ webMapDataSourceId: "wm", ...config }),
+    useDataSources: immutable(useDataSources),
     manifest: { label: "Dash" },
   }) as unknown as AllWidgetProps<IMConfig>;
 
@@ -79,6 +83,32 @@ describe("AgriDashboard widget", () => {
     expect(document.documentElement.classList.contains("agri-dashboard-active")).toBe(true);
     unmount();
     expect(document.documentElement.classList.contains("agri-dashboard-active")).toBe(false);
+  });
+
+  test("with nothing selected in the settings no panel mounts", () => {
+    render(<AgriDashboard {...makeProps({ webMapDataSourceId: "" }, [])} />);
+    expect(screen.getByRole("status").textContent).toContain("Xarita ulanmagan");
+    for (const id of ["localization", "region", "map", "pie", "graff", "bar"]) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+  });
+
+  test("layers of a WebMap picked in Select data connect that map", () => {
+    render(
+      <AgriDashboard
+        {...makeProps({ webMapDataSourceId: "" }, [{ dataSourceId: "wm-layer1", rootDataSourceId: "wm" }])}
+      />,
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+    for (const id of ["localization", "region", "map", "pie", "graff", "bar"]) {
+      expect(screen.getByTestId(id)).toBeTruthy();
+    }
+  });
+
+  test("a WebMap id that is no longer among the selected data sources counts as not connected", () => {
+    render(<AgriDashboard {...makeProps({ webMapDataSourceId: "gone" })} />);
+    expect(screen.getByRole("status").textContent).toContain("Xarita ulanmagan");
+    expect(screen.queryByTestId("map")).toBeNull();
   });
 
   test("builder design mode shows the lightweight preview and never activates layout work", () => {

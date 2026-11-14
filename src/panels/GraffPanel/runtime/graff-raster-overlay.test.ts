@@ -58,7 +58,29 @@ jest.mock("../../../gis/agri-vegetation-overlay-prefetch", () => ({ setVegetatio
 import { asMock, makeStubHost } from "./__test-utils__/stub-host";
 import type { AgriGraffWidgetState } from "./graff-state";
 import type { GraffRasterOverlayHost } from "./graff-raster-overlay";
-import { applyGraffVegetationImageOverlay } from "./graff-raster-overlay";
+import { applyGraffVegetationImageOverlay, hasActiveVegetationOverlay, releaseIdleSurfaceLoading } from "./graff-raster-overlay";
+
+describe("surface loader ownership helpers", () => {
+  const owner = (pending = "", applied = "") => ({
+    _vegetationImageRequestId: 4,
+    _vegetationOverlayPendingKey: pending,
+    _vegetationOverlayAppliedKey: applied,
+    clearVegetationImageSurfaceLoading: jest.fn(),
+  });
+  test("releaseIdleSurfaceLoading clears only when no fetch is pending", () => {
+    const idle = owner();
+    releaseIdleSurfaceLoading(idle);
+    expect(idle.clearVegetationImageSurfaceLoading).toHaveBeenCalledWith(4);
+    const busy = owner("k");
+    releaseIdleSurfaceLoading(busy);
+    expect(busy.clearVegetationImageSurfaceLoading).not.toHaveBeenCalled();
+  });
+  test("hasActiveVegetationOverlay is true when drawn or loading", () => {
+    expect(hasActiveVegetationOverlay(owner())).toBe(false);
+    expect(hasActiveVegetationOverlay(owner("k"))).toBe(true);
+    expect(hasActiveVegetationOverlay(owner("", "a"))).toBe(true);
+  });
+});
 
 const makeHost = (state: Partial<AgriGraffWidgetState> = {}, extra: Record<string, unknown> = {}): GraffRasterOverlayHost => {
   const map = { add: jest.fn() };
@@ -124,6 +146,15 @@ describe("applyGraffVegetationImageOverlay early exits", () => {
     expect(asMock(host.cancelVegetationImageOverlay)).toHaveBeenCalled();
     expect(host.state.polygonImageError).toContain("Viloyat");
   });
+  test("advertised index date is fetched even when a cached season excludes its month", async () => {
+    mockSeason.mockReturnValue([6, 7]);
+    const host = makeHost(
+      { polygonAvailableDates: ["2024-09-10"] },
+      { _polygonAvailableDatesUniqueid: "U" },
+    );
+    await applyGraffVegetationImageOverlay(host, "U", "2024-09-10");
+    expect(mockFetchTiff).toHaveBeenCalledWith(expect.objectContaining({ rasterDate: "2024-09-10" }));
+  });
   test("out-of-season date with no replacement retries instead of fetching", async () => {
     mockSeason.mockReturnValue([6, 7]);
     const host = makeHost();
@@ -171,6 +202,16 @@ describe("applyGraffVegetationImageOverlay early exits", () => {
     await applyGraffVegetationImageOverlay(unmounted, "U", "2024-06-15");
     expect(mockFetchTiff).not.toHaveBeenCalled();
   });
+  test("a day listed for the polygon is fetched without waiting on the walk", async () => {
+    const walk = jest.fn(() => Promise.resolve("2024-06-01"));
+    const host = makeHost(
+      { polygonAvailableDates: ["2024-06-01", "2024-06-15"] },
+      { _polygonAvailableDatesUniqueid: "U", _verifiedOverlayDates: new Set<string>(), awaitPendingOverlayWalk: walk },
+    );
+    await applyGraffVegetationImageOverlay(host, "U", "2024-06-15");
+    expect(walk).not.toHaveBeenCalled();
+    expect(mockFetchTiff).toHaveBeenCalledWith(expect.objectContaining({ rasterDate: "2024-06-15" }));
+  });
   test("already applied, in-flight, unadvertised and known-missing keys skip the request", async () => {
     const key = "U|5|2024-06-10|ndvi";
     const applied = makeHost({}, { _vegetationOverlayAppliedKey: key, _vegetationImageLayer: {} });
@@ -181,9 +222,13 @@ describe("applyGraffVegetationImageOverlay early exits", () => {
     const unadvertised = makeHost({ polygonAvailableDates: ["2024-05-01"] }, { _polygonAvailableDatesUniqueid: "U" });
     await applyGraffVegetationImageOverlay(unadvertised, "U", "2024-06-10");
     expect(asMock(unadvertised.clearVegetationImageSurfaceLoading)).toHaveBeenCalled();
+    // An already drawn overlay is kept, but with no fetch running the loader drops.
     const keepsExisting = makeHost({ polygonAvailableDates: ["2024-05-01"] }, { _polygonAvailableDatesUniqueid: "U", _vegetationOverlayAppliedKey: "other" });
     await applyGraffVegetationImageOverlay(keepsExisting, "U", "2024-06-10");
-    expect(asMock(keepsExisting.clearVegetationImageSurfaceLoading)).not.toHaveBeenCalled();
+    expect(asMock(keepsExisting.clearVegetationImageSurfaceLoading)).toHaveBeenCalled();
+    const fetchRunning = makeHost({ polygonAvailableDates: ["2024-05-01"] }, { _polygonAvailableDatesUniqueid: "U", _vegetationOverlayPendingKey: "p" });
+    await applyGraffVegetationImageOverlay(fetchRunning, "U", "2024-06-10");
+    expect(asMock(fetchRunning.clearVegetationImageSurfaceLoading)).not.toHaveBeenCalled();
     const missing = makeHost({}, { _missingVegetationRasterKeys: new Set([key]) });
     await applyGraffVegetationImageOverlay(missing, "U", "2024-06-10");
     expect(asMock(missing.clearVegetationImageSurfaceLoading)).toHaveBeenCalled();
@@ -200,8 +245,9 @@ describe("applyGraffVegetationImageOverlay success path", () => {
     await applyGraffVegetationImageOverlay(host, "{U}", "2024-06-10T00:00:00Z", "savi");
     expect(mockFetchTiff).toHaveBeenCalledWith(expect.objectContaining({ uniqueid: "U", regionId: 5, indiceType: "savi", stretch: "fixed" }));
     expect(asMock(host.removeVegetationImageOverlay)).toHaveBeenCalled();
-    const layer = mapOf(host).add.mock.calls[0][0] as { id: string; title: string };
+    const layer = mapOf(host).add.mock.calls[0][0] as { id: string; title: string; opacity: number };
     expect(layer.id).toBe("agri-graff-vegetation-image-overlay");
+    expect(layer.opacity).toBe(1);
     expect(layer.title).toBe("Vegetation SAVI 2024-06-10");
     expect(host._vegetationImageLayer).toBe(layer);
     expect(host._vegetationRasterSample).toMatchObject({ width: 2, height: 2, indexMin: 0, indexMax: 1, rgba: null });
@@ -337,6 +383,12 @@ describe("applyGraffVegetationImageOverlay failures", () => {
     await applyGraffVegetationImageOverlay(host, "U", "2024-06-10");
     expect(mockRememberNoImagery).toHaveBeenCalledWith(5, "2024-06-10");
     expect(asMock(host.retryOverlayWithUsableDate)).toHaveBeenCalled();
+  });
+  test("a failed fetch clears its pending key so later skips release the loader", async () => {
+    mockFetchTiff.mockRejectedValue(httpError(500, "down"));
+    const host = makeHost();
+    await applyGraffVegetationImageOverlay(host, "U", "2024-06-10");
+    expect(host._vegetationOverlayPendingKey).toBe("");
   });
   test("stale failures are ignored", async () => {
     const host = makeHost();

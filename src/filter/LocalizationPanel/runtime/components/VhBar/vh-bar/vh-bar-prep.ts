@@ -7,6 +7,11 @@ import { syncMasterFilterSnapshot } from "../../../../../../data/agri-filter-sto
 import { resolveRegionNumberFromMaps, resolveDistrictNumberFromMaps, buildVhUniqueIdCacheKey } from "../../../../../localization/resolve-geo-codes";
 import { queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-vegetation-data-source";
 
+/** True when the VH bar reads the year summary (no locked day, no STIR farmer). */
+export const isVhYearSummaryScope = (host: LocalizationHost): boolean =>
+  !(host.state.ndviDateLocked && String(host.state.ndviDate || "").trim()) &&
+  !String(host.state.selectedFarmerInn || "").trim();
+
 /** Max entries kept in `_vhUniqueIdCache` (oldest inserted dropped first). */
 export const VH_UNIQUEID_CACHE_MAX = 96;
 /**
@@ -45,7 +50,7 @@ export function getLatestNdviDateForBar(
     for (const f of primaryLayer.fields) {
       const name = f.name || "";
       if (!String(name).toLowerCase().startsWith(prefix.toLowerCase()))
-        continue;
+        { continue; }
       const rawSuffix = String(name).slice(prefix.length);
       const digitsOnly = rawSuffix.replace(/[^0-9]/g, "");
       const label =
@@ -81,7 +86,11 @@ export const computeVhBarData = async (host: LocalizationHost): Promise<VHBarDat
 
   const promise = host.executeComputeVhBarData()
     .then((result) => {
-      if (result) {
+      // All-zero results are not memoized: they are also what the compute
+      // returns while region/district/crop codes are still unresolved, and
+      // the key does not change once those codes arrive. Underlying
+      // vegetation queries are cached, so recomputing an empty scope is cheap.
+      if (result && result.totalCount > 0) {
         host._vhBarComputeMemo.set(key, result);
         while (host._vhBarComputeMemo.size > 8) {
           const oldestKey = host._vhBarComputeMemo.keys().next().value;
@@ -112,6 +121,15 @@ export const makeVhBarComputeKey = (host: LocalizationHost): string => {
   const selectedTurlar = chartFlags.filterVhBarByCrop
     ? host.getSelectedTurlar()
     : [];
+  const farmerInn = String(host.state.selectedFarmerInn || "").trim();
+  const farmerIds = host._farmerMapUniqueIds;
+  // STIR parcels resolve after selectedFarmerInn is set; a compute made in
+  // between (ids null / previous farmer's ids) must not share their key.
+  const farmerIdsSig = !farmerInn
+    ? ""
+    : Array.isArray(farmerIds)
+      ? `${farmerIds.length}:${farmerIds[0] || ""}:${farmerIds[farmerIds.length - 1] || ""}`
+      : "pending";
   return buildVhBarComputeKey({
     yil: String(yil || ""),
     viloyat: String(effectiveViloyat || ""),
@@ -122,7 +140,8 @@ export const makeVhBarComputeKey = (host: LocalizationHost): string => {
     polygonMode: false,
     uniqueid: "",
     filterVhBarByCrop: chartFlags.filterVhBarByCrop,
-    farmerInn: String(host.state.selectedFarmerInn || "").trim(),
+    farmerInn,
+    farmerIdsSig,
   });
 };
 export const executeComputeVhBarData = async (host: LocalizationHost): Promise<VHBarData | null> => {
@@ -151,9 +170,9 @@ export const executeComputeVhBarData = async (host: LocalizationHost): Promise<V
       host._vhBarUsedDate = date;
       host._vhBarUsedDateGeo = date ? geoKeyAtStart : null;
     },
-    setState: (patch) => host.setState(patch),
-    prefetchVhStatusUniqueIds: (date) => host.prefetchVhStatusUniqueIds(date),
-    log: (phase, detail) => agriLog(phase, detail),
+    setState: (patch) => { host.setState(patch); },
+    prefetchVhStatusUniqueIds: (date) => { host.prefetchVhStatusUniqueIds(date); },
+    log: (phase, detail) => { agriLog(phase, detail); },
     farmerUniqueIds: String(host.state.selectedFarmerInn || "").trim()
       ? host._farmerMapUniqueIds
       : null,
@@ -325,6 +344,7 @@ export const prefetchVhStatusUniqueIds = (host: LocalizationHost, ndviDate: stri
         date,
         ndviStatus: status,
         cropIds: cropIds.length ? cropIds : undefined,
+        useYearSummary: isVhYearSummaryScope(host),
       })
         .then((ids) => {
           if (!host._isMounted) return;

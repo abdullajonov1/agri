@@ -4,7 +4,7 @@ import { createRequire } from "module";
 import { fileURLToPath } from "url";
 
 const require = createRequire(import.meta.url);
-const ts = require("../../../../../node_modules/typescript");
+const ts = require("../../../../node_modules/typescript");
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const widgetPath = path.resolve(__dirname, process.env.WIDGET || "../src/panels/GraffPanel/runtime/widget.tsx");
 const hostPath = path.resolve(__dirname, process.env.HOST_PATH || "../src/panels/GraffPanel/runtime/graff-host.ts");
@@ -21,11 +21,11 @@ const cmd = ts.getParsedCommandLineOfConfigFile("tsconfig.json", {}, {
   },
 });
 delete cmd.options.ignoreDeprecations;
-const fileNames = cmd.fileNames.filter((f) => f.replace(/\\/g, "/").includes("Agro_widgetV5/src"));
+const fileNames = cmd.fileNames.filter((f) => f.replace(/\\/g, "/").includes("agri-main/src"));
 const program = ts.createProgram(fileNames, cmd.options);
 const checker = program.getTypeChecker();
 const diags = [...program.getSyntacticDiagnostics(), ...program.getSemanticDiagnostics()]
-  .filter((d) => d.file && d.file.fileName.replace(/\\/g, "/").includes("Agro_widgetV5/src"));
+  .filter((d) => d.file && d.file.fileName.replace(/\\/g, "/").includes("agri-main/src"));
 
 const svg = [];
 const other = [];
@@ -34,7 +34,7 @@ for (const d of diags) {
   const msg = ts.flattenDiagnosticMessageText(d.messageText, "\n");
   const file = d.file.fileName.replace(/\\/g, "/");
   const line = d.file.getLineAndCharacterOfPosition(d.start).line + 1;
-  const row = `${d.code} ${file.split("Agro_widgetV5/").pop()}:${line} ${msg}`;
+  const row = `${d.code} ${file.split("agri-main/").pop()}:${line} ${msg}`;
   if (d.code === 2307 && msg.includes(".svg")) svg.push(row);
   else other.push(row);
   const m = msg.match(new RegExp("^Property '([^']+)' does not exist on type '" + hostName + "'"));

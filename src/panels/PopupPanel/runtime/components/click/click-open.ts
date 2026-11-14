@@ -158,7 +158,7 @@ export const openPopupForUniqueid = async (host: PopupWidgetHost, uniqueid: stri
     );
     const fieldsWithData = configuredFields.filter(
       (name) =>
-        displayAttrs.hasOwnProperty(name) &&
+        Object.prototype.hasOwnProperty.call(displayAttrs, name) &&
         displayAttrs[name] != null &&
         displayAttrs[name] !== "",
     );

@@ -1,14 +1,9 @@
-import { React } from "jimu-core";
+import { type React } from "jimu-core";
 import { applyGraffDefinitionExpression, describeThrown, type AgriQueryableLayer } from "./graff-guards";
 import { arcgisEaseInOut } from "../../../shared/agri-plain-object";
 import type { TaggedLayer } from "./components/spatial-candidates";
 import type { JimuMapView } from "jimu-arcgis";
-import {
-  ensureAgriServerIdentityToken,
-  getDetachedQueryLayerForUrl,
-  isMapImageOwnedLayer,
-  resolveQueryableServiceUrl,
-} from "../../../gis/feature-layer-data";
+import { ensureAgriServerIdentityToken, getDetachedQueryLayerForUrl, resolveQueryableServiceUrl } from "../../../gis/feature-layer-data";
 import { AGRI_TABLE_JOIN_FIELD } from "../../../gis/agri-table-data-source";
 import {
   buildUniqueidUpperEqualsWhere,

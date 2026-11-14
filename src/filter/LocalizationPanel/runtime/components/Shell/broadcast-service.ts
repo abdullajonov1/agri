@@ -224,7 +224,14 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
   // Publish geography immediately so Graff/Indicators do not wait on VH.
   // A follow-up send attaches vhBarData when ready (if still current).
   // VH-only toggles reuse the last bar payload — category counts do not change.
-  if (host._reuseVhBarDataOnNextBroadcast && host._lastVhBarData) {
+  // Only while the bar scope is unchanged: clearing VH under VH-first + crop
+  // flips filterVhBarByCrop, so the old all-crop payload is no longer valid.
+  const vhComputeKey = host.makeVhBarComputeKey();
+  if (
+    host._reuseVhBarDataOnNextBroadcast &&
+    host._lastVhBarData &&
+    host._lastVhBarDataKey === vhComputeKey
+  ) {
     host._reuseVhBarDataOnNextBroadcast = false;
     send(host._lastVhBarData, false);
     return;
@@ -232,10 +239,10 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
   host._reuseVhBarDataOnNextBroadcast = false;
 
   // Same geography/year/crop already computed — skip pending→recompute cycle.
-  const vhComputeKey = host.makeVhBarComputeKey();
   const memoizedVh = host._vhBarComputeMemo.get(vhComputeKey);
   if (memoizedVh && hasNdviSource && !opts?.pendingOnly) {
     host._lastVhBarData = memoizedVh;
+    host._lastVhBarDataKey = vhComputeKey;
     send(memoizedVh, false);
     return;
   }
@@ -246,7 +253,7 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
   if (opts?.pendingOnly) return;
 
   if (hasNdviSource) {
-    const vhKeyAtStart = host.makeVhBarComputeKey();
+    const vhKeyAtStart = vhComputeKey;
     host.computeVhBarData()
       .then((vhBarData) => {
         // Superseded by a newer geography/filter — do not clear or overwrite.
@@ -254,6 +261,7 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
         if (host.makeVhBarComputeKey() !== vhKeyAtStart) return;
         if (vhBarData) {
           host._lastVhBarData = vhBarData;
+          host._lastVhBarDataKey = vhKeyAtStart;
           send(vhBarData, false);
           return;
         }

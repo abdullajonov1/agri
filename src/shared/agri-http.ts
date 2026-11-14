@@ -145,7 +145,7 @@ async function runWithTimeout<T>(
 
   const controller = new AbortController();
   let timedOut = false;
-  const onCallerAbort = (): void => controller.abort();
+  const onCallerAbort = (): void => { controller.abort(); };
   callerSignal?.addEventListener("abort", onCallerAbort);
   const timer = setTimeout(() => {
     timedOut = true;

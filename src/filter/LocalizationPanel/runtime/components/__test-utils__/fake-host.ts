@@ -59,6 +59,7 @@ export function makeFakeHost(init: FakeHostInit = {}): FakeHost {
     _lastBroadcastDigest: "",
     _lastVhBarComputeKey: "",
     _lastVhBarData: null,
+    _lastVhBarDataKey: "",
     _broadcastGeneration: 0,
     _reuseVhBarDataOnNextBroadcast: false,
     _vhMapUniqueIds: null,

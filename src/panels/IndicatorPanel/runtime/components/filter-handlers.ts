@@ -2,7 +2,7 @@ import type { IndicatorWidgetHost } from "../indicator-host";
 import { bindMasterFilter } from "../../../../data/agri-filter-bus";
 import { normalizeLanguage } from "../../../../shared/agri-language";
 import { normalizeApos } from "../../../../data/agri-sql";
-import { AllWidgetProps } from "jimu-core";
+import { type AllWidgetProps } from "jimu-core";
 import type { IndicatorConfig, VegetationStatsWidgetState } from "../widget";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../shared/map-connection-service";
 import { agriVhIndicatorLog } from "../../../../gis/agri-debug-log";
@@ -17,11 +17,11 @@ export function componentDidMount(host: IndicatorWidgetHost) {
 
   // connection mode
   if (!host.props.config?.useApiDataSource)
-    host.setState({ connectionStatus: "connecting" });
+    { host.setState({ connectionStatus: "connecting" }); }
   else
-    host.setState({ connectionStatus: "connected" }, () =>
+    { host.setState({ connectionStatus: "connected" }, () =>
       host.fetchApiData(),
-    );
+    ); }
 
   host._unbindMasterFilter = bindMasterFilter(host.handleMasterFilterChanged);
 
@@ -62,7 +62,7 @@ export function componentDidMount(host: IndicatorWidgetHost) {
         const next: "xs" | "sm" | "md" | "lg" =
           w < 180 ? "xs" : w < 260 ? "sm" : w < 340 ? "md" : "lg";
         if (next !== host.state.widgetSize)
-          host.setState({ widgetSize: next });
+          { host.setState({ widgetSize: next }); }
       });
       host._resizeObserver.observe(host._containerRef.current);
     }
@@ -70,7 +70,7 @@ export function componentDidMount(host: IndicatorWidgetHost) {
 
   // init guard
   host.initializationTimer = setTimeout(
-    () => host.ensureInitialization(),
+    () => { host.ensureInitialization(); },
     3000,
   );
 }
@@ -229,7 +229,7 @@ export const handleMasterFilterChanged = (host: IndicatorWidgetHost, event: Even
   // firing a duplicate refreshData() shortly after this immediate fetch.
   host._lastFilterEventMs = Date.now();
 
-  
+
 
   host.setState(
     {
@@ -265,7 +265,7 @@ export const handleMasterFilterChanged = (host: IndicatorWidgetHost, event: Even
       });
       setTimeout(() => {
         if (host._isMounted)
-          host.setState({ isHandlingExternalEvent: false });
+          { host.setState({ isHandlingExternalEvent: false }); }
       }, 150);
     },
   );
@@ -334,7 +334,7 @@ export function componentDidUpdate(host: IndicatorWidgetHost, prevProps: AllWidg
   ) {
     if (mapConnectionAttempts < host.MAX_CONNECTION_ATTEMPTS) {
       setTimeout(() => {
-        
+
         host.setState((ps) => ({
           mapConnectionAttempts: ps.mapConnectionAttempts + 1,
         }));
@@ -375,8 +375,8 @@ export const handleExternalCategory = async (host: IndicatorWidgetHost, event: C
       host.refreshData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         200,
       );
     },
@@ -399,8 +399,8 @@ export const handleConstructionYearChanged = (host: IndicatorWidgetHost, event: 
       host.refreshData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         200,
       );
     },
@@ -426,8 +426,8 @@ export const handleRegionChange = (host: IndicatorWidgetHost, event: Event): voi
       host.refreshData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         200,
       );
     },
@@ -452,8 +452,8 @@ export const handleYilChange = (host: IndicatorWidgetHost, event: Event): void =
       host.refreshData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         200,
       );
     },
@@ -486,8 +486,8 @@ export const handleWaterSupplyFilterChange = (host: IndicatorWidgetHost, event: 
       host.refreshData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         200,
       );
     },
@@ -519,8 +519,8 @@ export const handleCategorySelection = (host: IndicatorWidgetHost, event: Custom
       host.refreshData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         200,
       );
     },
@@ -550,8 +550,8 @@ export const handleKadastrFiltersChanged = (host: IndicatorWidgetHost, event: Ev
       host.refreshData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         200,
       );
     },
@@ -559,7 +559,7 @@ export const handleKadastrFiltersChanged = (host: IndicatorWidgetHost, event: Ev
 };
 
 export const handleKadastrFiltersReset = (host: IndicatorWidgetHost) =>
-  host._onReset();
+  { host._onReset(); };
 
 export const handleVegetationStatusChange = (host: IndicatorWidgetHost, event: CustomEvent) => {
   if (host._isResetting) return;
@@ -578,8 +578,8 @@ export const handleVegetationStatusChange = (host: IndicatorWidgetHost, event: C
       host.refreshData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         200,
       );
     },
@@ -603,8 +603,8 @@ export const handleCropTypeChange = (host: IndicatorWidgetHost, event: CustomEve
       host.refreshData();
       setTimeout(
         () =>
-          host._isMounted &&
-          host.setState({ isHandlingExternalEvent: false }),
+          { host._isMounted &&
+          host.setState({ isHandlingExternalEvent: false }); },
         200,
       );
     },
@@ -647,7 +647,7 @@ export const refreshData = (host: IndicatorWidgetHost) => {
           host.state.connectionStatus === "connected" &&
           host.shouldFetchForViloyat()
         )
-          host.throttledFetchData();
+          { host.throttledFetchData(); }
       }, 1000);
     }
   }
@@ -691,7 +691,7 @@ export function readFiltersFromUrl(host: IndicatorWidgetHost): void {
         // if something is already connected, refresh immediately
         if (host.props.config?.useApiDataSource) host.fetchApiData();
         else if (host.state.connectionStatus === "connected")
-          host.throttledFetchData();
+          { host.throttledFetchData(); }
       },
     );
   } catch (error) {

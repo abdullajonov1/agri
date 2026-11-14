@@ -191,7 +191,7 @@ export function clearAgriPersistentCache(): void {
     const key = store.key(i);
     if (key && key.startsWith(STORAGE_PREFIX)) keys.push(key);
   }
-  keys.forEach((key) => store.removeItem(key));
+  keys.forEach((key) => { store.removeItem(key); });
 }
 
 /**

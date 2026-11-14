@@ -30,6 +30,12 @@ export const warmYearRegionMapImages = (host: LocalizationHost): void => {
       viloyat,
       loaded: count,
     });
+  }).catch((error: unknown) => {
+    agriLog("map:warm-year-region-layers:FAILED", {
+      yil,
+      viloyat,
+      error: errorMessage(error),
+    });
   });
 };
 
@@ -68,7 +74,7 @@ export const setShownRegionYearOpacity = (host: LocalizationHost, opacity: numbe
  * definitionExpression change) without forcing an extra server export.
  */
 export const clearRegionYearSettleRepaintTimers = (host: LocalizationHost): void => {
-  host._regionYearSettleRepaintTimers.forEach((timer) => clearTimeout(timer));
+  host._regionYearSettleRepaintTimers.forEach((timer) => { clearTimeout(timer); });
   host._regionYearSettleRepaintTimers = [];
 };
 
@@ -128,10 +134,10 @@ export const scheduleShownRegionYearSettleRepaint = (
     host.repaintShownRegionYearLayers(label);
   };
   host._regionYearSettleRepaintTimers.push(
-    setTimeout(() => run(phase), Math.max(0, delayMs)),
+    setTimeout(() => { run(phase); }, Math.max(0, delayMs)),
   );
   host._regionYearSettleRepaintTimers.push(
-    setTimeout(() => run(`${phase}:retry`), Math.max(0, delayMs) + 400),
+    setTimeout(() => { run(`${phase}:retry`); }, Math.max(0, delayMs) + 400),
   );
 };
 

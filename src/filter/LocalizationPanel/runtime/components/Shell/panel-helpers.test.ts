@@ -121,7 +121,7 @@ describe("panel-helpers", () => {
   test("getChartFilterFlags derives flags from selection order", () => {
     const host = makeFakeHost({ _chartDimOrder: ["vh", "turi"], state: { vh: "2-Yaxshi" } });
     const flags = getChartFilterFlags(host, "2-Yaxshi", ["Paxta"]);
-    expect(flags.filterPieByVh).toBe(true);
+    expect(flags.filterPieByVh).toBe(false);
     expect(flags.filterVhBarByCrop).toBe(false);
     const noSelection = getChartFilterFlags(makeFakeHost(), "", []);
     expect(noSelection).toEqual({ filterPieByVh: false, filterVhBarByCrop: false });

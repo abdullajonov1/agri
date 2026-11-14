@@ -88,6 +88,39 @@ describe("retryMapConnection / onActiveViewChange", () => {
   });
 });
 
+describe("onActiveViewChange ready watch handle", () => {
+  const notReady = (remove: jest.Mock): JimuMapView =>
+    asView({ view: { ready: false, watch: (): { remove: () => void } => ({ remove }) } });
+  test("a second active-view change removes the first handle", () => {
+    const host = wired();
+    const remove1 = jest.fn();
+    const remove2 = jest.fn();
+    ch.onActiveViewChange(host, notReady(remove1));
+    ch.onActiveViewChange(host, notReady(remove2));
+    expect(remove1).toHaveBeenCalledTimes(1);
+    expect(remove2).not.toHaveBeenCalled();
+  });
+  test("firing the watcher clears the stored handle", () => {
+    const host = wired();
+    let cb: (ready: boolean) => void = () => undefined;
+    const handle = { remove: jest.fn() };
+    ch.onActiveViewChange(
+      host,
+      asView({ view: { ready: false, watch: (_p: string, fn: (r: boolean) => void): typeof handle => { cb = fn; return handle; } } }),
+    );
+    expect(host._viewReadyWatchHandle).toBe(handle);
+    cb(true);
+    expect(host._viewReadyWatchHandle).toBeNull();
+  });
+  test("removeViewReadyWatch removes and clears the handle", () => {
+    const remove = jest.fn();
+    const host = wired({}, { _viewReadyWatchHandle: { remove } });
+    ch.removeViewReadyWatch(host);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(host._viewReadyWatchHandle).toBeNull();
+  });
+});
+
 describe("formatFieldValue", () => {
   const host = wired({ language: "en" as AgriGraffWidgetState["language"] });
   test("empty values are N/A", () => {

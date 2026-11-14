@@ -135,13 +135,16 @@
 
 .agri-dashboard-map-controls {
   position: absolute;
-  top: 50%;
+  /* Stay below the stacked basemap / compare / land buttons on short maps,
+     with a clear gap (--agri-zoom-gap) so +/- read as their own group. */
+  --agri-zoom-gap: 30px;
+  top: max(50%, calc(10px + 46px + 36px + 46px + 8px + 46px + 8px + 46px + var(--agri-zoom-gap)));
   left: 10px;
   z-index: 14;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transform: translateY(-50%);
+  transform: translateY(calc(-50% + 48px));
   pointer-events: auto;
 }
 
@@ -151,6 +154,308 @@
   left: 10px;
   z-index: 14;
   pointer-events: auto;
+}
+
+.agri-dashboard-compare-control {
+  position: absolute;
+  top: calc(10px + 46px + 36px + 46px + 8px);
+  left: 10px;
+  z-index: 15;
+  pointer-events: auto;
+}
+
+.agri-dashboard-land-control {
+  position: absolute;
+  top: calc(10px + 46px + 36px + 46px + 8px + 46px + 8px);
+  left: 10px;
+  z-index: 15;
+  pointer-events: auto;
+}
+
+.agri-dashboard-land-panel {
+  position: absolute;
+  top: calc(10px + 46px + 36px + 46px + 8px + 46px + 8px);
+  left: calc(10px + 46px + 8px);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 250px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(31, 32, 48, 0.96);
+  color: #e9f8ff;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  transform: translateX(-16px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.28s ease, opacity 0.28s ease, visibility 0.28s;
+}
+
+.agri-dashboard-land-panel.is-open {
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.agri-dashboard-land-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+html.light-theme .agri-dashboard-land-panel,
+html[data-theme="light"] .agri-dashboard-land-panel,
+body.light-theme .agri-dashboard-land-panel {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.agri-dashboard-graff-swap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* The parked Zaxira pane (translateY(100%)) gives an overflow:hidden box a
+     100% scroll range: scrollIntoView / focus could slide Graff up and cut its
+     title. clip = same look, but never scrollable. */
+  overflow: clip;
+}
+
+/* Same for the cards inside (beats `.agri-dashboard-v3 .kadastr-status-card`). */
+.agri-dashboard-graff-swap .agri-dashboard-graff-swap-pane .kadastr-status-card,
+.agri-dashboard-graff-swap .agri-dashboard-graff-swap-pane .agri-reserve-crop-card {
+  overflow: clip !important;
+}
+
+.agri-dashboard-graff-swap-pane {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.38s ease, visibility 0.38s;
+}
+
+.agri-dashboard-graff-swap-pane--reserve,
+.agri-dashboard-graff-swap.is-reserve .agri-dashboard-graff-swap-pane--graff {
+  transform: translateY(100%);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.agri-dashboard-graff-swap.is-reserve .agri-dashboard-graff-swap-pane--reserve {
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.agri-dashboard-compare-panel {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: calc(10px + 46px + 8px);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  width: 332px;
+  overflow: hidden;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(31, 32, 48, 0.96);
+  color: #e9f8ff;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  transform: translateX(-16px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.28s ease, opacity 0.28s ease, visibility 0.28s;
+}
+
+.agri-dashboard-compare-panel.is-open {
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.agri-dashboard-compare-title,
+.agri-dashboard-compare-calendar {
+  flex: 0 0 auto;
+}
+
+.agri-dashboard-compare-calendar {
+  margin-top: auto;
+}
+
+.agri-dashboard-compare-title {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.agri-dashboard-compare-month {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.agri-dashboard-compare-month button,
+.agri-dashboard-compare-legend button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.agri-dashboard-compare-month button {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.agri-dashboard-compare-month button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.agri-dashboard-compare-weekdays,
+.agri-dashboard-compare-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.agri-dashboard-compare-weekdays {
+  margin-bottom: 2px;
+  color: rgba(233, 248, 255, 0.62);
+  font-size: 10px;
+}
+
+.agri-dashboard-compare-day {
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(233, 248, 255, 0.38);
+  font-size: 11px;
+  cursor: default;
+}
+
+.agri-dashboard-compare-day.has-scene {
+  background: rgba(34, 197, 94, 0.22);
+  color: #d9ffe8;
+  cursor: pointer;
+}
+
+.agri-dashboard-compare-day.is-map {
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.9);
+}
+
+.agri-dashboard-compare-day.is-selected {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.agri-dashboard-compare-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.agri-dashboard-compare-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: rgba(34, 197, 94, 0.9);
+}
+
+.agri-dashboard-compare-legend button {
+  margin-left: auto;
+  color: #93c5fd;
+}
+
+.agri-dashboard-compare-stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 240px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.agri-dashboard-compare-stage img {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.agri-dashboard-compare-stage .agri-dashboard-spinner-wrap {
+  margin: auto;
+}
+
+.agri-dashboard-compare-stage p,
+.agri-dashboard-compare-stage strong {
+  margin: 0;
+  text-align: center;
+}
+
+.agri-dashboard-compare-stage p {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.agri-dashboard-compare-stage strong {
+  flex: 0 0 auto;
+  padding: 6px 8px 2px;
+  font-size: 12px;
+}
+
+html.light-theme .agri-dashboard-compare-panel,
+html[data-theme="light"] .agri-dashboard-compare-panel,
+body.light-theme .agri-dashboard-compare-panel {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+html.light-theme .agri-dashboard-compare-weekdays,
+html[data-theme="light"] .agri-dashboard-compare-weekdays,
+body.light-theme .agri-dashboard-compare-weekdays,
+html.light-theme .agri-dashboard-compare-day,
+html[data-theme="light"] .agri-dashboard-compare-day,
+body.light-theme .agri-dashboard-compare-day {
+  color: #94a3b8;
+}
+
+html.light-theme .agri-dashboard-compare-day.has-scene,
+html[data-theme="light"] .agri-dashboard-compare-day.has-scene,
+body.light-theme .agri-dashboard-compare-day.has-scene {
+  background: rgba(22, 163, 74, 0.16);
+  color: #166534;
 }
 
 .agri-dashboard-fullscreen-button {
@@ -1809,11 +2114,32 @@ html.agri-dashboard-active body.agri-app-bg-light {
   .agri-dashboard-map-controls {
     gap: 7px;
     left: 8px;
+    --agri-zoom-gap: 26px;
+    top: max(50%, calc(10px + 42px + 30px + 42px + 7px + 42px + 7px + 42px + var(--agri-zoom-gap)));
   }
 
   .agri-dashboard-basemap-control {
     top: calc(10px + 42px + 30px);
     left: 8px;
+  }
+
+  .agri-dashboard-compare-control {
+    top: calc(10px + 42px + 30px + 42px + 7px);
+    left: 8px;
+  }
+
+  .agri-dashboard-compare-panel {
+    left: calc(8px + 42px + 8px);
+  }
+
+  .agri-dashboard-land-control {
+    top: calc(10px + 42px + 30px + 42px + 7px + 42px + 7px);
+    left: 8px;
+  }
+
+  .agri-dashboard-land-panel {
+    top: calc(10px + 42px + 30px + 42px + 7px + 42px + 7px);
+    left: calc(8px + 42px + 8px);
   }
 
   .agri-dashboard-fullscreen-button {
@@ -2302,11 +2628,12 @@ body.light-theme .agri-dashboard-v3 .land-category-card.light-theme {
   min-width: 0 !important;
 }
 
-/* Panel titles — same size/weight across Region / Ekin / Index / VH */
+/* Panel titles — same size/weight across Region / Ekin / Index / VH / Zaxira */
 .agri-dashboard-v3 .agri-v11-regional-stats-header-title,
 .agri-dashboard-v3 .land-category-title,
 .agri-dashboard-v3 .graff-index-top-label,
-.agri-dashboard-v3 .construction-years-header-title {
+.agri-dashboard-v3 .construction-years-header-title,
+.agri-dashboard-v3 .agri-reserve-crop-title {
   font-size: 14px !important;
   font-weight: 700 !important;
   letter-spacing: 0.04em !important;
@@ -3168,4 +3495,34 @@ body.light-theme .agri-dashboard-v3 :is(
 .agri-dashboard-v3 > .agri-dashboard-header .agri-v20-theme-toggle[data-tooltip]::before,
 .agri-dashboard-v3 > .agri-dashboard-header .agri-v20-theme-toggle[data-tooltip]::after {
   z-index: 10000 !important;
+}
+
+/* Unused land in the republic view: locked until a viloyat is chosen. */
+.agri-dashboard-land-row.is-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.agri-dashboard-land-row.is-locked .agri-dashboard-basemap-borders-toggle {
+  cursor: not-allowed;
+}
+
+/* Pie (crop type) and VH while the reserve overlay is on: faded, not clickable. */
+.agri-dashboard-reserve-lock {
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.agri-dashboard-reserve-lock.is-locked {
+  opacity: 0.35;
+  filter: grayscale(0.6);
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agri-dashboard-reserve-lock {
+    transition: none;
+  }
 }

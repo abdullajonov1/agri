@@ -26,11 +26,19 @@ export type AgroV5LogTopic =
  */
 const debugConsole: Pick<Console, "log"> | undefined = globalThis.console;
 
+/**
+ * `window.<name>` wins; otherwise `localStorage.<name> = "true" | "false"`,
+ * which survives a reload — needed to log work that starts on page load
+ * (e.g. the republic VH bar).
+ */
 function readGlobalFlag(name: string): boolean | undefined {
   try {
     const flag: unknown = (globalThis as Record<string, unknown>)?.[name];
     if (flag === true) return true;
     if (flag === false) return false;
+    const stored = globalThis.localStorage?.getItem(name);
+    if (stored === "true") return true;
+    if (stored === "false") return false;
     return undefined;
   } catch {
     return undefined;

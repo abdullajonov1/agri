@@ -4,6 +4,7 @@ import type { GeoWidgetState } from "../../widget";
 import { isMapImageOwnedLayer } from "../../../../../gis/feature-layer-data";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../../shared/map-connection-service";
 import { subscribeDashboardPack, getDashboardPack } from "../../../../../store/agri-dashboard-store";
+import { subscribeAgriLandOverlay } from "../../../../../store/agri-land-overlay-store";
 
 export function componentDidMount(host: LocalizationHost) {
   host._isMounted = true;
@@ -12,6 +13,10 @@ export function componentDidMount(host: LocalizationHost) {
     host.onDashboardPackForNotifications,
   );
   host.onDashboardPackForNotifications(getDashboardPack());
+  // A land overlay hides the field polygons; turning it off brings them back.
+  host._unbindLandOverlay = subscribeAgriLandOverlay(() => {
+    host.repaintShownRegionYearLayers("land-overlay");
+  });
 
   host.setState({ connectionStatus: "connecting" });
   host.initializeTheme();
@@ -75,7 +80,7 @@ export function componentDidMount(host: LocalizationHost) {
   );
 
   host.initializationTimer = setTimeout(
-    () => host.ensureInitialization(),
+    () => { host.ensureInitialization(); },
     3000,
   );
 }
@@ -84,6 +89,8 @@ export function componentWillUnmount(host: LocalizationHost) {
   host._isMounted = false;
   host._unbindNotificationPack?.();
   host._unbindNotificationPack = null;
+  host._unbindLandOverlay?.();
+  host._unbindLandOverlay = null;
   if (host._notificationPaintFrame) {
     cancelAnimationFrame(host._notificationPaintFrame);
     host._notificationPaintFrame = 0;
@@ -117,6 +124,14 @@ export function componentWillUnmount(host: LocalizationHost) {
     clearTimeout(host._dataSourceInfoDebounceTimer);
     host._dataSourceInfoDebounceTimer = null;
   }
+  if (host._viewReadyWatchHandle) {
+    try {
+      host._viewReadyWatchHandle.remove();
+    } catch {
+      /* ignore */
+    }
+    host._viewReadyWatchHandle = null;
+  }
   if (host._mapClickHandle) {
     try {
       host._mapClickHandle.remove();
@@ -145,7 +160,7 @@ export function componentWillUnmount(host: LocalizationHost) {
       host.state.featureLayer &&
       !isMapImageOwnedLayer(host.state.featureLayer)
     )
-      host.state.featureLayer.definitionExpression = "";
+      { host.state.featureLayer.definitionExpression = ""; }
   } catch (err) {
     debugCatch("componentWillUnmount:reset-definition-failed", err);
   }
@@ -177,6 +192,6 @@ export function componentDidUpdate(host: LocalizationHost, prevProps: Localizati
       prevState.notificationDays !== host.state.notificationDays ||
       prevState.notificationLoading !== host.state.notificationLoading)
   ) {
-    requestAnimationFrame(() => host.updateNotificationScrollHint());
+    requestAnimationFrame(() => { host.updateNotificationScrollHint(); });
   }
 }

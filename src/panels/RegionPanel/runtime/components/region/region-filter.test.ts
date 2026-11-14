@@ -20,6 +20,7 @@ import type { JimuMapView } from "jimu-arcgis";
 import type { AgriRegionState } from "../../widget";
 import type { RegionWidgetHost } from "../../region-host";
 import { makeStubHost } from "../../__test-utils__/stub-host";
+import { setAgriLandOverlay } from "../../../../../store/agri-land-overlay-store";
 import {
   applyDisplayCount,
   beginSelectionNotify,
@@ -74,6 +75,31 @@ describe("lifecycle", () => {
     expect(remove.mock.calls.map((c) => c[0])).toEqual(expect.arrayContaining(["mousedown", "agriV11ThemeToggled"]));
     add.mockRestore();
     remove.mockRestore();
+  });
+});
+
+describe("reserve overlay", () => {
+  afterEach(() => setAgriLandOverlay(null));
+
+  it("refetches only when reserve turns on or off, and stops listening on unmount", () => {
+    const host = makeStubHost();
+    componentDidMount(host);
+
+    setAgriLandOverlay("unused");
+    expect(host.state.reserveMode).toBe(false);
+    expect(host.fetchRegionalDataDeduped).not.toHaveBeenCalled();
+
+    setAgriLandOverlay("reserve");
+    expect(host.state.reserveMode).toBe(true);
+    expect(host.fetchRegionalDataDeduped).toHaveBeenCalledTimes(1);
+
+    setAgriLandOverlay("unused");
+    expect(host.state.reserveMode).toBe(false);
+    expect(host.fetchRegionalDataDeduped).toHaveBeenCalledTimes(2);
+
+    componentWillUnmount(host);
+    setAgriLandOverlay("reserve");
+    expect(host.fetchRegionalDataDeduped).toHaveBeenCalledTimes(2);
   });
 });
 

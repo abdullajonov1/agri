@@ -2,7 +2,7 @@
  * Distinct crop / region / district scans and MAX(raster_date) lookups on
  * agri_vegetation_indices (groupBy statistics, cached).
  */
-import { getAgriVegetationIndicesLayer, queryVegFeatures, formatArcgisDateToYmd, agriVhLog, buildVegetationScopeClauses, vegetationDistinctCropIdsCache, vegetationDistinctRegionsCache, vegetationDistinctDistrictsCache, vegetationMaxRasterDateCache, vegetationMaxDateByRegionCache } from "./veg-base";
+import { vegAccessCacheTag, getAgriVegetationIndicesLayer, queryVegFeatures, formatArcgisDateToYmd, agriVhLog, buildVegetationScopeClauses, vegetationDistinctCropIdsCache, vegetationDistinctRegionsCache, vegetationDistinctDistrictsCache, vegetationMaxRasterDateCache, vegetationMaxDateByRegionCache } from "./veg-base";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import { asStatisticDefinitions } from "../../shared/agri-plain-object";
 
@@ -27,7 +27,7 @@ export async function queryVegetationDistinctCropIds(params: {
   });
   clauses.push("crop_id IS NOT NULL");
   const where = clauses.length ? clauses.join(" AND ") : "crop_id IS NOT NULL";
-  const cacheKey = `v9-crop-ids|${where}`;
+  const cacheKey = `v9-crop-ids|${where}${vegAccessCacheTag()}`;
 
   return rememberAsync({
     memory: vegetationDistinctCropIdsCache,
@@ -66,7 +66,7 @@ export async function queryVegetationDistinctRegions(params: {
   year?: string;
 } = {}): Promise<number[]> {
   const year = String(params.year || "").match(/\b(18|19|20)\d{2}\b/)?.[0];
-  const cacheKey = year || "*";
+  const cacheKey = `${year || "*"}${vegAccessCacheTag()}`;
   return rememberAsync({
     memory: vegetationDistinctRegionsCache,
     namespace: "veg-regions",
@@ -124,7 +124,7 @@ export async function queryVegetationDistinctDistricts(params: {
   });
   clauses.push("district IS NOT NULL");
   const where = clauses.join(" AND ");
-  const cacheKey = `v9-districts|${where}`;
+  const cacheKey = `v9-districts|${where}${vegAccessCacheTag()}`;
   return rememberAsync({
     memory: vegetationDistinctDistrictsCache,
     namespace: "veg-districts",
@@ -185,7 +185,7 @@ export async function queryVegetationMaxRasterDate(params: {
   }
   clauses.push("raster_date IS NOT NULL");
   const where = clauses.length ? clauses.join(" AND ") : "raster_date IS NOT NULL";
-  const cacheKey = `v9e-max-date|${where}`;
+  const cacheKey = `v9e-max-date|${where}${vegAccessCacheTag()}`;
 
   return rememberAsync({
     memory: vegetationMaxRasterDateCache,
@@ -221,7 +221,7 @@ export async function queryVegetationMaxRasterDateByRegion(params: {
   const year = String(params.year || "").match(/\b(18|19|20)\d{2}\b/)?.[0];
   if (!year) return new Map();
   const cap = String(params.endDateCap || "").trim();
-  const cacheKey = `v9g-max-by-region|${year}|${cap}`;
+  const cacheKey = `v9g-max-by-region|${year}|${cap}${vegAccessCacheTag()}`;
 
   return rememberAsync({
     memory: vegetationMaxDateByRegionCache,

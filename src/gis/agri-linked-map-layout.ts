@@ -356,9 +356,9 @@ export class AgriLinkedMapLayoutManager {
       "box-sizing",
       "pointer-events",
     ].forEach((key) => target.style.removeProperty(key));
-    Object.values(MANAGED_MAP_CLASS).forEach((cls) => target.classList.remove(cls));
+    Object.values(MANAGED_MAP_CLASS).forEach((cls) => { target.classList.remove(cls); });
     Object.values(MANAGED_RENDERER_CLASS).forEach((cls) =>
-      target.classList.remove(cls),
+      { target.classList.remove(cls); },
     );
   }
 

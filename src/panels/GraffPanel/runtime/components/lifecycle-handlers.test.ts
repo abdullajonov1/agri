@@ -16,8 +16,8 @@ jest.mock("../../../../shared/map-connection-service", () => ({ MAP_CONNECTION_R
 
 import { asMock, makeStubHost } from "../__test-utils__/stub-host";
 import type { GraffWidgetHost } from "../graff-host";
-import type { AgriGraffWidgetState } from "../graff-state";
-import type { GraffWidgetProps } from "../graff-state";
+import type { AgriGraffWidgetState, GraffWidgetProps } from "../graff-state";
+
 import * as lh from "./lifecycle-handlers";
 
 const wired = (state: Partial<AgriGraffWidgetState> = {}, extra: Record<string, unknown> = {}): GraffWidgetHost =>
@@ -188,6 +188,13 @@ describe("componentDidUpdate", () => {
 });
 
 describe("componentWillUnmount", () => {
+  it("removes the pending view ready watch handle", () => {
+    const remove = jest.fn();
+    const host = wired({}, { _viewReadyWatchHandle: { remove } });
+    lh.componentWillUnmount(host);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(host._viewReadyWatchHandle).toBeNull();
+  });
   test("tears down listeners, timers, observers and clears indicator", () => {
     const events: CustomEvent[] = [];
     const listener = (e: Event): void => {

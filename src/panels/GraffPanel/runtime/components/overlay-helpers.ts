@@ -5,8 +5,8 @@ import { setVegetationOverlayContext, getVegetationOverlayDateForRegion } from "
 import type { VegetationIndiceType } from "../../../../gis/agri-polygon-api-source";
 import { getExportImageSeasonMonths, isRegionDateWithoutImagery, isRegionDateWithImagery, resolveExportImageWithDateWalk, pickExportRasterDate, fetchPolygonAvailableDates, fetchPolygonExportImageTiff } from "../../../../gis/agri-polygon-api-source";
 import { clearMapSelectionGraphics } from "../graff-map-utils";
-import { isMapImageOwnedLayer } from "../../../../gis/feature-layer-data";
 import { graffLog } from "../graff-log";
+import { hasActiveVegetationOverlay, releaseIdleSurfaceLoading } from "../graff-raster-overlay";
 import { arcgisEaseInOut } from "../../../../shared/agri-plain-object";
 
 export const updateGraphViewportSize = (host: GraffWidgetHost) => {
@@ -231,8 +231,13 @@ export const kickOptimisticVegetationOverlay = (host: GraffWidgetHost, uniqueid:
       cropId,
     })
       .then((hit) => {
-        if (!hit || !host._isMounted) return;
+        if (!host._isMounted) return;
+        // Another polygon owns the loader now — leave it alone.
         if (stripUniqueidBraces(host.state.selecteduniqueid) !== clean) return;
+        if (!hit) {
+          releaseIdleSurfaceLoading(host);
+          return;
+        }
         host.markOverlayDateVerified(clean, hit.date);
         host._latestRasterDateByUniqueid.set(clean, hit.date);
         setVegetationOverlayContext({
@@ -243,6 +248,8 @@ export const kickOptimisticVegetationOverlay = (host: GraffWidgetHost, uniqueid:
           lastDateYear: year,
           lastIndex: indexKey,
         });
+        // The user may have picked a day while the walk ran — keep it.
+        if (hasActiveVegetationOverlay(host)) return;
         void host.applyVegetationImageOverlay(
           uniqueid,
           hit.date,
@@ -250,8 +257,15 @@ export const kickOptimisticVegetationOverlay = (host: GraffWidgetHost, uniqueid:
           hit.result,
         );
       })
-      .catch(() => {
-        /* fetchVegetationData / apply paths surface errors */
+      .catch((err: unknown) => {
+        // fetchVegetationData / apply paths surface errors; just drop the loader.
+        graffLog("kickOptimisticVegetationOverlay:walk-failed", {
+          uniqueid: clean,
+          error: String(err),
+        });
+        if (host._isMounted && stripUniqueidBraces(host.state.selecteduniqueid) === clean) {
+          releaseIdleSurfaceLoading(host);
+        }
       });
     graffLog("kickOptimisticVegetationOverlay:prefetch-dates", {
       uniqueid: clean,
@@ -298,7 +312,7 @@ export const awaitPendingOverlayWalk = async (host: GraffWidgetHost, cleanId: st
   if (!pending || pending.uniqueid !== cleanId) return undefined;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<undefined>((resolve) => {
-    timer = setTimeout(() => resolve(undefined), timeoutMs);
+    timer = setTimeout(() => { resolve(undefined); }, timeoutMs);
   });
   try {
     const hit = await Promise.race([

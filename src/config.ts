@@ -66,6 +66,7 @@ export interface AgriServiceUrlsConfig {
   adminDistrictsUrl?: string;
   reserveLandUrl?: string;
   unusedLandUrl?: string;
+  cropPlanUrl?: string;
 }
 
 export interface Config {

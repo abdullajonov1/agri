@@ -7,3 +7,6 @@ dist/
 # Portal package on agri repo (GitHub Pages)
 !widgets/
 !widgets/**
+
+# Local test reports
+dist-report/

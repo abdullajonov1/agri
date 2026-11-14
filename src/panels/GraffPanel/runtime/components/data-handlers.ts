@@ -1,6 +1,6 @@
 import type { GraffWidgetHost } from "../graff-host";
-import { applyGraffDefinitionExpression } from "../graff-guards";
-import { describeThrown, thrownMessage } from "../graff-guards";
+import { applyGraffDefinitionExpression, describeThrown, thrownMessage } from "../graff-guards";
+
 import type { AgriGraffWidgetState, RecordData } from "../widget";
 import { isMapImageOwnedLayer } from "../../../../gis/feature-layer-data";
 import { buildSpatialJoinWhere, queryAgriUniqueIdsForWhere } from "../../../../gis/agri-table-data-source";
@@ -73,12 +73,12 @@ export const fetchFilterOptionsOnce = async (host: GraffWidgetHost): Promise<voi
 
     if (!host._isMounted) return;
 
-    const filterOptions = configuredFields.reduce(
+    const filterOptions = configuredFields.reduce<Record<string, string[]>>(
       (acc, f, i) => {
         acc[f] = results[i] || [];
         return acc;
       },
-      {} as Record<string, string[]>,
+      {},
     );
 
     host.setState({
@@ -166,6 +166,8 @@ export const getUniqueValues = async (host: GraffWidgetHost, fieldName: string):
 
 export const fetchData = async (host: GraffWidgetHost, opts?: { preservePage?: boolean }) => {
   if (!host._isMounted) return;
+  // Bump before any early return so an older in-flight request is invalidated.
+  const requestId = ++host._tableDataRequestId;
   if (host.state.connectionStatus !== "connected") {
     host._hasCompletedTableFetch = true;
     if (host.state.loading) host.setState({ loading: false });
@@ -178,7 +180,6 @@ export const fetchData = async (host: GraffWidgetHost, opts?: { preservePage?: b
   }
 
   const preservePage = !!opts?.preservePage;
-  const requestId = ++host._tableDataRequestId;
   const isStale = () =>
     !host._isMounted ||
     requestId !== host._tableDataRequestId ||
@@ -473,12 +474,12 @@ export const handleResetFilters = async (host: GraffWidgetHost) => {
   if (!host._isMounted || host.state.connectionStatus !== "connected") return;
 
   const fields = host.getConfiguredFilterFields();
-  const blank = fields.reduce(
+  const blank = fields.reduce<Record<string, string>>(
     (acc, f) => {
       acc[f] = "";
       return acc;
     },
-    {} as Record<string, string>,
+    {},
   );
 
   // ✅ include vh
@@ -568,7 +569,7 @@ export const handleResetAll = (host: GraffWidgetHost) => {
 
 export const refetchDebounced = (host: GraffWidgetHost) => {
   if (host._debounceTimer) clearTimeout(host._debounceTimer);
-  host._debounceTimer = setTimeout(() => host.refetchNow(), 150);
+  host._debounceTimer = setTimeout(() => { host.refetchNow(); }, 150);
 };
 
 export const refetchNow = (host: GraffWidgetHost) => {

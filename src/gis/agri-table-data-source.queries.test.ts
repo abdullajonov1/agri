@@ -23,6 +23,7 @@ jest.mock("../shared/agri-singleton-layer-loader", () => ({
 }));
 jest.mock("../shared/agri-access-config", () => ({
   combineAccessWhere: (where: string) => `ACCESS AND (${where})`,
+  onAccessWhereChange: () => () => undefined,
 }));
 
 type TableModule = typeof import("./agri-table-data-source");
@@ -208,3 +209,16 @@ describe("mapping queries", () => {
 });
 
 export {};
+
+describe("mapping promise reset on access change", () => {
+  test("resetAgriTableMappingCaches makes the next call re-query", async () => {
+    const layer = useLayer([[{ viloyat: "A", region: 1, tuman: "B", district: 2, cnt: 1 }]]);
+    const mod = loadFresh();
+    await mod.queryAgriTuriCropMappings();
+    await mod.queryAgriTuriCropMappings();
+    const calls = layer.queryFeatures.mock.calls.length;
+    mod.resetAgriTableMappingCaches();
+    await mod.queryAgriTuriCropMappings();
+    expect(layer.queryFeatures.mock.calls.length).toBeGreaterThan(calls);
+  });
+});

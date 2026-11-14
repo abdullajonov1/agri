@@ -462,9 +462,9 @@ function transliterateUzbekToRussian(value: string): string {
     };
     const mapped = one[lower];
     if (mapped == null) out += ch;
-    else out += ch === ch.toUpperCase() && ch !== ch.toLowerCase()
+    else { out += ch === ch.toUpperCase() && ch !== ch.toLowerCase()
       ? mapped.toUpperCase()
-      : mapped;
+      : mapped; }
     i += 1;
   }
   return out.replace(/'/g, "").replace(/\s+/g, " ").trim();

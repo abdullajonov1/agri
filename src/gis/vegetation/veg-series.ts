@@ -1,8 +1,9 @@
-import { vegetationSeriesByUniqueIdCache, getAgriVegetationIndicesLayer, queryVegFeatures, type VegetationRegionalTimeseriesParams, agriVegetationLog, VEG_AVG_FIELDS, vegetationRegionalTimeseriesCache, type VegetationScopeParams, vegetationAvailableDatesCache, formatArcgisDateToYmd, type VegetationLatestDateByRegion, vegetationLatestDatesByRegionCache, agriVhLog, type VegetationSeriesRow, type VegetationPolygonSeriesRow } from "./veg-base";
-import { escapeArcGIS } from "../../data/agri-sql";
+import { vegAccessCacheTag, vegetationSeriesByUniqueIdCache, getAgriVegetationIndicesLayer, queryVegFeatures, type VegetationRegionalTimeseriesParams, agriVegetationLog, VEG_AVG_FIELDS, vegetationRegionalTimeseriesCache, type VegetationScopeParams, vegetationAvailableDatesCache, formatArcgisDateToYmd, type VegetationLatestDateByRegion, vegetationLatestDatesByRegionCache, agriVhLog, type VegetationSeriesRow, type VegetationPolygonSeriesRow } from "./veg-base";
+import { escapeArcGIS, isExactArcGisYmd } from "../../data/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import type { AgriAttributes, AgriStatisticJson } from "../agri-layer-types";
 import { asStatisticDefinitions } from "../../shared/agri-plain-object";
+import { queryIndexSummaryAvailableDates, queryIndexSummaryTimeseries } from "./veg-summary-series";
 
 /*
  * Vegetation index series + date lookups. Distinct-value / max-date scans
@@ -23,7 +24,7 @@ export async function queryVegetationSeriesForUniqueId(
   if (!raw) return [];
 
   const clean = raw.replace(/[{}]/g, "");
-  const cacheKey = clean || raw;
+  const cacheKey = `${clean || raw}${vegAccessCacheTag()}`;
   const cached = vegetationSeriesByUniqueIdCache.get(cacheKey);
   if (cached) return cached;
 
@@ -78,12 +79,18 @@ export async function queryVegetationSeriesForUniqueId(
 export async function queryVegetationRegionalTimeseries(
   params: VegetationRegionalTimeseriesParams,
 ): Promise<VegetationSeriesRow[]> {
-  if (!params.startDate || !params.endDate) {
+  // Exact YYYY-MM-DD only: the dates are written straight into the SQL below.
+  if (!isExactArcGisYmd(params.startDate) || !isExactArcGisYmd(params.endDate)) {
     agriVegetationLog("regionalTimeseries:SKIP-no-date-window", {
       region: params.region ?? null,
       district: params.district ?? null,
     });
     return [];
+  }
+
+  if (!params.ndviStatus) {
+    const summary = await queryIndexSummaryTimeseries(params);
+    if (summary) return summary;
   }
 
   const avgFields = (
@@ -123,7 +130,7 @@ export async function queryVegetationRegionalTimeseries(
     );
   }
   const where = clauses.join(" AND ");
-  const cacheKey = `${where}|avg=${fieldsForStats.join(",")}`;
+  const cacheKey = `${where}|avg=${fieldsForStats.join(",")}${vegAccessCacheTag()}`;
   return rememberAsync({
     memory: vegetationRegionalTimeseriesCache,
     namespace: "veg-regional",
@@ -177,12 +184,17 @@ export async function queryVegetationRegionalTimeseries(
 export async function queryVegetationAvailableDates(
   params: VegetationScopeParams = {},
 ): Promise<string[]> {
-  const cacheKey = `r=${params.region ?? ""}|d=${params.district ?? ""}`;
+  const cacheKey = `r=${params.region ?? ""}|d=${params.district ?? ""}${vegAccessCacheTag()}`;
   const promise = rememberAsync({
     memory: vegetationAvailableDatesCache,
     namespace: "veg-dates",
     key: cacheKey,
     factory: async (): Promise<string[]> => {
+      const fromSummary = await queryIndexSummaryAvailableDates({
+        region: params.region,
+        district: params.district,
+      });
+      if (fromSummary && fromSummary.length) return fromSummary;
       const { layer } = await getAgriVegetationIndicesLayer();
 
       const clauses: string[] = [];
@@ -237,7 +249,7 @@ export async function queryVegetationLatestDatesByRegion(
   const year = String(params.year || "").match(/\b(18|19|20)\d{2}\b/)?.[0];
   // v2: MAX(raster_date) per region (1 row/viloyat). Old groupBy(region,date)
   // + num cap silently dropped newest days and undercounted republic VH.
-  const cacheKey = `v2-max|${year || "*"}`;
+  const cacheKey = `v2-max|${year || "*"}${vegAccessCacheTag()}`;
 
   const promise = rememberAsync({
     memory: vegetationLatestDatesByRegionCache,

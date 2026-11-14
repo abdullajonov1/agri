@@ -74,11 +74,10 @@ export const applyMapFiltersOptimized = async (
     // One frame is enough for the overlay to paint; double-rAF added
     // ~32ms of pure wait before every region/year reveal.
     await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
+      requestAnimationFrame(() => { resolve(); });
     });
   }
 
-  const prevExpr = host._prevDefinitionExpression;
   let revealAfterCrop = false;
   // First viloyat/year reveal: do NOT block zoom/overlay on crop distinct
   // query + forced MapImage redraw (often 1–3s). Layer visibility already
@@ -199,7 +198,7 @@ export const applyMapFiltersOptimized = async (
       // One more paint under the spinner so the colored export is on screen
       // before the overlay lifts (avoids a green flash at dismiss).
       await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => resolve());
+        requestAnimationFrame(() => { resolve(); });
       });
     }
   } finally {
@@ -259,7 +258,6 @@ export const applyMapFiltersOptimized = async (
   const expressionDigest = buildDefinitionExpressionDigest(
     featureLayers || [],
   );
-  const expressionChanged = expressionDigest !== prevExpr;
 
   const wasPolygonMode = host._prevPolygonModeForZoomGuard;
   host._prevPolygonModeForZoomGuard = host.state.polygonMode;
@@ -618,7 +616,7 @@ export const applyMapFiltersOptimized = async (
       });
       // Full viloyat/tuman framing (no forced closer scale). Fields open via
       // unlocked minScale + settle repaint at this same view scale.
-      await navigate(mergedExtent!.expand(expandFactor), goToMs);
+      await navigate(mergedExtent.expand(expandFactor), goToMs);
     } else if (!host.getEffectiveViloyat() && !isStale()) {
       const home =
         host._homeExtent || (view.map as MapWithFullExtent)?.fullExtent;

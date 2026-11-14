@@ -46,29 +46,45 @@ const makeHost = (state: Partial<AgriGraffWidgetState> = {}, extra: Record<strin
 };
 
 describe("scrollSelectedRowIntoCenter", () => {
-  test("scrolls selected row, or matching data-uniqueid row", () => {
+  const rect = (top: number, height: number): DOMRect =>
+    ({ top, height, bottom: top + height, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+
+  const sizeContainer = (container: HTMLElement, scrollHeight: number, clientHeight: number): void => {
+    Object.defineProperty(container, "scrollHeight", { configurable: true, value: scrollHeight });
+    Object.defineProperty(container, "clientHeight", { configurable: true, value: clientHeight });
+  };
+
+  test("centres matching data-uniqueid row by scrolling only the container", () => {
     const container = document.createElement("div");
     container.innerHTML =
       '<table><tbody><tr class="kadastr-table-row" data-uniqueid="{abc}"></tr></tbody></table>';
     const row = container.querySelector("tr") as HTMLElement;
     const scrollIntoView = jest.fn();
     row.scrollIntoView = scrollIntoView;
+    sizeContainer(container, 1000, 200);
+    container.getBoundingClientRect = (): DOMRect => rect(100, 200);
+    row.getBoundingClientRect = (): DOMRect => rect(500, 40);
+    const scrollTo = jest.fn();
+    container.scrollTo = scrollTo as unknown as typeof container.scrollTo;
     const host = makeHost({ selecteduniqueid: "ABC" }, { tableContainerRef: { current: container } });
     scrollSelectedRowIntoCenter(host);
-    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "center" }));
+    // row at 400px inside container; centre = 400 + 20 - 100 = 320
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 320 }));
+    // Never scrolls ancestors (card / Graff-Zaxira swap slot / page).
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
-  test("falls back to container.scrollTo when scrollIntoView throws", () => {
+  test("clamps to the last scroll position for rows at the end of the page", () => {
     const container = document.createElement("div");
     container.innerHTML = '<table><tbody><tr class="kadastr-table-row selected-row"></tr></tbody></table>';
     const row = container.querySelector("tr") as HTMLElement;
-    row.scrollIntoView = (): void => {
-      throw new Error("unsupported");
-    };
+    sizeContainer(container, 600, 200);
+    container.getBoundingClientRect = (): DOMRect => rect(0, 200);
+    row.getBoundingClientRect = (): DOMRect => rect(560, 40);
     const scrollTo = jest.fn();
     container.scrollTo = scrollTo as unknown as typeof container.scrollTo;
     scrollSelectedRowIntoCenter(makeHost({}, { tableContainerRef: { current: container } }));
-    expect(scrollTo).toHaveBeenCalled();
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 400 }));
   });
 
   test("no container / no row is a no-op", () => {
@@ -135,6 +151,53 @@ describe("resolveTablePageForUniqueid", () => {
     await expect(resolveTablePageForUniqueid(host, "U")).resolves.toBe(1);
     const where = (queryFeatureCount.mock.calls[0] as Array<{ where: string }>)[0].where;
     expect(where).toContain("maydon > 2.5");
+  });
+
+  test("maydon sort: NULL areas sorted first are counted before every value", async () => {
+    const { layer, queryFeatureCount } = makeLayer(
+      [
+        { features: [{ attributes: { objectid: 5, maydon: 2.5 } }] },
+        { features: [{ attributes: { maydon: null } }] },
+      ],
+      0,
+    );
+    const host = makeHost({ featureLayer: layer, tableSort: { column: "maydon", order: "desc" } });
+    await resolveTablePageForUniqueid(host, "U");
+    const where = (queryFeatureCount.mock.calls[0] as Array<{ where: string }>)[0].where;
+    expect(where).toBe(
+      "(year=2024) AND (maydon IS NULL OR maydon > 2.5 OR (maydon = 2.5 AND objectid < 5))",
+    );
+  });
+
+  test("maydon sort: a row without area is placed inside the NULL block", async () => {
+    const last = makeLayer(
+      [
+        { features: [{ attributes: { objectid: 9, maydon: null } }] },
+        { features: [{ attributes: { maydon: 4 } }] },
+      ],
+      0,
+    );
+    await resolveTablePageForUniqueid(
+      makeHost({ featureLayer: last.layer, tableSort: { column: "maydon", order: "asc" } }),
+      "U",
+    );
+    expect((last.queryFeatureCount.mock.calls[0] as Array<{ where: string }>)[0].where).toBe(
+      "(year=2024) AND (maydon IS NOT NULL OR (maydon IS NULL AND objectid < 9))",
+    );
+    const first = makeLayer(
+      [
+        { features: [{ attributes: { objectid: 9, maydon: null } }] },
+        { features: [{ attributes: { maydon: null } }] },
+      ],
+      0,
+    );
+    await resolveTablePageForUniqueid(
+      makeHost({ featureLayer: first.layer, tableSort: { column: "maydon", order: "asc" } }),
+      "U",
+    );
+    expect((first.queryFeatureCount.mock.calls[0] as Array<{ where: string }>)[0].where).toBe(
+      "(year=2024) AND (maydon IS NULL AND objectid < 9)",
+    );
   });
 
   test("fallback: id outside filter returns null; inside filter works", async () => {

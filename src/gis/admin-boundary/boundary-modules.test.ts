@@ -113,3 +113,15 @@ describe("getDetachedQueryLayer", () => {
     expect(ctor).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("loadBoundaryModules failure", () => {
+  test("a rejected module promise is not cached", async () => {
+    jest.resetModules();
+    mockLoadModules.mockReset();
+    mockLoadModules.mockRejectedValueOnce(new Error("load failed"));
+    const fresh = require("./boundary-modules") as typeof import("./boundary-modules");
+    await expect(fresh.loadBoundaryModules()).rejects.toThrow("load failed");
+    mockLoadModules.mockResolvedValueOnce([class {}, class {}, class {}, {}]);
+    await expect(fresh.loadBoundaryModules()).resolves.toBeDefined();
+  });
+});

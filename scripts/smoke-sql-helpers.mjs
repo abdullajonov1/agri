@@ -16,8 +16,8 @@ import os from "node:os";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const widgetRoot = path.resolve(__dirname, "..");
 const agriSqlPath = path.join(widgetRoot, "src", "data", "agri-sql.ts");
-// agri-main → widgets → your-extensions → client
-const clientRoot = path.resolve(widgetRoot, "..", "..", "..");
+// Agro_widgetV5 → Agri3 → widgets → your-extensions → client
+const clientRoot = path.resolve(widgetRoot, "..", "..", "..", "..");
 const require = createRequire(path.join(clientRoot, "package.json"));
 const ts = require("typescript");
 

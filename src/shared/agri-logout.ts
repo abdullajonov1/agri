@@ -196,7 +196,7 @@ export async function logoutFromAccount(
         extra.push(k);
       }
     }
-    extra.forEach((k) => localStorage.removeItem(k));
+    extra.forEach((k) => { localStorage.removeItem(k); });
   } catch {
     failures.push("localStorage.esriSweep");
   }

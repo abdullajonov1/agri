@@ -100,8 +100,8 @@ export const renderPopupFieldSelect = (host: PopupSettingHost, fieldsToShow: str
                   <input
                     type="checkbox"
                     checked={selected.has(name)}
-                    onMouseDown={(event) => event.stopPropagation()}
-                    onChange={() => host.togglePopupField(name)}
+                    onMouseDown={(event) => { event.stopPropagation(); }}
+                    onChange={() => { host.togglePopupField(name); }}
                   />
                   <span>{label}</span>
                 </label>
@@ -119,7 +119,7 @@ export const renderPopupFieldSelect = (host: PopupSettingHost, fieldsToShow: str
         ref={host.popupFieldButtonRef}
         type="button"
         onClick={() =>
-          host.setState((s) => ({ popupFieldMenuOpen: !s.popupFieldMenuOpen }))
+          { host.setState((s) => ({ popupFieldMenuOpen: !s.popupFieldMenuOpen })); }
         }
         style={{
           width: "100%",
@@ -285,7 +285,7 @@ export function render(host: PopupSettingHost) {
                   size="sm"
                   placeholder="Chart nomini yozing..."
                   value={chartTitle}
-                  onChange={(e) => host.onChartTitleChange(e.target.value)}
+                  onChange={(e) => { host.onChartTitleChange(e.target.value); }}
                   style={{ width: "100%" }}
                 />
               </div>

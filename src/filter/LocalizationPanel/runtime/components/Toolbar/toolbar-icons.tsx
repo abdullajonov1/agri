@@ -1,5 +1,5 @@
 import { React } from "jimu-core";
-import { Bell, Calendar, Info } from "lucide-react";
+import { Bell, Calendar, FileSpreadsheet, Info } from "lucide-react";
 import languageDarkIcon from "../../../assets/Frame.svg";
 import languageLightIcon from "../../../assets/Frame-light.svg";
 import languageActiveIcon from "../../../assets/Frame-1.svg";
@@ -14,6 +14,10 @@ export const InfoIcon = () => (
 
 export const BellIcon = () => (
   <Bell className="agri-toolbar-svg" strokeWidth={1.8} aria-hidden="true" />
+);
+
+export const ExcelIcon = () => (
+  <FileSpreadsheet className="agri-toolbar-svg" strokeWidth={1.8} aria-hidden="true" />
 );
 
 export const LanguageIcon = (props: { active: boolean; isLight: boolean }) => (

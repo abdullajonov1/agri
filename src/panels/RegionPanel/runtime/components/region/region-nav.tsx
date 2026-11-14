@@ -1,4 +1,7 @@
 import type { RegionWidgetHost } from "../../region-host";
+import type { RegionalDataItem } from "../../widget";
+import { React } from "jimu-core";
+import { regionLog as regionLogFn } from "../../region-log";
 
 /** Recharts passes either the row itself or `{ payload: row }`. */
 type ChartRowPayload = { payload?: unknown } | null | undefined;
@@ -9,9 +12,6 @@ interface ClientPointSource {
   clientX?: unknown;
   clientY?: unknown;
 }
-import type { RegionalDataItem } from "../../widget";
-import { React } from "jimu-core";
-import { regionLog as regionLogFn } from "../../region-log";
 
 export const handleRegionSelectionClick = (host: RegionWidgetHost, data: { name?: string; payload?: RegionalDataItem & { name?: string } }, _index?: number, _e?: React.MouseEvent<SVGPathElement, MouseEvent>): void => {
   const item =

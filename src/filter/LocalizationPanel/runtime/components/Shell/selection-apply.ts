@@ -181,7 +181,7 @@ export async function applyGeographyOrCropSelection(
     })();
 
     host.broadcastFilterState();
-    return;
+
 }
 
 /** AgriBar VH toggle only: resolve status uniqueids, then map apply. */
@@ -287,7 +287,7 @@ export async function applyVhOnlySelection(
               selectedGraffUniqueidClickedAt: undefined,
               loading: false,
             },
-            () => resolve(),
+            () => { resolve(); },
           );
         });
         if (!isApplyCurrent()) return;
@@ -340,5 +340,5 @@ export async function applyVhOnlySelection(
           host.setMapSurfaceLoading(false, "latest-filter-settled");
         }
       });
-    return;
+
 }

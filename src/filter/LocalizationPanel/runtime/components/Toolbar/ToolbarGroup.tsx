@@ -5,6 +5,7 @@ import type { GeoWidgetState } from "../../widget";
 import {
   BellIcon,
   CalendarIcon,
+  ExcelIcon,
   InfoIcon,
   LanguageIcon,
   LogoutIcon,
@@ -25,6 +26,8 @@ export type ToolbarGroupProps = Pick<
   toggleProfileMenu: () => void;
   closeProfileMenu: () => void;
   handleLogout: () => void;
+  reportExporting?: boolean;
+  onExportReport?: () => void;
 };
 
 export const ToolbarGroup = (props: ToolbarGroupProps) => {
@@ -51,8 +54,31 @@ export const ToolbarGroup = (props: ToolbarGroupProps) => {
   const logoutLabel =
     language === "en" ? "Log out" : language === "ru" ? "Выйти" : language === "uz_lat" ? "Chiqish" : "Чиқиш";
 
+  const excelLabel =
+    language === "en"
+      ? "Download Excel report"
+      : language === "ru"
+        ? "Скачать Excel-отчёт"
+        : language === "uz_lat"
+          ? "Excel hisobotni yuklash"
+          : "Excel ҳисоботни юклаш";
+
   return (
     <div className="agri-v20-toolbar-group">
+      <div className="agri-v20-toolbar-item">
+        <button
+          type="button"
+          className={`agri-v20-toolbar-btn${props.reportExporting ? " is-active" : ""}`}
+          onClick={() => { props.onExportReport?.(); }}
+          disabled={props.reportExporting || connectionStatus !== "connected" || !props.onExportReport}
+          data-tooltip={excelLabel}
+          aria-label={excelLabel}
+          aria-busy={props.reportExporting ? true : undefined}
+        >
+          <ExcelIcon />
+        </button>
+      </div>
+
       <div
         className="agri-v20-toolbar-item"
         ref={props._notificationsToolbarItemRef}
@@ -60,7 +86,7 @@ export const ToolbarGroup = (props: ToolbarGroupProps) => {
         <button
           type="button"
           className={`agri-v20-toolbar-btn ${openToolbarMenu === "notifications" ? "is-active" : ""}`}
-          onClick={() => props.toggleToolbarMenu("notifications")}
+          onClick={() => { props.toggleToolbarMenu("notifications"); }}
           data-tooltip={
             language === "en"
               ? "Notifications"
@@ -92,7 +118,7 @@ export const ToolbarGroup = (props: ToolbarGroupProps) => {
         <button
           type="button"
           className={`agri-v20-toolbar-btn ${openToolbarMenu === "indexInfo" ? "is-active" : ""}`}
-          onClick={() => props.toggleToolbarMenu("indexInfo")}
+          onClick={() => { props.toggleToolbarMenu("indexInfo"); }}
           data-tooltip={indexInfoLabel}
           aria-label={indexInfoLabel}
           aria-pressed={openToolbarMenu === "indexInfo"}
@@ -108,7 +134,7 @@ export const ToolbarGroup = (props: ToolbarGroupProps) => {
         <button
           type="button"
           className={`agri-v20-toolbar-btn ${openToolbarMenu === "yil" ? "is-active" : ""}`}
-          onClick={() => props.toggleToolbarMenu("yil")}
+          onClick={() => { props.toggleToolbarMenu("yil"); }}
           data-tooltip={yilLabel}
           aria-label={yilLabel}
           aria-pressed={openToolbarMenu === "yil"}
@@ -124,7 +150,7 @@ export const ToolbarGroup = (props: ToolbarGroupProps) => {
         <button
           type="button"
           className={`agri-v20-toolbar-btn agri-v20-language-btn ${openToolbarMenu === "language" ? "is-active" : ""}`}
-          onClick={() => props.toggleToolbarMenu("language")}
+          onClick={() => { props.toggleToolbarMenu("language"); }}
           data-tooltip={langLabel}
           aria-label={langLabel}
           aria-pressed={openToolbarMenu === "language"}
@@ -145,7 +171,7 @@ export const ToolbarGroup = (props: ToolbarGroupProps) => {
           data-tooltip={themeLabel}
           aria-checked={isDarkTheme}
           onClick={() =>
-            props.applyThemeByValue(isDarkTheme ? "light" : "dark")
+            { props.applyThemeByValue(isDarkTheme ? "light" : "dark"); }
           }
         >
           <SunIcon className="agri-v20-theme-toggle__icon agri-v20-theme-toggle__icon--sun" />
@@ -181,7 +207,7 @@ export const ToolbarGroup = (props: ToolbarGroupProps) => {
             <div className={`agri-v20-root ${isDarkTheme ? "dark-theme" : "light-theme"}`}>
               <div
                 className="agri-v20-profile-backdrop"
-                onClick={() => props.closeProfileMenu()}
+                onClick={() => { props.closeProfileMenu(); }}
               />
               <div className="agri-v20-profile-dropdown" role="menu">
                 <div className="agri-v20-profile-header">

@@ -20,12 +20,13 @@ export interface ChartFilterFlags {
 /** Uniqueids for Pie when VH was selected first (no crop narrowing). */
 let pieVhUniqueIds: string[] | null = null;
 let pieVhUniqueIdsSig = "";
+/** Bumped on every set/clear so equal-looking id sets never share a signature. */
+let pieVhUniqueIdsVersion = 0;
 
 export function setPieVhFilterUniqueIds(ids: string[] | null): void {
   pieVhUniqueIds = ids;
-  pieVhUniqueIdsSig = ids
-    ? `${ids.length}:${ids[0] || ""}:${ids[ids.length - 1] || ""}`
-    : "";
+  pieVhUniqueIdsVersion++;
+  pieVhUniqueIdsSig = ids ? `v${pieVhUniqueIdsVersion}:${ids.length}` : "";
   agroV5Log(
     "pie-bridge:set-uniqueids",
     {
@@ -49,6 +50,7 @@ export function getPieVhFilterUniqueIdsSig(): string {
 
 export function clearPieVhFilterUniqueIds(): void {
   pieVhUniqueIds = null;
+  pieVhUniqueIdsVersion++;
   pieVhUniqueIdsSig = "";
   agroV5Log("pie-bridge:clear-uniqueids", {}, "vh");
 }
@@ -65,9 +67,9 @@ export function deriveChartFilterFlags(
   const vhIdx = order.indexOf("vh");
   const turiIdx = order.indexOf("turi");
   return {
-    filterPieByVh:
-      vhActive &&
-      (!turiActive || (vhIdx >= 0 && (turiIdx < 0 || vhIdx < turiIdx))),
+    // Product decision (2026-11-13): a Vegetatsiya Holati class never
+    // filters the crop Pie, whichever dimension was picked first.
+    filterPieByVh: false,
     filterVhBarByCrop:
       turiActive &&
       (!vhActive || (turiIdx >= 0 && (vhIdx < 0 || turiIdx < vhIdx))),

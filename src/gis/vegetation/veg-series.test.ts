@@ -1,8 +1,18 @@
+const mockUserGroups: { ids: string[] } = { ids: [] };
 jest.mock("jimu-core", () => ({
-  getAppStore: () => ({ getState: (): { user: null } => ({ user: null }) }),
+  getAppStore: () => ({
+    getState: (): { user: { groups: { id: string }[] } } => ({
+      user: { groups: mockUserGroups.ids.map((id) => ({ id })) },
+    }),
+  }),
 }));
 jest.mock("jimu-arcgis", () => ({
   loadArcGISJSAPIModules: () => Promise.reject(new Error("no arcgis in tests")),
+}));
+// Isolate the raw-table path: the summary table route has its own tests.
+jest.mock("./veg-summary-series", () => ({
+  queryIndexSummaryTimeseries: jest.fn().mockResolvedValue(null),
+  queryIndexSummaryAvailableDates: jest.fn().mockResolvedValue(null),
 }));
 jest.mock("../../shared/agri-singleton-layer-loader", () =>
   jest.requireActual("./__test-utils__/veg-fake-layer").singletonLoaderModuleMock(),
@@ -62,6 +72,7 @@ const statNames = (q: FakeQuery): string[] =>
 
 beforeEach(() => {
   setAccessConfig(undefined);
+  mockUserGroups.ids = [];
   clearAgriQueryGatewayCache();
   localStorage.clear();
   [
@@ -455,5 +466,31 @@ describe("queryVegetationAvgNdviByUniqueIdPaged", () => {
     expect(rows).toEqual([
       { uniqueid: "b1", avgNdvi: 0.1, maxPxAll: 5, areaHa: 5 * VEG_PIXEL_AREA_HA },
     ]);
+  });
+});
+
+describe("access scope in persistent cache keys", () => {
+  test("a different access scope triggers a second query for the same params", async () => {
+    mockUserGroups.ids = ["g1"];
+    const rule = (value: string) => ({
+      fullAccessGroups: [],
+      rules: [
+        {
+          id: "r1",
+          title: "Region",
+          field: "region",
+          rules: [{ id: "a1", operator: "equal" as const, value, groups: ["g1"] }],
+        },
+      ],
+    });
+    const layer = useLayer(() => []);
+    setAccessConfig(rule("1724"));
+    await queryVegetationAvailableDates({ region: 1724 });
+    const before = layer.executed.length;
+    setAccessConfig(rule("1703"));
+    vegetationAvailableDatesCache.clear();
+    clearAgriQueryGatewayCache();
+    await queryVegetationAvailableDates({ region: 1724 });
+    expect(layer.executed.length).toBeGreaterThan(before);
   });
 });

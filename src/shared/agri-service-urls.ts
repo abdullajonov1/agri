@@ -18,6 +18,14 @@ export interface AgriServiceUrls {
   adminDistrictsFallbackUrl: string;
   reserveLandUrl: string;
   unusedLandUrl: string;
+  /** Crop Agro plan polygons (Excel REJA + Fermer). */
+  cropPlanUrl: string;
+  /** Pre-aggregated daily index means per raster_date x region_id x district_id x crop_id (Index chart). */
+  indexDailySummaryUrl: string;
+  /** Per-field yearly VH status (Vegetatsiya holati). */
+  fieldStatusYearUrl: string;
+  /** Pre-aggregated VH totals per year x region_id x district_id x crop_id x status_code (field_count, area_ha) - Vegetatsiya holati bar. */
+  statusCountsYearUrl: string;
 }
 
 export type AgriServiceUrlsConfig = Partial<AgriServiceUrls>;
@@ -41,6 +49,14 @@ const DEFAULT_AGRI_SERVICE_URLS: AgriServiceUrls = {
     "https://sgm.uzspace.uz/server/rest/services/Agriculture/Agri_reserve_land/FeatureServer/1",
   unusedLandUrl:
     "https://sgm.uzspace.uz/server/rest/services/Agriculture/Agri_unused_land/FeatureServer/2",
+  cropPlanUrl:
+    "https://sgm.uzspace.uz/server/rest/services/Agriculture/agri_crop/FeatureServer/2",
+  indexDailySummaryUrl:
+    "https://sgm.uzspace.uz/server/rest/services/Agriculture/agri_index_daily_summary/FeatureServer/0",
+  fieldStatusYearUrl:
+    "https://sgm.uzspace.uz/server/rest/services/Agriculture/agri_field_status_year/FeatureServer/0",
+  statusCountsYearUrl:
+    "https://sgm.uzspace.uz/server/rest/services/Agriculture/agri_status_counts_year/FeatureServer/0",
 };
 
 let activeUrls: AgriServiceUrls = { ...DEFAULT_AGRI_SERVICE_URLS };

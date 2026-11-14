@@ -27,22 +27,22 @@ export function buildWhereClause(host: IndicatorWidgetHost, includeViloyat = tru
         String(selectedYil).match(/\b(18|19|20)\d{2}\b/)?.[0] ??
         String(selectedYil).replace(/[^\d]/g, "");
       if (yDigits)
-        vhClauses.push(
+        { vhClauses.push(
           `${FILTER_FIELDS.YIL} LIKE '${escapeLikeLiteral(yDigits)}%'`,
-        );
+        ); }
       else
-        vhClauses.push(
+        { vhClauses.push(
           `${FILTER_FIELDS.YIL} LIKE '%${escapeLikeLiteral(String(selectedYil))}%'`,
-        );
+        ); }
     }
     const vhScoped =
       !!String(selectedVegetationStatus || "").trim() &&
       Array.isArray(vhUniqueids) &&
       vhUniqueids.length > 0;
     if (includeViloyat && selectedViloyat && !vhScoped)
-      vhClauses.push(eqAposSmart(FILTER_FIELDS.VILOYAT, selectedViloyat));
+      { vhClauses.push(eqAposSmart(FILTER_FIELDS.VILOYAT, selectedViloyat)); }
     if (selectedTuman && !vhScoped)
-      vhClauses.push(eqAposSmart(FILTER_FIELDS.TUMAN, selectedTuman));
+      { vhClauses.push(eqAposSmart(FILTER_FIELDS.TUMAN, selectedTuman)); }
 
     const yerToifasFieldVh = (
       host.props.config?.yerToifasField || FILTER_FIELDS.TURI
@@ -71,9 +71,9 @@ export function buildWhereClause(host: IndicatorWidgetHost, includeViloyat = tru
     vhClauses.push(buildSpatialJoinWhere(joinIds));
 
     if (selectedCropType)
-      vhClauses.push(eqAposSmart(FILTER_FIELDS.EKIN, selectedCropType));
+      { vhClauses.push(eqAposSmart(FILTER_FIELDS.EKIN, selectedCropType)); }
     if (selectedUniqueid)
-      vhClauses.push(eqAposSmart("uniqueid", selectedUniqueid));
+      { vhClauses.push(eqAposSmart("uniqueid", selectedUniqueid)); }
 
     const configFilterExpressionVh = host.props.config?.filterExpression;
     if (
@@ -115,7 +115,7 @@ export function buildWhereClause(host: IndicatorWidgetHost, includeViloyat = tru
 
   const extras: string[] = [];
   if (selectedCropType)
-    extras.push(eqAposSmart(FILTER_FIELDS.EKIN, selectedCropType));
+    { extras.push(eqAposSmart(FILTER_FIELDS.EKIN, selectedCropType)); }
   if (selectedUniqueid) extras.push(eqAposSmart("uniqueid", selectedUniqueid));
 
   const configFilterExpression = host.props.config?.filterExpression;
@@ -148,9 +148,9 @@ export function buildApiUrl(host: IndicatorWidgetHost): string {
     .trim();
 
   if (!endpoint)
-    throw new Error(
+    { throw new Error(
       "Missing API endpoint: set config.apiEndpoint (or apiUrl/endpoint/url).",
-    );
+    ); }
 
   endpoint = endpoint.split("?")[0].replace(/[?&]$/, "");
 

@@ -16,7 +16,6 @@ import {
   vegetationStatusCountsCache,
 } from "../veg-base";
 import { queryVegetationStatusCounts } from "./status-counts";
-import { queryVegetationUniqueIdsForStatus } from "./status-uniqueids";
 import {
   DEFAULT_VEG_FIELDS,
   makeFakeVegLayer,
@@ -73,22 +72,6 @@ describe("queryVegetationStatusCounts (grouped path)", () => {
     const q = layer.executed[0];
     expect(q.groupByFieldsForStatistics).toEqual(["uniqueid", "ndvi_status"]);
     expect(q.where).toContain("region='1724'");
-  });
-
-  test("publishes the id->status assignment so uniqueid lookups skip the server", async () => {
-    const layer = useLayer(() => [
-      { uniqueid: "a", ndvi_status: "past", row_count: 1, max_px_all: 1 },
-      { uniqueid: "b", ndvi_status: "past", row_count: 1, max_px_all: 1 },
-    ]);
-    await queryVegetationStatusCounts({ date: "2024-05-01", district: 5 });
-    const calls = layer.queryFeatures.mock.calls.length;
-    const ids = await queryVegetationUniqueIdsForStatus({
-      date: "2024-05-01",
-      district: 5,
-      ndviStatus: "PAST",
-    });
-    expect(ids).toEqual(["a", "b"]);
-    expect(layer.queryFeatures.mock.calls.length).toBe(calls);
   });
 
   test("pages grouped results by offset until a short page", async () => {
@@ -188,60 +171,3 @@ describe("queryVegetationStatusCounts (grouped path)", () => {
   });
 });
 
-describe("queryVegetationUniqueIdsForStatus", () => {
-  test("blank status or date returns [] without loading", async () => {
-    const layer = useLayer(() => []);
-    await expect(queryVegetationUniqueIdsForStatus({ date: "2024-05-01", ndviStatus: " " })).resolves.toEqual([]);
-    await expect(queryVegetationUniqueIdsForStatus({ date: "", ndviStatus: "past" })).resolves.toEqual([]);
-    expect(layer.queryFeatures).not.toHaveBeenCalled();
-  });
-
-  test("pages with an objectid cursor and dedupes ids", async () => {
-    const first: FakeAttrs[] = Array.from({ length: 500 }, (_, i) => ({
-      objectid: i + 1,
-      uniqueid: `u${i % 400}`,
-    }));
-    const layer = useLayer(
-      (q) => {
-        const where = String(q.where);
-        if (where.includes("objectid > 500")) return [{ OBJECTID: 501, uniqueid: "u-last" }];
-        return first;
-      },
-      { maxRecordCount: 500 },
-    );
-    const ids = await queryVegetationUniqueIdsForStatus({
-      date: "2024-05-01",
-      region: 1724,
-      cropIds: ["3"],
-      cropId: "4",
-      ndviStatus: "O'rta",
-    });
-    expect(ids).toHaveLength(401);
-    expect(ids[ids.length - 1]).toBe("u-last");
-    const q0 = layer.executed[0];
-    expect(q0.where).toContain("ndvi_status='o''rta'");
-    expect(q0.where).toContain("crop_id IN ('3','4')");
-    expect(q0.orderByFields).toEqual(["objectid ASC"]);
-    expect(layer.executed[1].where).toMatch(/^\(.*\) AND objectid > 500$/);
-  });
-
-  test("stops when the cursor does not advance", async () => {
-    const layer = useLayer(() => Array.from({ length: 500 }, () => ({ uniqueid: "same" })), {
-      maxRecordCount: 500,
-    });
-    const ids = await queryVegetationUniqueIdsForStatus({ date: "2024-05-01", ndviStatus: "past" });
-    expect(ids).toEqual(["same"]);
-    expect(layer.queryFeatures).toHaveBeenCalledTimes(1);
-  });
-
-  test("stops when a full page yields no new ids", async () => {
-    let oid = 0;
-    const layer = useLayer(
-      () => Array.from({ length: 500 }, () => ({ objectid: ++oid, uniqueid: "dup" })),
-      { maxRecordCount: 500 },
-    );
-    const ids = await queryVegetationUniqueIdsForStatus({ date: "2024-05-01", ndviStatus: "past" });
-    expect(ids).toEqual(["dup"]);
-    expect(layer.queryFeatures).toHaveBeenCalledTimes(2);
-  });
-});

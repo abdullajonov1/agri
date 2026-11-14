@@ -111,7 +111,7 @@ function BarRow({
         });
       }, delay);
 
-      return () => window.clearTimeout(timer);
+      return () => { window.clearTimeout(timer); };
     }
 
     setBarWidth(percent);
@@ -213,9 +213,9 @@ export function AgriRegionBarChart({
             unitLabel={unitLabel}
             barHeight={barHeight}
             formatNumber={formatNumber}
-            onClick={() => onRowClick(item)}
-            onPointerEnter={(event) => onRowPointerEnter(item, event)}
-            onPointerMove={(event) => onRowPointerMove(item, event)}
+            onClick={() => { onRowClick(item); }}
+            onPointerEnter={(event) => { onRowPointerEnter(item, event); }}
+            onPointerMove={(event) => { onRowPointerMove(item, event); }}
           />
         );
       })}

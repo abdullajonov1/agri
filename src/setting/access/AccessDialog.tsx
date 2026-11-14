@@ -44,11 +44,11 @@ function GroupInputDialog({ title, ctl, onSave }: GroupInputProps) {
                 className="dialogInput"
                 placeholder="Группа"
                 value={ctl.formGroup}
-                onChange={(e) => ctl.setFormGroup(e.target.value)}
+                onChange={(e) => { ctl.setFormGroup(e.target.value); }}
             />
 
             <div className="dialogActions">
-                <button onClick={() => ctl.setDialog(null)}>Cancel / Отмена</button>
+                <button onClick={() => { ctl.setDialog(null); }}>Cancel / Отмена</button>
                 <button onClick={onSave}>Save / Сохранить</button>
             </div>
         </>
@@ -68,14 +68,14 @@ function FieldDialog({ ctl }: DialogProps) {
                 className="dialogInput"
                 placeholder="Название"
                 value={ctl.formTitle}
-                onChange={(e) => ctl.setFormTitle(e.target.value)}
+                onChange={(e) => { ctl.setFormTitle(e.target.value); }}
             />
 
             <input
                 className="dialogInput"
                 placeholder="Поле"
                 value={ctl.formField}
-                onChange={(e) => ctl.setFormField(e.target.value)}
+                onChange={(e) => { ctl.setFormField(e.target.value); }}
             />
 
             {isAdd && (
@@ -88,7 +88,7 @@ function FieldDialog({ ctl }: DialogProps) {
             )}
 
             <div className="dialogActions">
-                <button onClick={() => ctl.setDialog(null)}>Cancel / Отмена</button>
+                <button onClick={() => { ctl.setDialog(null); }}>Cancel / Отмена</button>
                 <button onClick={ctl.saveField}>Save / Сохранить</button>
             </div>
         </>
@@ -107,7 +107,7 @@ function RuleDialog({ ctl }: DialogProps) {
             <AccessRuleForm form={ctl.ruleForm} selectedField={ctl.selectedField} />
 
             <div className="dialogActions">
-                <button onClick={() => ctl.setDialog(null)}>Cancel / Отмена</button>
+                <button onClick={() => { ctl.setDialog(null); }}>Cancel / Отмена</button>
                 <button onClick={ctl.saveRule}>Save / Сохранить</button>
             </div>
         </>
@@ -116,7 +116,7 @@ function RuleDialog({ ctl }: DialogProps) {
 
 /** Content of the currently open add/edit/delete dialog. */
 function AccessDialogContent({ ctl }: DialogProps) {
-    const close = (): void => ctl.setDialog(null);
+    const close = (): void => { ctl.setDialog(null); };
 
     switch (ctl.dialog.type) {
         case "addField":

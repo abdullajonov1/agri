@@ -65,6 +65,10 @@ const makeHost = (
     _polygonAvailableDatesUniqueid: "",
     _latestRasterDateByUniqueid: new Map<string, string>(),
     _pendingOverlayWalk: null,
+    _vegetationImageRequestId: 0,
+    _vegetationOverlayPendingKey: "",
+    _vegetationOverlayAppliedKey: "",
+    clearVegetationImageSurfaceLoading: jest.fn(),
     beginGraphFetch: jest.fn(),
     resolveCurrentRegionId: (): number | undefined => ids.region,
     resolveCurrentYear: (): number | undefined => ids.year,
@@ -151,6 +155,30 @@ describe("fetchGraffVegetationData", () => {
     expect(host._latestRasterDateByUniqueid.get("U1")).toBe("2024-04-01");
     expect(mockPatchPack).toHaveBeenCalled();
     expect(host._pendingOverlayWalk).toBeNull();
+  });
+
+  test("walk with no servable date drops the map loader", async () => {
+    mockFetchDates.mockResolvedValue(["2024-04-01"]);
+    mockDateWalk.mockResolvedValue(null);
+    mockSeries.mockResolvedValue([veg("2024-04-01")]);
+    const host = makeHost();
+    await fetchGraffVegetationData(host);
+    await flush();
+    expect(host.clearVegetationImageSurfaceLoading).toHaveBeenCalled();
+  });
+
+  test("walk result does not replace an overlay already drawn or loading", async () => {
+    mockFetchDates.mockResolvedValue(["2024-04-01"]);
+    mockDateWalk.mockResolvedValue({ date: "2024-04-01", result: { url: "x" } });
+    mockSeries.mockResolvedValue([veg("2024-04-01")]);
+    const host = makeHost();
+    host._vegetationOverlayAppliedKey = "U1|5|2024-04-10|ndvi";
+    await fetchGraffVegetationData(host);
+    await flush();
+    const walkApplies = (host.applyVegetationImageOverlay as jest.Mock).mock.calls.filter(
+      (c: unknown[]) => c[3] != null,
+    );
+    expect(walkApplies).toHaveLength(0);
   });
 
   test("no overlap with available dates falls back to unfiltered series", async () => {

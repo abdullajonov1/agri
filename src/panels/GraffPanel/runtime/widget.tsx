@@ -1,9 +1,7 @@
+import type { GraffIndexKey } from "./graff-graph-constants";
 // Enhanced Kadastr Status Widget - Fixed Regional Filtering + Graph View
-import MediaLayer from "esri/layers/MediaLayer";
-import FeatureLayer from "esri/layers/FeatureLayer";
-import Extent from "esri/geometry/Extent";
-import { JimuMapView } from "jimu-arcgis";
-import { AllWidgetProps, DataSource, React } from "jimu-core";
+import { type JimuMapView } from "jimu-arcgis";
+import { type DataSource, React, type ImmutableObject, type UseDataSource } from "jimu-core";
 import debounce from "lodash/debounce";
 import throttle from "lodash/throttle";
 import { MAX_MAP_CONNECTION_ATTEMPTS } from "../../../shared/map-connection-service";
@@ -27,9 +25,8 @@ import { render } from "./components/render-panel";
 import { createInitialGraffState } from "./components/initial-state";
 import type { AgriGraffWidgetState, ChartVegetationRow, ConfiguredFilters, GraffWidgetProps, RecordData, TimerHandle, VegetationIndex } from "./graff-state";
 import type { DebouncedFunc } from "lodash";
-import type { ImmutableObject, UseDataSource } from "jimu-core";
+
 import type { TaggedLayer } from "./components/spatial-candidates";
-const WIDGET_ID = "AgriGraffWidget";
 export type { AgriGraffWidgetState, ChartVegetationRow, ConfiguredFilters, RecordData, VegetationIndex };
 export default class AgriGraffWidget extends React.PureComponent<GraffWidgetProps, AgriGraffWidgetState> implements GraffWidgetHost, GraffGraphHost, GraffDataServiceHost, GraffRasterOverlayHost, GraffMapInteractionHost {
 _barCategoryField = "";
@@ -44,6 +41,7 @@ _onReset: () => void;
 initializationTimer: TimerHandle | null = null;
 _retryTimeout: TimerHandle | null = null;
 _isMounted: boolean = false;
+_viewReadyWatchHandle: { remove(): void } | null = null;
 _unbindMasterFilter: (() => void) | null = null;
     /** MapView and fallback startup share one filter-options request batch. */
 _filterOptionsPromise: Promise<void> | null = null;
@@ -179,7 +177,7 @@ _chartGeometryCache: GraffChartGeometryCache | null = null;
     // Single coalesced refresh: push WHERE to DS/layer, then fetch
 scheduleRefresh = debounce(async () => {
         if (!this._isMounted || this.state.connectionStatus !== "connected")
-            return;
+            { return; }
         // Show loader immediately so UI never flashes "no data" during map-filter await.
         if (!this.state.loading) {
             this.setState({ loading: true, error: null });
@@ -224,7 +222,7 @@ resolveDistrictNumber(viloyat: string, tuman: string, regionHint?: number): numb
         return resolveDistrictNumber(this, viloyat, tuman, regionHint);
     }
 storeRegionDistrictMappingRow = (viloyatRaw: string | null | undefined, regionRaw: unknown, tumanRaw: string | null | undefined, districtRaw: unknown, count: number = 1): void => {
-        return storeRegionDistrictMappingRow(this, viloyatRaw, regionRaw, tumanRaw, districtRaw, count);
+        storeRegionDistrictMappingRow(this, viloyatRaw, regionRaw, tumanRaw, districtRaw, count);
     };
 ensureRegionDistrictForSelection = async (): Promise<void> => {
         return ensureRegionDistrictForSelection(this);
@@ -300,16 +298,16 @@ throttledFetchData: DebouncedFunc<() => Promise<void>>;
         this.handleMonthOptionClick = this.handleMonthOptionClick.bind(this);
     }
 updateGraphViewportSize = () => {
-        return updateGraphViewportSize(this);
+        updateGraphViewportSize(this);
     };
 scheduleGraphViewportRefresh = () => {
-        return scheduleGraphViewportRefresh(this);
+        scheduleGraphViewportRefresh(this);
     };
 observeGraphViewport = () => {
-        return observeGraphViewport(this);
+        observeGraphViewport(this);
     };
 handleDocumentMouseDown = (event: MouseEvent) => {
-        return handleDocumentMouseDown(this, event);
+        handleDocumentMouseDown(this, event);
     };
 builduniqueidWhere = (raw: string, field: string = "uniqueid") => builduniqueidWhere(this, raw, field);
 resolveFieldCaseInsensitive = (name: string): string | null => {
@@ -317,28 +315,28 @@ resolveFieldCaseInsensitive = (name: string): string | null => {
     };
 isRegionalInteractionEnabled = (): boolean => isRegionalInteractionEnabled(this);
 handlePopupPolygonSelectionFastPath = (event: Event): void => {
-        return handlePopupPolygonSelectionFastPath(this, event);
+        handlePopupPolygonSelectionFastPath(this, event);
     };
 getCarriedOverlayDate(regionId: number | undefined, year: number | undefined): string | null {
         return getCarriedOverlayDate(this, regionId, year);
     }
 kickOptimisticVegetationOverlay = (uniqueid: string): void => {
-        return kickOptimisticVegetationOverlay(this, uniqueid);
+        kickOptimisticVegetationOverlay(this, uniqueid);
     };
 markOverlayDateVerified = (cleanId: string, date: string): void => {
-        return markOverlayDateVerified(this, cleanId, date);
+        markOverlayDateVerified(this, cleanId, date);
     };
 awaitPendingOverlayWalk = async (cleanId: string, timeoutMs = 8000): Promise<string | null | undefined> => {
         return awaitPendingOverlayWalk(this, cleanId, timeoutMs);
     };
 rememberRasterDateForUniqueid = (uniqueid: string, dates: string[]): void => {
-        return rememberRasterDateForUniqueid(this, uniqueid, dates);
+        rememberRasterDateForUniqueid(this, uniqueid, dates);
     };
 detachMapHoverPrefetch = (): void => {
-        return detachMapHoverPrefetch(this);
+        detachMapHoverPrefetch(this);
     };
 attachMapHoverPrefetch = (view: __esri.MapView | __esri.SceneView): void => {
-        return attachMapHoverPrefetch(this, view);
+        attachMapHoverPrefetch(this, view);
     };
 prefetchVegetationForMapPoint = async (view: __esri.MapView | __esri.SceneView, event: __esri.ViewPointerMoveEvent, regionId: number, year: number): Promise<void> => {
         return prefetchVegetationForMapPoint(this, view, event, regionId, year);
@@ -351,12 +349,12 @@ prefetchVegetationForMapPoint = async (view: __esri.MapView | __esri.SceneView, 
      * definitionExpression narrowing — the widget that owns the selection
      * (AgriPopup) already handles that on its own layer.
      */
-syncExternalPolygonSelection = (uniqueid: string, polygonMode: boolean, regionIdHint?: number | null, clickedAt?: number): void => syncGraffExternalPolygonSelection(this, uniqueid, polygonMode, regionIdHint, clickedAt);
+syncExternalPolygonSelection = (uniqueid: string, polygonMode: boolean, regionIdHint?: number | null, clickedAt?: number): void => { syncGraffExternalPolygonSelection(this, uniqueid, polygonMode, regionIdHint, clickedAt); };
 clearPolygonSelectionFromMapClick = (): void => {
-        return clearPolygonSelectionFromMapClick(this);
+        clearPolygonSelectionFromMapClick(this);
     };
 handleMasterFilterChanged = (event: Event) => {
-        return handleMasterFilterChanged(this, event);
+        handleMasterFilterChanged(this, event);
     };
 getSearchField = (): "uniqueid" | "gidv" => {
         return getSearchField(this);
@@ -378,7 +376,7 @@ clearSelectionAfterSearchClear = async () => {
         return clearSelectionAfterSearchClear(this);
     };
 handleExternalTableSearchChanged = (event: Event) => {
-        return handleExternalTableSearchChanged(this, event);
+        handleExternalTableSearchChanged(this, event);
     };
 handleExternalTableRowSelected = async (event: Event) => {
         return handleExternalTableRowSelected(this, event);
@@ -391,7 +389,7 @@ fetchAndStoreRegionDistrictMappings = async (): Promise<void> => {
     };
     /* ---------------------- ENHANCED EVENT HANDLERS FOR ALL 4 WIDGETS ---------------------- */
 handleConstructionYearChange = (event: CustomEvent) => {
-        return handleConstructionYearChange(this, event);
+        handleConstructionYearChange(this, event);
     };
 getDisplayFields(): string[] {
         return getDisplayFields(this);
@@ -403,7 +401,7 @@ getTableOrderByFields = (): string[] => {
         return getTableOrderByFields(this);
     };
 toggleMaydonSort = (): void => {
-        return toggleMaydonSort(this);
+        toggleMaydonSort(this);
     };
 buildVhUniqueIdsClause(): string {
         return buildVhUniqueIdsClause(this);
@@ -418,16 +416,16 @@ getFieldDisplayName(fieldName: string): string {
         return getFieldDisplayName(this, fieldName);
     }
 handleLandCategoryChange = (event: CustomEvent) => {
-        return handleLandCategoryChange(this, event);
+        handleLandCategoryChange(this, event);
     };
 handleRegionalChange = (event: CustomEvent) => {
-        return handleRegionalChange(this, event);
+        handleRegionalChange(this, event);
     };
 handleGeneralFilterChange = (event: CustomEvent) => {
-        return handleGeneralFilterChange(this, event);
+        handleGeneralFilterChange(this, event);
     };
 processExternalFilterUpdate = (sourceWidget: string, updates: ConfiguredFilters) => {
-        return processExternalFilterUpdate(this, sourceWidget, updates);
+        processExternalFilterUpdate(this, sourceWidget, updates);
     };
 applyExternalFilterUpdate = async (sourceWidget: string, updates: ConfiguredFilters) => {
         return applyExternalFilterUpdate(this, sourceWidget, updates);
@@ -436,10 +434,10 @@ applyExternalFilterUpdate = async (sourceWidget: string, updates: ConfiguredFilt
 normalizeUniqueidKey = (value: string | null | undefined): string => normalizeUniqueidKey(this, value);
 recordMatchesUniqueid = (record: RecordData, uniqueid: string): boolean => recordMatchesUniqueid(this, record, uniqueid);
 scrollSelectedRowIntoCenter = (): void => {
-        return scrollSelectedRowIntoCenter(this);
+        scrollSelectedRowIntoCenter(this);
     };
 scheduleScrollSelectedRowIntoCenter = (): void => {
-        return scheduleScrollSelectedRowIntoCenter(this);
+        scheduleScrollSelectedRowIntoCenter(this);
     };
 buildUniqueidWhere = (uniqueid: string): string => buildUniqueidWhere(this, uniqueid);
 async resolveTablePageForUniqueid(uniqueid: string): Promise<number | null> {
@@ -449,13 +447,13 @@ ensureSelectedRowVisible = async (uniqueid?: string | null): Promise<void> => {
         return ensureSelectedRowVisible(this, uniqueid);
     };
 goToTablePage = (page: number): void => {
-        return goToTablePage(this, page);
+        goToTablePage(this, page);
     };
     retryMapConnection() {
-        return retryMapConnection(this);
+        retryMapConnection(this);
     }
     onActiveViewChange = (jimuMapView: JimuMapView) => {
-        return onActiveViewChange(this, jimuMapView);
+        onActiveViewChange(this, jimuMapView);
     };
 formatFieldValue(fieldName: string, value: unknown): string {
         return formatFieldValue(this, fieldName, value);
@@ -467,7 +465,7 @@ initializeMapConnection = async (jimuMapView: JimuMapView) => {
         return initializeMapConnection(this, jimuMapView);
     };
 addSelectionGlow = (view: __esri.MapView | __esri.SceneView, feature: __esri.Graphic) => {
-        return addSelectionGlow(this, view, feature);
+        addSelectionGlow(this, view, feature);
     };
 highlightFeature = async (feature: __esri.Graphic, activeMapView: JimuMapView) => {
         return highlightFeature(this, feature, activeMapView);
@@ -476,7 +474,7 @@ getConfiguredFilterFields(): string[] {
         return getConfiguredFilterFields(this);
     }
 refreshFiltersFromConfig() {
-        return refreshFiltersFromConfig(this);
+        refreshFiltersFromConfig(this);
     }
 resolveFeatureLayerFromDataSource = async (jimuMapView: JimuMapView, useDsOverride?: UseDataSource | ImmutableObject<UseDataSource>): Promise<__esri.FeatureLayer | null> => {
         return resolveFeatureLayerFromDataSource(this, jimuMapView, useDsOverride);
@@ -491,33 +489,33 @@ getFeatureLayerForViloyat = (viloyat: string): __esri.FeatureLayer | undefined =
         return getFeatureLayerForViloyat(this, viloyat);
     };
     ensureInitialization = () => {
-        return ensureInitialization(this);
+        ensureInitialization(this);
     };
     componentDidMount() {
-        return componentDidMount(this);
+        componentDidMount(this);
     }
     componentDidUpdate(prevProps: GraffWidgetProps, prevState: AgriGraffWidgetState) {
-        return componentDidUpdate(this, prevProps, prevState);
+        componentDidUpdate(this, prevProps, prevState);
     }
     componentWillUnmount() {
-        return componentWillUnmount(this);
+        componentWillUnmount(this);
     }
 initializeTheme = (): void => {
-        return initializeTheme(this);
+        initializeTheme(this);
     };
 handleAppLanguageChanged = (event: Event): void => {
-        return handleAppLanguageChanged(this, event);
+        handleAppLanguageChanged(this, event);
     };
     handleThemeChange = (event: CustomEvent<{
         isDarkTheme?: boolean;
     }> | Event): void => {
-        return handleThemeChange(this, event);
+        handleThemeChange(this, event);
     };
     onDataSourceCreated = (ds: DataSource) => {
-        return onDataSourceCreated(this, ds);
+        onDataSourceCreated(this, ds);
     };
     onDataSourceInfoChange = (info: unknown) => {
-        return onDataSourceInfoChange(this, info);
+        onDataSourceInfoChange(this, info);
     };
     fetchFilterOptions = (): Promise<void> => {
         return fetchFilterOptions(this);
@@ -547,16 +545,16 @@ filtersChanged(a: typeof this.state.regionalFilters, b: typeof this.state.region
         return filtersChanged(this, a, b);
     }
 handleGeoFilterChanged = (event: CustomEvent) => {
-        return handleGeoFilterChanged(this, event);
+        handleGeoFilterChanged(this, event);
     };
 handleResetAll = () => {
-        return handleResetAll(this);
+        handleResetAll(this);
     };
 refetchDebounced = () => {
-        return refetchDebounced(this);
+        refetchDebounced(this);
     };
 refetchNow = () => {
-        return refetchNow(this);
+        refetchNow(this);
     };
 buildApiUrlWithFilters(baseUrl: string): string {
         return buildApiUrlWithFilters(this, baseUrl);
@@ -572,20 +570,20 @@ getPolygonJoinFieldName(): string {
     }
     /* ==================== GRAPH VIEW FUNCTIONS ==================== */
 beginGraphFetch = (): void => {
-        return beginGraphFetch(this);
+        beginGraphFetch(this);
     };
 applyGraphData = (nextData: ChartVegetationRow[], extra?: Partial<AgriGraffWidgetState>, options?: {
         animate?: boolean;
     }): void => {
-        return applyGraphData(this, nextData, extra, options);
+        applyGraphData(this, nextData, extra, options);
     };
     /** Fetch regional timeseries when no polygon is selected (uses viloyat, optional tuman, optional yil for date range). */
 fetchRegionalTimeseries = () => fetchGraffRegionalTimeseries(this);
 switchToTable = () => {
-        return switchToTable(this);
+        switchToTable(this);
     };
 switchToGraph = () => {
-        return switchToGraph(this);
+        switchToGraph(this);
     };
 renderViewModeToggle = (activeMode: "table" | "graph") => {
         return renderViewModeToggle(this, activeMode);
@@ -600,31 +598,31 @@ wrapGraphFrame = (body: React.ReactNode, options?: {
         refreshLoading?: boolean;
     }) => wrapGraphFrame(this, body, options);
 toggleMonthPicker = () => {
-        return toggleMonthPicker(this);
+        toggleMonthPicker(this);
     };
 resolveMonthPickerPlacement = (): "up" | "down" => {
         return resolveMonthPickerPlacement(this);
     };
 handleMonthOptionClick = (month: number | null) => {
-        return handleMonthOptionClick(this, month);
+        handleMonthOptionClick(this, month);
     };
 resolveCurrentRegionId(): number | undefined {
         return resolveCurrentRegionId(this);
     }
 publishVegetationOverlayContext = (): void => {
-        return publishVegetationOverlayContext(this);
+        publishVegetationOverlayContext(this);
     };
 resolveCurrentYear(): number | undefined {
         return resolveCurrentYear(this);
     }
 broadcastDateIndexSelection = (): void => {
-        return broadcastDateIndexSelection(this);
+        broadcastDateIndexSelection(this);
     };
 getNavigableDateIndexDates = (): string[] => {
         return getNavigableDateIndexDates(this);
     };
 handleDateIndexNavigate = (event: Event): void => {
-        return handleDateIndexNavigate(this, event);
+        handleDateIndexNavigate(this, event);
     };
     /** Removes the current vegetation-index image overlay from the map, if any. */
     /** Fixed id stamped on every vegetation-image MediaLayer we add — lets
@@ -638,25 +636,25 @@ handleDateIndexNavigate = (event: Event): void => {
      * to remove, even though the old layer is still sitting on the map. */
     private static readonly VEGETATION_IMAGE_LAYER_ID = VEGETATION_IMAGE_LAYER_ID;
 clearVegetationImageSurfaceLoading = (requestId: number): void => {
-        return clearVegetationImageSurfaceLoading(this, requestId);
+        clearVegetationImageSurfaceLoading(this, requestId);
     };
 beginVegetationImageSurfaceLoading = (): void => {
-        return beginVegetationImageSurfaceLoading(this);
+        beginVegetationImageSurfaceLoading(this);
     };
 cancelVegetationImageOverlay = (): void => {
-        return cancelVegetationImageOverlay(this);
+        cancelVegetationImageOverlay(this);
     };
 removeVegetationImageOverlay = (): void => {
-        return removeVegetationImageOverlay(this);
+        removeVegetationImageOverlay(this);
     };
 ensureVegetationHoverTooltipEl = (): HTMLDivElement | null => ensureGraffHoverTooltipEl(this);
     private static readonly INDEX_COLORS: Record<string, string> = GraffIndexColors;
 getIndexDisplayColor = (indexKey?: string | null): string => {
         return getIndexDisplayColor(this, indexKey);
     };
-updateVegetationHoverTooltip = (value: number, clientX: number, clientY: number): void => updateGraffHoverTooltip(this, value, clientX, clientY);
-hideVegetationHoverTooltip = (): void => hideGraffHoverTooltip(this);
-detachVegetationRasterHover = (): void => detachGraffRasterHover(this);
+updateVegetationHoverTooltip = (value: number, clientX: number, clientY: number): void => { updateGraffHoverTooltip(this, value, clientX, clientY); };
+hideVegetationHoverTooltip = (): void => { hideGraffHoverTooltip(this); };
+detachVegetationRasterHover = (): void => { detachGraffRasterHover(this); };
 sampleVegetationRasterValue = (mapPoint: __esri.Point): number | null => sampleGraffRasterValue(this, mapPoint);
 resolveHoverIndexRange = (indiceType: string, rasterDate: string, fromExport?: {
         indexMin: number | null;
@@ -667,7 +665,7 @@ resolveHoverIndexRange = (indiceType: string, rasterDate: string, fromExport?: {
     } => {
         return resolveHoverIndexRange(this, indiceType, rasterDate, fromExport);
     };
-attachVegetationRasterHover = (view: __esri.MapView | __esri.SceneView): void => attachGraffRasterHover(this, view);
+attachVegetationRasterHover = (view: __esri.MapView | __esri.SceneView): void => { attachGraffRasterHover(this, view); };
 retryOverlayWithUsableDate = async (cleanId: string, regionId: number, refusedDate: string, indiceType: VegetationIndiceType): Promise<void> => {
         return retryOverlayWithUsableDate(this, cleanId, regionId, refusedDate, indiceType);
     };
@@ -692,11 +690,11 @@ preparePolygonGraphSeries = (rows: VegetationIndex[], availableDates: string[]):
         return preparePolygonGraphSeries(this, rows, availableDates);
     };
 fetchVegetationData = () => fetchGraffVegetationData(this);
-handleIndexChange = (index: "ndvi" | "savi" | "rvi" | "ci" | "evi" | "ndwi") => {
-        return handleIndexChange(this, index);
+handleIndexChange = (index: GraffIndexKey) => {
+        handleIndexChange(this, index);
     };
 handleToggleAllIndices = () => {
-        return handleToggleAllIndices(this);
+        handleToggleAllIndices(this);
     };
 localizeRuntimeMessage = (value: unknown): string => {
         return localizeRuntimeMessage(this, value);

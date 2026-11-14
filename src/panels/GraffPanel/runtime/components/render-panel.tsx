@@ -3,7 +3,7 @@ import { React } from "jimu-core";
 import type { RecordData } from "../widget";
 import { JimuMapViewComponent } from "jimu-arcgis";
 import { TriangleAlert, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { default as AgriChartLoader } from "../../../../shared/AgriChartLoader";
+import AgriChartLoader from "../../../../shared/AgriChartLoader";
 import { agriNoDataLabel } from "../../../../shared/agriNoDataLabel";
 
 export function render(host: GraffWidgetHost) {
@@ -33,13 +33,6 @@ export function render(host: GraffWidgetHost) {
         ? "Holat"
         : "Ҳолат";
 
-  const activeFiltersLabel =
-    language === "en" ? "Active filters" : language === "ru"
-      ? "Активные фильтры"
-      : language === "uz_lat"
-        ? "Faol filtrlar"
-        : "Фаол фильтрлар";
-
   const viloyatLabel =
     language === "en" ? "Region" : language === "ru"
       ? "Область"
@@ -64,7 +57,6 @@ export function render(host: GraffWidgetHost) {
       : language === "uz_lat"
         ? "Ekin turi"
         : "Экин тури";
-  const vhLabel = language === "en" ? "VS" : language === "uz_lat" ? "VH" : "ВХ";
   const maydonLabel =
     language === "en" ? "Area" : language === "ru"
       ? "Площадь"
@@ -169,13 +161,6 @@ export function render(host: GraffWidgetHost) {
     connectionStatus === "connected" &&
     !regionalFilters?.yil &&
     !hasActiveSearch;
-  const needViloyat = false; // republic-wide by default
-
-  const activeFilterCount =
-    Object.values(host.state.externalFilters || {}).filter(Boolean).length +
-    Object.values(host.state.localFilters || {}).filter(Boolean).length +
-    Object.values(regionalFilters || {}).filter(Boolean).length;
-
   const displayFields = host.getDisplayFields();
 
   return (
@@ -247,7 +232,9 @@ export function render(host: GraffWidgetHost) {
             <TriangleAlert className="agri-empty-state-icon" strokeWidth={1.7} aria-hidden="true" />
                 <p>{host.localizeRuntimeMessage(error)}</p>
                 <button
-                  onClick={() => void host.fetchData()}
+                  onClick={() => {
+                    void host.fetchData();
+                  }}
                   className="kadastr-status-retry-button"
                 >
                   {uiText("Retry", "Повторить", "Qayta urinish", "Қайта уриниш")}
@@ -292,36 +279,36 @@ export function render(host: GraffWidgetHost) {
                         else if (lower === "district") label = districtLabel;
                         else if (lower === "yil") label = yilLabel;
                         else if (lower === "turi" || lower === "uzspace")
-                          label = turiLabel;
+                          { label = turiLabel; }
                         else if (
                           lower === "shape_leng" ||
                           lower === "shape_length"
                         )
-                          label = shapeLengLabel;
+                          { label = shapeLengLabel; }
                         else if (
                           lower === "globalid_1" ||
                           lower === "globalid" ||
                           lower.startsWith("globalid")
                         )
-                          label = globalIdLabel;
+                          { label = globalIdLabel; }
                         else if (lower === "f_name") label = fNameLabel;
                         else if (lower === "f_inn") label = fInnLabel;
                         else if (lower === "f_cad") label = fCadLabel;
                         else if (lower === "yld") label = yldLabel;
                         else if (lower === "numeric_id")
-                          label = numericIdLabel;
+                          { label = numericIdLabel; }
                         else if (lower === "uniqueid") label = uniqueIdHeader;
                         else if (lower === "maydon") label = maydonLabel;
                         else if (
                           lower.includes("maydon") ||
                           lower.includes("area")
                         )
-                          label = maydonLabel;
+                          { label = maydonLabel; }
                         else if (
                           lower.includes("name") ||
                           lower.includes("nom")
                         )
-                          label = nameLabel;
+                          { label = nameLabel; }
                         else label = host.getFieldDisplayName(fieldName);
 
                         const isMaydonSortable =
@@ -444,7 +431,7 @@ export function render(host: GraffWidgetHost) {
                         type="button"
                         className="contours-table__pagination-btn"
                         disabled={safePage <= 1 || loading}
-                        onClick={() => host.goToTablePage(safePage - 1)}
+                        onClick={() => { host.goToTablePage(safePage - 1); }}
                         aria-label="Previous page"
                       >
                         <ChevronLeft
@@ -464,7 +451,7 @@ export function render(host: GraffWidgetHost) {
                         type="button"
                         className="contours-table__pagination-btn"
                         disabled={safePage >= totalPages || loading}
-                        onClick={() => host.goToTablePage(safePage + 1)}
+                        onClick={() => { host.goToTablePage(safePage + 1); }}
                         aria-label="Next page"
                       >
                         <ChevronRight

@@ -11,12 +11,8 @@ import LzwDecoder from "../../../../../node_modules/geotiff/dist-module/compress
 import DeflateDecoder from "../../../../../node_modules/geotiff/dist-module/compression/deflate.js";
 import PackbitsDecoder from "../../../../../node_modules/geotiff/dist-module/compression/packbits.js";
 import JpegDecoder from "../../../../../node_modules/geotiff/dist-module/compression/jpeg.js";
-import LercDecoder, {
-  zstd as lercZstd,
-} from "../../../../../node_modules/geotiff/dist-module/compression/lerc.js";
-import ZstdDecoder, {
-  zstd as zstdInit,
-} from "../../../../../node_modules/geotiff/dist-module/compression/zstd.js";
+import LercDecoder, { zstd as lercZstd } from "../../../../../node_modules/geotiff/dist-module/compression/lerc.js";
+import ZstdDecoder, { zstd as zstdInit } from "../../../../../node_modules/geotiff/dist-module/compression/zstd.js";
 import WebImageDecoder from "../../../../../node_modules/geotiff/dist-module/compression/webimage.js";
 
 export {

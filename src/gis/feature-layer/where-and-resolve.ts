@@ -80,7 +80,6 @@ export async function resolveFeatureLayerForFilters(
     const candidates = getAllFeatureLayersFromMap(jimuMapView.view.map);
     if (!candidates.length) return null;
 
-    const wantsRegion = !!String(filters.viloyat ?? "").trim();
     const scored = candidates.map((candidate) => {
       const haystack = `${String(candidate?.title || "")} ${String(candidate?.url || "")}`;
       return {
@@ -170,7 +169,7 @@ export function buildAgriWhere(
   }
 
   if (filters.viloyat && !filters.skipRegionFilter)
-    push(
+    { push(
       textMatchClause(
         ["region_id", "viloyat"],
         available,
@@ -178,9 +177,9 @@ export function buildAgriWhere(
         layer,
         "region",
       ),
-    );
+    ); }
   if (filters.tuman)
-    push(
+    { push(
       textMatchClause(
         ["distrct_id", "district_id", "tuman"],
         available,
@@ -188,7 +187,7 @@ export function buildAgriWhere(
         layer,
         "district",
       ),
-    );
+    ); }
   if (filters.mavsumOrValues?.length) {
     push(
       exactOrClause(
@@ -243,9 +242,9 @@ export function buildAgriWhere(
     );
   }
   if (filters.manba)
-    push(textMatchClause(["real_name"], available, filters.manba, layer));
+    { push(textMatchClause(["real_name"], available, filters.manba, layer)); }
   if (filters.kanal)
-    push(textMatchClause(["real_n1"], available, filters.kanal, layer));
+    { push(textMatchClause(["real_n1"], available, filters.kanal, layer)); }
 
   const mm = String(filters.minMax ?? "").trim().toLowerCase();
   if (mm && hasFieldIn(available, "minmax")) {
@@ -259,7 +258,7 @@ export function buildAgriWhere(
         ? `minmax='${escapeArcGIS(vals[0])}'`
         : `(${vals.map((v) => `minmax='${escapeArcGIS(v)}'`).join(" OR ")})`;
     if (mm === "both")
-      push(`(${eq(valuesFor("min"))} OR ${eq(valuesFor("max"))})`);
+      { push(`(${eq(valuesFor("min"))} OR ${eq(valuesFor("max"))})`); }
     else if (mm === "min") push(eq(valuesFor("min")));
     else if (mm === "max") push(eq(valuesFor("max")));
     else push(`minmax='${escapeArcGIS(String(filters.minMax))}'`);

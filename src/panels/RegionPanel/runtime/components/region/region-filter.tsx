@@ -3,9 +3,10 @@ import { messageOf, panelEventDetail } from "../../../../panel-filter-detail";
 import { regionLog as regionLogFn } from "../../region-log";
 import { bindMasterFilter } from "../../../../../data/agri-filter-bus";
 import { detectIsDarkTheme, normalizeLanguage } from "../../../../../shared/agri-language";
-import type { WidgetSize, AgriRegionState } from "../../widget";
-import { JimuMapView } from "jimu-arcgis";
+import type { WidgetSize } from "../../widget";
+import { type JimuMapView } from "jimu-arcgis";
 import { getAgriTableDataLayer } from "../../../../../gis/agri-table-data-source";
+import { subscribeAgriLandOverlay } from "../../../../../store/agri-land-overlay-store";
 
 export function componentDidMount(host: RegionWidgetHost) {
   regionLogFn("componentDidMount — this build IS running", {
@@ -16,6 +17,13 @@ export function componentDidMount(host: RegionWidgetHost) {
 
   // Master filter — shared in-memory store (AgriLocalization is source of truth)
   host._unbindMasterFilter = bindMasterFilter(host.handleMasterFilterChange);
+  host._unbindLandOverlay = subscribeAgriLandOverlay((overlay) => {
+    const reserveMode = overlay === "reserve";
+    if (reserveMode === host.state.reserveMode) return;
+    host.setState({ reserveMode, regionalError: null }, () => {
+      void host.fetchRegionalDataDeduped();
+    });
+  });
   document.addEventListener("mousedown", host.handleDocumentClickForCountFilter);
   document.addEventListener(
     "agriV11ThemeToggled",
@@ -36,6 +44,8 @@ export function componentWillUnmount(host: RegionWidgetHost) {
   }
   host._unbindMasterFilter?.();
   host._unbindMasterFilter = null;
+  host._unbindLandOverlay?.();
+  host._unbindLandOverlay = null;
   document.removeEventListener(
     "mousedown",
     host.handleDocumentClickForCountFilter,
@@ -165,7 +175,7 @@ export const setupResizeObserver = (regionHost: RegionWidgetHost) => {
   };
 
   updateSize();
-  regionHost._resizeObserver = new ResizeObserver(() => updateSize());
+  regionHost._resizeObserver = new ResizeObserver(() => { updateSize(); });
   if (regionHost._rootRef.current) {
     regionHost._resizeObserver.observe(regionHost._rootRef.current);
   }

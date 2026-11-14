@@ -81,7 +81,7 @@ export function isExactArcGisYmd(ymd: unknown): boolean {
 export function eqAposSmart(field: string, raw: unknown): string {
   const s = normalizeApos(String(raw ?? "").trim());
   if (!s) return "";
-  if (!/'/.test(s)) return `${field}='${escapeArcGIS(s)}'`;
+  if (!s.includes("'")) return `${field}='${escapeArcGIS(s)}'`;
   const base = s.replace(/'/g, "\uFFFF");
   const parts = APOSTROPHE_VARIANTS.map((ch) => {
     const candidate = base.split("\uFFFF").join(ch);

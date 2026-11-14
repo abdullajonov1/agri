@@ -37,6 +37,7 @@ export abstract class LocalizationWidgetFields extends React.PureComponent<
   _dataSourceInfoDebounceTimer: TimerHandle | null = null;
   _isMounted = false;
   _mapClickHandle: __esri.Handle | null = null;
+  _viewReadyWatchHandle: { remove(): void } | null = null;
   _mapInteractionHandle: __esri.Handle | null = null;
   /** Re-checks MapImage visibility/DE after popup identify + goTo settle. */
   _polygonFilterGuardTimers: ReturnType<typeof setTimeout>[] = [];
@@ -90,6 +91,7 @@ export abstract class LocalizationWidgetFields extends React.PureComponent<
   _notificationBodyRef = React.createRef<HTMLDivElement>();
   _notificationLoadToken = 0;
   _unbindNotificationPack: (() => void) | null = null;
+  _unbindLandOverlay: (() => void) | null = null;
   _notificationPaintFrame = 0;
   /** Widgets have reached a year-scoped pack; notification queries may start. */
   _notificationWidgetsReady = false;
@@ -156,6 +158,8 @@ export abstract class LocalizationWidgetFields extends React.PureComponent<
   _vhUniqueIdCache: Record<string, string[]> = {};
   /** Last successful VH bar payload — reused on VH-only selection toggles. */
   _lastVhBarData: VHBarData | null = null;
+  /** makeVhBarComputeKey() that produced `_lastVhBarData` — reuse only on match. */
+  _lastVhBarDataKey = "";
   /**
    * Single-flight + memo for computeVhBarData. Identical year/geo/crop keys
    * share one in-flight promise so startup broadcast storms do not fan out

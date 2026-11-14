@@ -1,4 +1,4 @@
-import { JimuMapView } from "jimu-arcgis";
+import { type JimuMapView } from "jimu-arcgis";
 import type { DataSource, IMDataSourceInfo, IMUseDataSource } from "jimu-core";
 import type { AgriMapLayer } from "../../localization/agri-map-layer";
 import { getTuriCropLookupKey } from "../../../shared/agri-crop-labels";
@@ -6,7 +6,7 @@ import { MAX_MAP_CONNECTION_ATTEMPTS } from "../../../shared/map-connection-serv
 import { makeRegionDistrictKey as makeRegionDistrictKeyShared, normalizeLocalizationApos } from "../../localization/geo-keys";
 import { getFeatureLayerKey } from "../../localization/layer-utils";
 import { normalizeConnectionId } from "../../localization/connection-ids";
-import type { CropUniqueValueInfo, LocalizationHost } from "./components/host";
+import type { CropUniqueValueInfo } from "./components/host";
 import {
   applyCropRenderer,
   applyInstantCropPaletteNoRefresh,
@@ -128,10 +128,10 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
     buildCropUniqueValueInfosFromValues(this.host, field, distinctValues);
 
   refreshCropLayer = (layer: AgriMapLayer): void =>
-    refreshCropLayer(this.host, layer);
+    { refreshCropLayer(this.host, layer); };
 
   resetCropRenderer = (): void =>
-    resetCropRenderer(this.host);
+    { resetCropRenderer(this.host); };
 
   applyCropRenderer = (requestId: number): Promise<void> =>
     applyCropRenderer(this.host, requestId);
@@ -140,30 +140,30 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
     syncCropRenderer(this.host);
 
   applyInstantCropPaletteNoRefresh = (): void =>
-    applyInstantCropPaletteNoRefresh(this.host);
+    { applyInstantCropPaletteNoRefresh(this.host); };
 
   warmYearRegionMapImages = (): void =>
-    warmYearRegionMapImages(this.host);
+    { warmYearRegionMapImages(this.host); };
 
   setShownRegionYearOpacity = (opacity: number): void =>
-    setShownRegionYearOpacity(this.host, opacity);
+    { setShownRegionYearOpacity(this.host, opacity); };
 
 
   setMapSurfaceLoading = (loading: boolean, reason: string): void => {
-    return setMapSurfaceLoading(this.host, loading, reason);
+    setMapSurfaceLoading(this.host, loading, reason);
   };
 
   setMapNoData = (noData: boolean, reason: string): void =>
-    setMapNoData(this.host, noData, reason);
+    { setMapNoData(this.host, noData, reason); };
 
   clearRegionYearSettleRepaintTimers = (): void =>
-    clearRegionYearSettleRepaintTimers(this.host);
+    { clearRegionYearSettleRepaintTimers(this.host); };
 
   repaintShownRegionYearLayers = (phase: string): void =>
-    repaintShownRegionYearLayers(this.host, phase);
+    { repaintShownRegionYearLayers(this.host, phase); };
 
   scheduleShownRegionYearSettleRepaint = (requestId: number, delayMs: number, phase: string): void =>
-    scheduleShownRegionYearSettleRepaint(this.host, requestId, delayMs, phase);
+    { scheduleShownRegionYearSettleRepaint(this.host, requestId, delayMs, phase); };
 
   waitForShownRegionYearRedraw = (refresh = true): Promise<void> =>
     waitForShownRegionYearRedraw(this.host, refresh);
@@ -229,10 +229,10 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
   }
 
   attachMapClickDispatcher = (jimuMapView: JimuMapView): void =>
-    attachMapClickDispatcher(this.host, jimuMapView);
+    { attachMapClickDispatcher(this.host, jimuMapView); };
 
   onActiveViewChange = (jimuMapView: JimuMapView) =>
-    onActiveViewChange(this.host, jimuMapView);
+    { onActiveViewChange(this.host, jimuMapView); };
 
 
   initializeMapConnection = (jimuMapView: JimuMapView): Promise<void> =>
@@ -246,19 +246,19 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
    * normal path causes no extra export; it only repairs a layer that drifted.
    */
   clearPolygonFilterGuards = (): void => {
-    this._polygonFilterGuardTimers.forEach((timer) => clearTimeout(timer));
+    this._polygonFilterGuardTimers.forEach((timer) => { clearTimeout(timer); });
     this._polygonFilterGuardTimers = [];
   };
 
   reassertPolygonGeographyFilter = (phase: string): void =>
-    reassertPolygonGeographyFilter(this.host, phase);
+    { reassertPolygonGeographyFilter(this.host, phase); };
 
   handlePolygonMapClickPhase = (event: Event): void => {
-    return handlePolygonMapClickPhase(this.host, event);
+    handlePolygonMapClickPhase(this.host, event);
   };
 
   schedulePolygonFilterGuards = (): void => {
-    return schedulePolygonFilterGuards(this.host);
+    schedulePolygonFilterGuards(this.host);
   };
 
   initializeMapConnectionOnce = (jimuMapView: JimuMapView) =>
@@ -283,16 +283,16 @@ export abstract class LocalizationMapBase extends LocalizationWidgetFields {
     buildLayerViloyatIndex(this.host);
 
   detectNdviStatusDateFieldsFromLayer = (): void =>
-    detectNdviStatusDateFieldsFromLayer(this.host);
+    { detectNdviStatusDateFieldsFromLayer(this.host); };
 
   onDataSourceCreated = (ds: DataSource) =>
-    onDataSourceCreated(this.host, ds);
+    { onDataSourceCreated(this.host, ds); };
 
   onDataSourceInfoChange = (info: IMDataSourceInfo) =>
-    onDataSourceInfoChange(this.host, info);
+    { onDataSourceInfoChange(this.host, info); };
 
   retryMapConnection = () =>
-    retryMapConnection(this.host);
+    { retryMapConnection(this.host); };
 
   runInitialDataLoad = (): Promise<void> =>
     runInitialDataLoad(this.host);

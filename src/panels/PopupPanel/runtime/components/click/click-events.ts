@@ -126,7 +126,7 @@ export const handleSharedMapClick = async (host: PopupWidgetHost, event: Event):
   agriMapClickDebug(
     "AgriPolygon ← shared map-click SKIP (direct view click is sole owner)",
   );
-  return;
+
 };
 export function detachMapClick(host: PopupWidgetHost) {
   if (host._clickHandle?.remove) host._clickHandle.remove();

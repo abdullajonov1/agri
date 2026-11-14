@@ -36,7 +36,7 @@ describe("resolveVhRegionChartUniqueIdsBackground", () => {
     const host = mkBg();
     await resolveVhRegionChartUniqueIdsBackground(host, 0, params);
     expect(m(queryVegetationUniqueIdsForStatus).mock.calls[0][0]).toEqual({
-      region: 3, district: undefined, date: "2024-05-01", ndviStatus: "yaxshi", cropIds: ["1"],
+      region: 3, district: undefined, date: "2024-05-01", ndviStatus: "yaxshi", cropIds: ["1"], useYearSummary: true,
     });
     expect(host.setVhUniqueIdCacheEntry).toHaveBeenCalledWith("KEY", ["a", "b"]);
     expect(host._vhRegionChartUniqueIds).toEqual(["a", "b"]);

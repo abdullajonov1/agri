@@ -3,6 +3,7 @@ import { MapViewManager, loadArcGISJSAPIModules } from "jimu-arcgis";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import EmbeddedAgriMap from "./embedded-agri-map";
 import { setAgriAdminBordersVisible } from "../gis/agri-admin-boundary-layer";
+import { installAgriCorsGuard, recreateDataSource } from "../shared/agri-cors-guard";
 
 interface FakeLayer {
   title: string;
@@ -54,12 +55,44 @@ jest.mock("../gis/agri-admin-boundary-layer", () => ({
 jest.mock("../gis/feature-layer-data", () => ({
   looksLikeRegionYearLayerHaystack: (h: string) => h.includes("region-year"),
 }));
+jest.mock("../shared/agri-cors-guard", () => ({
+  installAgriCorsGuard: jest.fn(async () => ({ added: [], removedRules: 1 })),
+  recreateDataSource: jest.fn(),
+}));
+jest.mock("./field-compare-panel", () => ({
+  __esModule: true,
+  default: () => null,
+}));
+jest.mock("./map-land-layers-panel", () => ({
+  __esModule: true,
+  default: () => null,
+}));
 jest.mock("jimu-core", () => ({
   ...jest.requireActual("jimu-core"),
   getAppStore: () => ({ getState: () => ({ portalUrl: "https://portal.test/" }) }),
   DataSourceManager: { getInstance: jest.fn() },
-  DataSourceComponent: ({ onDataSourceCreated }: { onDataSourceCreated: (ds: object) => void }) => (
-    <button type="button" data-testid="ds-component" onClick={() => onDataSourceCreated({ ready: async (): Promise<void> => undefined })} />
+  DataSourceComponent: ({
+    useDataSource,
+    onDataSourceCreated,
+    onCreateDataSourceFailed,
+  }: {
+    useDataSource: { dataSourceId: string };
+    onDataSourceCreated: (ds: object) => void;
+    onCreateDataSourceFailed?: (err: unknown) => void;
+  }) => (
+    <React.Fragment>
+      <button
+        type="button"
+        data-testid="ds-component"
+        onClick={() => onDataSourceCreated(
+          // the created source, as DataSourceManager now holds it
+          (jest.requireMock("jimu-core") as typeof import("jimu-core")).DataSourceManager.getInstance()
+            .getDataSource(useDataSource.dataSourceId) ||
+            { id: useDataSource.dataSourceId, ready: async (): Promise<void> => undefined },
+        )}
+      />
+      <button type="button" data-testid="ds-component-fail" onClick={() => onCreateDataSourceFailed?.(new Error("x"))} />
+    </React.Fragment>
   ),
 }));
 jest.mock("jimu-arcgis", () => ({
@@ -71,6 +104,8 @@ jest.mock("jimu-arcgis", () => ({
 const mockDsManager = DataSourceManager.getInstance as unknown as jest.Mock;
 const mockViewManager = MapViewManager.getInstance as unknown as jest.Mock;
 const mockLoad = loadArcGISJSAPIModules as unknown as jest.Mock;
+const mockGuard = installAgriCorsGuard as unknown as jest.Mock;
+const mockRecreate = recreateDataSource as unknown as jest.Mock;
 
 class FakeMapCtor {
   basemap: string | { id: string };
@@ -115,7 +150,7 @@ const mount = (props: Partial<React.ComponentProps<typeof EmbeddedAgriMap>> = {}
   const cb: Callbacks = { onViewReady: jest.fn(), onLoadingChange: jest.fn(), onError: jest.fn() };
   const utils = render(
     <div className="agri-dashboard-map-slot">
-      <EmbeddedAgriMap mapWidgetId="w1-embedded-map" {...cb} {...props} />
+      <EmbeddedAgriMap mapWidgetId="w1-embedded-map" webMapDataSourceId="wm" {...cb} {...props} />
     </div>,
   );
   return { ...utils, ...cb };
@@ -137,10 +172,15 @@ describe("EmbeddedAgriMap", () => {
     mockLoad.mockReset();
     mockLoad.mockResolvedValue([FakeMapCtor, FakeMapCtor, FakeViewCtor, class { constructor(public args: unknown) {} }]);
     mockViewManager.mockReturnValue({ createJimuMapView: state.createJimu, destroyJimuMapView: state.destroyJimu });
-    mockDsManager.mockReturnValue({ getDataSource: jest.fn((): null => null) });
+    // The settings WebMap ("wm") exists but has no portal item: basemap-only map.
+    mockDsManager.mockReturnValue({
+      getDataSource: jest.fn((id: string) => (id === "wm" ? { ready: async (): Promise<void> => undefined } : null)),
+    });
     window.localStorage.clear();
     document.documentElement.className = "";
     jest.mocked(setAgriAdminBordersVisible).mockClear();
+    mockGuard.mockClear();
+    mockRecreate.mockReset();
   });
 
   test("renders localized controls and falls back to Uzbek Latin", () => {
@@ -333,11 +373,78 @@ describe("EmbeddedAgriMap", () => {
     window.removeEventListener("agri-main:map-settings-request", listener);
   });
 
-  test("feature layer root ids are used when no web map is configured", async () => {
+  test("without a WebMap chosen in the settings no map is built, even with feature layers", async () => {
     const getDataSource = jest.fn(() => ({ ready: async (): Promise<void> => undefined }));
     mockDsManager.mockReturnValue({ getDataSource });
-    const cb = mount({ featureUseDataSources: [{ dataSourceId: "root-layer1" } as never] });
+    const cb = mount({
+      webMapDataSourceId: "",
+      featureUseDataSources: [{ dataSourceId: "root-layer1", rootDataSourceId: "root" } as never],
+    });
+    await waitFor(() => expect(cb.onLoadingChange).toHaveBeenLastCalledWith(false));
+    expect(getDataSource).not.toHaveBeenCalledWith("root");
+    expect(mockLoad).not.toHaveBeenCalled();
+    expect(state.views).toHaveLength(0);
+    expect(cb.onViewReady).not.toHaveBeenCalled();
+  });
+
+  test("a failed WebMap data source is created once more after the CORS guard", async () => {
+    const recreate = mockRecreate.mockResolvedValueOnce({ id: "wm2", itemId: "item1", ready: async (): Promise<void> => undefined } as never);
+    mockDsManager.mockReturnValue({ getDataSource: jest.fn((): null => null) });
+    const cb = mount({ webMapDataSourceId: "wm2" });
+    await act(async () => undefined);
+    fireEvent.click(screen.getByTestId("ds-component-fail"));
     await readyView(cb);
-    expect(getDataSource).toHaveBeenCalledWith("root");
+    expect(mockGuard).toHaveBeenCalled();
+    expect(recreate).toHaveBeenCalledWith("wm2");
+    expect(cb.onError).not.toHaveBeenCalled();
+  });
+
+  test("a WebMap that fails again clears the loader and reports an error", async () => {
+    mockRecreate.mockRejectedValueOnce(new Error("still 403"));
+    mockDsManager.mockReturnValue({ getDataSource: jest.fn((): null => null) });
+    const cb = mount({ webMapDataSourceId: "missing" });
+    await act(async () => undefined);
+    fireEvent.click(screen.getByTestId("ds-component-fail"));
+    await waitFor(() => expect(cb.onError).toHaveBeenCalledWith(expect.stringContaining("Web Map")));
+    expect(cb.onLoadingChange).toHaveBeenLastCalledWith(false);
+    expect(mockRecreate).toHaveBeenCalledTimes(1);
+    // a second failure of the same WebMap is not retried again
+    fireEvent.click(screen.getByTestId("ds-component-fail"));
+    await waitFor(() => expect(cb.onError).toHaveBeenCalledTimes(2));
+    expect(mockRecreate).toHaveBeenCalledTimes(1);
+    expect(state.views).toHaveLength(0);
+  });
+
+  test("switching to another WebMap never opens the previous WebMap's item", async () => {
+    const sources: Record<string, object> = {
+      wm: { id: "wm", itemId: "item-old", ready: async (): Promise<void> => undefined },
+    };
+    mockDsManager.mockReturnValue({ getDataSource: jest.fn((id: string) => sources[id] || null) });
+    const cb = mount();
+    // the hidden DataSourceComponent reports the first WebMap
+    fireEvent.click(screen.getByTestId("ds-component"));
+    await readyView(cb);
+    const mapsBefore = state.maps.length;
+    // settings switch to "wm2"; its data source is not created yet
+    cb.rerender(
+      <div className="agri-dashboard-map-slot">
+        <EmbeddedAgriMap
+          mapWidgetId="w1-embedded-map"
+          webMapDataSourceId="wm2"
+          onViewReady={cb.onViewReady}
+          onLoadingChange={cb.onLoadingChange}
+          onError={cb.onError}
+        />
+      </div>,
+    );
+    await act(async () => undefined);
+    expect(state.maps.slice(mapsBefore)).toHaveLength(0);
+    sources.wm2 = { id: "wm2", itemId: "item-new", ready: async (): Promise<void> => undefined };
+    fireEvent.click(screen.getByTestId("ds-component"));
+    await waitFor(() => expect(state.maps.length).toBeGreaterThan(mapsBefore));
+    const opened = state.maps.slice(mapsBefore).map(
+      (map) => (map.ctorArgs as { portalItem?: { id: string } }).portalItem?.id,
+    );
+    expect(opened).toEqual(["item-new"]);
   });
 });

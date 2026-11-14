@@ -1,4 +1,5 @@
 jest.mock("jimu-core", () => ({ React: jest.requireActual("react") }));
+jest.mock("../localization-log", () => ({ agriLog: jest.fn() }));
 jest.mock("../../../../../gis/feature-layer-data", () => ({
   withAgriAccessWhere: (where: string): string => where,
 }));
@@ -31,6 +32,7 @@ import {
   handleGraffSearchRowClick,
   runGraffAutoComplete,
 } from "./graff-search-service";
+import { agriLog } from "../localization-log";
 
 const layerMock = jest.mocked(getAgriTableDataLayer);
 const farmerIdsMock = jest.mocked(queryAgriUniqueIdsForFarmerInn);
@@ -343,6 +345,18 @@ describe("graff-search-service", () => {
       expect(jest.mocked(host.applyMapFiltersOptimized)).toHaveBeenCalledWith({ mode: "selection", reason: "district" });
       expect(jest.mocked(host.fetchDataWithCurrentState)).toHaveBeenCalled();
       await flush();
+      expect(host._farmerSearchApplying).toBe(false);
+    });
+
+    test("logs a rejected map apply and still clears the applying flag", async () => {
+      const host = searchHost({
+        state: { selectedFarmerInn: "1", viloyat: "B", tuman: "T", connectionStatus: "connected", graffSearchText: "1" },
+        _preFarmerSearchGeo: { viloyat: "A", tuman: "Z" },
+        applyMapFiltersOptimized: jest.fn(() => Promise.reject(new Error("map down"))),
+      });
+      clearFarmerSearchAndRestoreGeo(host);
+      await flush();
+      expect(jest.mocked(agriLog)).toHaveBeenCalledWith("graffSearch:apply-map-filters:FAILED", { error: "map down" });
       expect(host._farmerSearchApplying).toBe(false);
     });
 

@@ -21,7 +21,7 @@ function AccessRuleCard({ ctl, field, rule }: RuleCardProps) {
                     type="checkbox"
                     className="selectCheckbox"
                     checked={isSelected}
-                    onChange={() => ctl.toggleRuleSelect(rule.id)}
+                    onChange={() => { ctl.toggleRuleSelect(rule.id); }}
                 />
 
                 <div className="ruleInfo">
@@ -32,18 +32,18 @@ function AccessRuleCard({ ctl, field, rule }: RuleCardProps) {
                 </div>
 
                 <div className="ruleActions">
-                    <button className="smallButton" onClick={() => ctl.openAddGroup(rule.id)}>
+                    <button className="smallButton" onClick={() => { ctl.openAddGroup(rule.id); }}>
                         + группа
                     </button>
 
-                    <button className="iconButton" onClick={() => ctl.openEditRule(rule)}>
+                    <button className="iconButton" onClick={() => { ctl.openEditRule(rule); }}>
                         ✎
                     </button>
 
                     <button
                         className="iconButton danger"
                         onClick={() =>
-                            ctl.setDialog({ type: "deleteRule", payload: { ruleId: rule.id } })
+                            { ctl.setDialog({ type: "deleteRule", payload: { ruleId: rule.id } }); }
                         }
                     >
                         ×
@@ -66,13 +66,13 @@ function AccessRuleCard({ ctl, field, rule }: RuleCardProps) {
                                 groupsLoading={ctl.groupsLoading}
                                 onCopyGroupId={ctl.copyGroupId}
                                 isSelected={ctl.selectedGroupKeys.includes(groupKey)}
-                                onToggleSelect={() => ctl.toggleGroupSelect(groupKey)}
-                                onEdit={() => ctl.openEditGroup(rule.id, index, group)}
+                                onToggleSelect={() => { ctl.toggleGroupSelect(groupKey); }}
+                                onEdit={() => { ctl.openEditGroup(rule.id, index, group); }}
                                 onDelete={() =>
-                                    ctl.setDialog({
+                                    { ctl.setDialog({
                                         type: "deleteGroup",
                                         payload: { ruleId: rule.id, groupIndex: index },
-                                    })
+                                    }); }
                                 }
                             />
                         );
@@ -107,7 +107,7 @@ export function AccessFieldPanel({ ctl, field }: FieldPanelProps) {
 
                     <button
                         className="iconButton danger"
-                        onClick={() => ctl.setDialog({ type: "deleteField" })}
+                        onClick={() => { ctl.setDialog({ type: "deleteField" }); }}
                     >
                         ×
                     </button>

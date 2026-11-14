@@ -2,7 +2,7 @@ import type { PopupSettingHost } from "../popup-setting-host";
 import type { AllWidgetSettingProps } from "jimu-for-builder";
 import type { Config, IMConfig, AgriPopupConfig } from "../../config";
 import type { State, FieldInfo } from "../agri-popup-setting";
-import { React, Immutable } from "jimu-core";
+import { type React, Immutable } from "jimu-core";
 import { hasAsMutable } from "../plain-value";
 import {
   computePopupMenuFrame,

@@ -1,4 +1,4 @@
-import { type VegetationAvgNdviUniqueRow, agriVhLog, type VegetationStatusCount, vegetationStatusStatsCache, getAgriVegetationIndicesLayer, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, resolveVegetationUniqueIdPageSize, processedAtTashkentDayWhere, agriNotifyLog, type VegetationRecentDayGroup, vegetationRecentDaysCacheKey, vegetationRecentDaysCache, type VegetationRecentRegionRow, type VegQuery } from "./veg-base";
+import { vegAccessCacheTag, type VegetationAvgNdviUniqueRow, agriVhLog, type VegetationStatusCount, vegetationStatusStatsCache, getAgriVegetationIndicesLayer, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, resolveVegetationUniqueIdPageSize, processedAtTashkentDayWhere, agriNotifyLog, type VegetationRecentDayGroup, vegetationRecentDaysCacheKey, vegetationRecentDaysCache, type VegetationRecentRegionRow, type VegQuery } from "./veg-base";
 import type { AgriQueryableLayer } from "../../types/agri-layer";
 import { queryVegetationAvgNdviByUniqueIdOnce, queryVegetationAvgNdviByUniqueIdPaged } from "./veg-series";
 import { queryVegetationStatusCountsByStatus, listRegionsForProcessedDay, countDistinctUniqueIdsByRegionParallel, countDistinctViaOidCursor, fetchLastProcessedAtCalendarWindow } from "./veg-status";
@@ -140,7 +140,7 @@ async function queryVegetationStatusCountsForRegionsOnDate(params: {
     );
   }
   const where = clauses.join(" AND ");
-  const cacheKey = `status-stats-multi|${where}`;
+  const cacheKey = `status-stats-multi|${where}${vegAccessCacheTag()}`;
   return rememberAsync({
     memory: vegetationStatusStatsCache,
     namespace: "veg-status-stats",

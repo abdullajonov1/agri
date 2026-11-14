@@ -1,124 +1,11 @@
 // AgriRegion - Pure UI widget that informs AgriFilter of region selections
 // Does NOT filter map directly, only displays data and notifies AgriFilter
 
-import { JimuMapView, JimuMapViewComponent } from "jimu-arcgis";
-import {
-  DataSource,
-  DataSourceComponent,
-  DataSourceManager,
-  QueriableDataSource,
-  React,
-} from "jimu-core";
-import { Button } from "jimu-ui";
-import { TriangleAlert, ChevronLeft } from "lucide-react";
-import AgriChartLoader from "../../../shared/AgriChartLoader";
-import { agriNoDataLabel } from "../../../shared/agriNoDataLabel";
-import { AgriRegionBarChart } from "./AgriRegionBarChart";
-import { SortAscIcon, SortDescIcon } from "./SortIcons";
-import {
-  getQueryableLayer,
-} from "../../../gis/feature-layer-data";
-import {
-  getAgriTableDataLayer,
-} from "../../../gis/agri-table-data-source";
-import { translateAgriPlaceForDisplay } from "../../../shared/agri-place-display";
-import { bindMasterFilter } from "../../../data/agri-filter-bus";
-import { getRegionGroupFeaturesCached } from "../../../data/agri-stats-store";
-import {
-  accumulateRegionGroupFeaturesByCode,
-  regionAccumulatorToSortedRows,
-  regionOutStatName,
-  type RegionGroupAccumulator,
-} from "../../../data/agri-region-stats";
-import { findAreaFieldNumeric } from "../../../data/agri-area-field";
-import {
-  detectIsDarkTheme,
-  normalizeLanguage,
-  resolveInitialLanguage,
-} from "../../../shared/agri-language";
-import { getDashboardPack, waitForDashboardPackReady } from "../../../store/agri-dashboard-store";
-import { matchRegionDashboardPack } from "../../../data/agri-dashboard-pack-match";
-import {
-  applyRegionRowPercentages,
-  mapRegionPackRows,
-  resolveRegionAggregateView,
-} from "../../../data/agri-dashboard-pack-apply";
-import {
-  buildRegionAggregatesWhere,
-} from "../../../controller/agri-where-builder";
+import { type JimuMapView } from "jimu-arcgis";
+import { type DataSource, type QueriableDataSource, React } from "jimu-core";
+import { detectIsDarkTheme, resolveInitialLanguage } from "../../../shared/agri-language";
+import { getAgriLandOverlay } from "../../../store/agri-land-overlay-store";
 import "./AgriRegion.css";
-
-export type AgriDisplayLanguage = "uz_cyr" | "uz_lat" | "ru" | "en";
-
-export type WidgetSize = "xs" | "sm" | "md" | "lg";
-
-
-
-const REGION_DISPLAY_COUNT_OPTIONS = [10, 15, 20] as const;
-
-export interface RegionalDataItem {
-  name: string;
-  maydon: number;
-  percentage?: number;
-}
-
-export interface AgriRegionState {
-  regionalLoading: boolean;
-  regionalError: string | null;
-  regionalData: {
-    viloyatlar: RegionalDataItem[];
-    tumanlar: RegionalDataItem[];
-    totalArea: number;
-  };
-  // Scope from master (lock)
-  lockedViloyat: string | null;
-  isLocked: boolean;
-
-  // Current filters from AgriFilter
-  currentFilters: {
-    yil: string;
-    viloyat: string;
-    tuman: string;
-    turi: string;
-    turlar: string[];
-    vh: string;
-    vhUniqueids: string[] | null;
-    /** When VH was selected before ekin turi, charts stay VH-scoped. */
-    filterPieByVh: boolean;
-  };
-
-  // Navigation
-  currentView: "viloyat" | "tuman";
-  selectedViloyatForDrillDown: string | null;
-  selectedRegion: string | null;
-
-  // UI
-  displayCount: number;
-  displayCountMenuOpen: boolean;
-  /** Default is highest value first; icons cycle through the other sorts. */
-  sortMode: "value_desc" | "value_asc";
-  isDarkTheme: boolean;
-  widgetSize: WidgetSize;
-  containerWidth: number;
-  chartAreaHeight: number;
-
-  // Map/DS
-  activeMapView?: JimuMapView;
-  featureLayer?: __esri.FeatureLayer;
-  featureLayers: __esri.FeatureLayer[];
-  dataSource?: QueriableDataSource;
-
-  areaField: string | null;
-  statMode: "sum" | "count";
-
-  connectionStatus: "idle" | "connecting" | "connected" | "failed";
-  language: "uz_cyr" | "uz_lat" | "ru" | "en";
-
-  cursorTooltip: {
-    visible: boolean;
-    data: (RegionalDataItem & { displayName?: string }) | null;
-  };
-}
 
 import { regionLog as regionLogFn } from "./region-log";
 import {
@@ -183,6 +70,79 @@ import type {
   RegionWidgetHost,
   RegionWidgetProps,
 } from "./region-host";
+
+export type AgriDisplayLanguage = "uz_cyr" | "uz_lat" | "ru" | "en";
+
+export type WidgetSize = "xs" | "sm" | "md" | "lg";
+
+
+
+
+export interface RegionalDataItem {
+  name: string;
+  maydon: number;
+  percentage?: number;
+}
+
+export interface AgriRegionState {
+  regionalLoading: boolean;
+  regionalError: string | null;
+  regionalData: {
+    viloyatlar: RegionalDataItem[];
+    tumanlar: RegionalDataItem[];
+    totalArea: number;
+  };
+  // Scope from master (lock)
+  lockedViloyat: string | null;
+  isLocked: boolean;
+
+  // Current filters from AgriFilter
+  currentFilters: {
+    yil: string;
+    viloyat: string;
+    tuman: string;
+    turi: string;
+    turlar: string[];
+    vh: string;
+    vhUniqueids: string[] | null;
+    /** When VH was selected before ekin turi, charts stay VH-scoped. */
+    filterPieByVh: boolean;
+  };
+
+  // Navigation
+  currentView: "viloyat" | "tuman";
+  selectedViloyatForDrillDown: string | null;
+  selectedRegion: string | null;
+
+  // UI
+  displayCount: number;
+  displayCountMenuOpen: boolean;
+  /** Default is highest value first; icons cycle through the other sorts. */
+  sortMode: "value_desc" | "value_asc";
+  isDarkTheme: boolean;
+  widgetSize: WidgetSize;
+  containerWidth: number;
+  chartAreaHeight: number;
+
+  // Map/DS
+  activeMapView?: JimuMapView;
+  featureLayer?: __esri.FeatureLayer;
+  featureLayers: __esri.FeatureLayer[];
+  dataSource?: QueriableDataSource;
+
+  areaField: string | null;
+  statMode: "sum" | "count";
+  /** Bars show Agri_reserve_land totals while the map's reserve overlay is on. */
+  reserveMode: boolean;
+
+  connectionStatus: "idle" | "connecting" | "connected" | "failed";
+  language: "uz_cyr" | "uz_lat" | "ru" | "en";
+
+  cursorTooltip: {
+    visible: boolean;
+    data: (RegionalDataItem & { displayName?: string }) | null;
+  };
+}
 export default class AgriRegion extends React.PureComponent<
   RegionWidgetProps,
   AgriRegionState
@@ -197,6 +157,7 @@ export default class AgriRegion extends React.PureComponent<
 
   _isMounted = false;
   _unbindMasterFilter: (() => void) | null = null;
+  _unbindLandOverlay: (() => void) | null = null;
   _rootRef = React.createRef<HTMLDivElement>();
   _countFilterRef = React.createRef<HTMLDivElement>();
   _chartAreaRef = React.createRef<HTMLDivElement>();
@@ -268,6 +229,7 @@ export default class AgriRegion extends React.PureComponent<
 
       areaField: this.props.config?.areaField || null,
       statMode: this.props.config?.areaField ? "sum" : "count",
+      reserveMode: getAgriLandOverlay() === "reserve",
 
       connectionStatus: "idle",
       language: initialLanguage,
@@ -280,19 +242,19 @@ export default class AgriRegion extends React.PureComponent<
   }
 
   componentDidMount() {
-    return componentDidMount(this);
+    componentDidMount(this);
   }
 
   componentWillUnmount() {
-    return componentWillUnmount(this);
+    componentWillUnmount(this);
   }
 
   handleDocumentClickForCountFilter = (event: MouseEvent): void => {
-    return handleDocumentClickForCountFilter(this, event);
+    handleDocumentClickForCountFilter(this, event);
   };
 
   toggleDisplayCountMenu = (): void => {
-    return toggleDisplayCountMenu(this);
+    toggleDisplayCountMenu(this);
   };
 
   getCurrentDataLength = (): number => {
@@ -312,23 +274,23 @@ export default class AgriRegion extends React.PureComponent<
   };
 
   handleDisplayCountPillClick = (count: number): void => {
-    return handleDisplayCountPillClick(this, count);
+    handleDisplayCountPillClick(this, count);
   };
 
   applyDisplayCount = (count: number): void => {
-    return applyDisplayCount(this, count);
+    applyDisplayCount(this, count);
   };
 
   cycleSortMode = (): void => {
-    return cycleSortMode(this);
+    cycleSortMode(this);
   };
 
   syncThemeState = () => {
-    return syncThemeState(this);
+    syncThemeState(this);
   };
 
   handleAgriV10ThemeChanged = (event: Event): void => {
-    return handleAgriV10ThemeChanged(this, event);
+    handleAgriV10ThemeChanged(this, event);
   };
 
   resolveWidgetSize = (width: number): WidgetSize => {
@@ -336,17 +298,17 @@ export default class AgriRegion extends React.PureComponent<
   };
 
   setupResizeObserver = () => {
-    return setupResizeObserver(this);
+    setupResizeObserver(this);
   };
 
   componentDidUpdate(): void {
-    return componentDidUpdate(this);
+    componentDidUpdate(this);
   }
 
   /* ---------------------- Master Filter Listener ---------------------- */
 
   handleMasterFilterChange = (event: Event) => {
-    return handleMasterFilterChange(this, event);
+    handleMasterFilterChange(this, event);
   };
 
   /* ---------------------- Notify AgriFilter ---------------------- */
@@ -355,7 +317,7 @@ export default class AgriRegion extends React.PureComponent<
     updates: RegionFilterUpdates,
     generation?: number,
   ) => {
-    return notifyAgriFilter(this, updates, generation);
+    notifyAgriFilter(this, updates, generation);
   };
 
   beginSelectionNotify = (): number => {
@@ -399,7 +361,7 @@ export default class AgriRegion extends React.PureComponent<
     detectAreaField(this, layer);
 
   onDataSourceCreated = (ds: DataSource) => {
-    return onDataSourceCreated(this, ds);
+    onDataSourceCreated(this, ds);
   };
 
   /* ---------------------- Data Fetch ---------------------- */
@@ -446,11 +408,11 @@ export default class AgriRegion extends React.PureComponent<
     _index?: number,
     _e?: React.MouseEvent<SVGPathElement, MouseEvent>,
   ): void => {
-    return handleRegionSelectionClick(this, data, _index, _e);
+    handleRegionSelectionClick(this, data, _index, _e);
   };
 
   navigateBack = () => {
-    return navigateBack(this);
+    navigateBack(this);
   };
 
   /* ---------------------- Render ---------------------- */
@@ -473,47 +435,47 @@ export default class AgriRegion extends React.PureComponent<
   };
 
   applyTooltipPosition = (x: number, y: number): void => {
-    return applyTooltipPosition(this, x, y);
+    applyTooltipPosition(this, x, y);
   };
 
   bindPointerTracking = (): void => {
-    return bindPointerTracking(this);
+    bindPointerTracking(this);
   };
 
   unbindPointerTracking = (): void => {
-    return unbindPointerTracking(this);
+    unbindPointerTracking(this);
   };
 
   handleGlobalPointerMove = (e: MouseEvent): void => {
-    return handleGlobalPointerMove(this, e);
+    handleGlobalPointerMove(this, e);
   };
 
   hideCursorTooltip = (): void => {
-    return hideCursorTooltip(this);
+    hideCursorTooltip(this);
   };
 
   handleWidgetPointerLeave = (): void => {
-    return handleWidgetPointerLeave(this);
+    handleWidgetPointerLeave(this);
   };
 
   handleBarRowClick = (
     item: RegionalDataItem & { displayName?: string },
   ): void => {
-    return handleBarRowClick(this, item);
+    handleBarRowClick(this, item);
   };
 
   handleBarRowPointerEnter = (
     item: RegionalDataItem & { displayName?: string },
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    return handleBarRowPointerEnter(this, item, event);
+    handleBarRowPointerEnter(this, item, event);
   };
 
   handleBarRowPointerMove = (
     _item: RegionalDataItem & { displayName?: string },
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
-    return handleBarRowPointerMove(this, _item, event);
+    handleBarRowPointerMove(this, _item, event);
   };
 
   handleBarPointerEnter = (
@@ -521,7 +483,7 @@ export default class AgriRegion extends React.PureComponent<
     _index: number,
     e: React.MouseEvent<Element, MouseEvent>,
   ): void => {
-    return handleBarPointerEnter(this, data, _index, e);
+    handleBarPointerEnter(this, data, _index, e);
   };
 
   handleBarPointerMove = (
@@ -529,13 +491,13 @@ export default class AgriRegion extends React.PureComponent<
     _index: number,
     e: React.MouseEvent<Element, MouseEvent>,
   ): void => {
-    return handleBarPointerMove(this, data, _index, e);
+    handleBarPointerMove(this, data, _index, e);
   };
 
   handleChartSurfaceMove = (
     e: React.MouseEvent<HTMLDivElement>,
   ): void => {
-    return handleChartSurfaceMove(this, e);
+    handleChartSurfaceMove(this, e);
   };
 
   renderCursorTooltipContent = (

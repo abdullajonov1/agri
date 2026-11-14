@@ -5,7 +5,7 @@
 // no ArcGIS queries of its own. Hidden when nothing is selected.
 // Round prev/next chevrons sit outside the card and step the selected date.
 
-import { AllWidgetProps, React } from "jimu-core";
+import { type AllWidgetProps, React } from "jimu-core";
 import {
   detectIsDarkTheme,
   normalizeLanguage,
@@ -35,6 +35,7 @@ const INDEX_COLORS: Record<string, string> = {
   ci: "#c78bff",
   evi: "#ff4d8d",
   ndwi: "#2ec4f1",
+  ndre: "#a39400",
 };
 
 interface State {
@@ -102,7 +103,7 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
     );
   }
 
-  private handleThemeChange = (event: Event): void => {
+  private readonly handleThemeChange = (event: Event): void => {
     const detail = (event as CustomEvent<PanelFilterDetail | null>)?.detail;
     if (detail?.theme) {
       this.setState({ isDarkTheme: detail.theme === "dark" });
@@ -111,14 +112,14 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
     }
   };
 
-  private handleLanguageChange = (event: Event): void => {
+  private readonly handleLanguageChange = (event: Event): void => {
     if (!this._isMounted) return;
     const d = panelEventDetail(event);
     const next = normalizeLanguage(d.lang ?? d.language ?? d.code);
     if (next !== this.state.language) this.setState({ language: next });
   };
 
-  private handleSelectionChanged = (event: Event): void => {
+  private readonly handleSelectionChanged = (event: Event): void => {
     if (!this._isMounted) return;
     const d = ((event as CustomEvent<DateIndexSelectionDetail | null>)?.detail ||
       {}) as DateIndexSelectionDetail;
@@ -146,21 +147,21 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
     });
   };
 
-  private formatValue = (num: number | null): string => {
+  private readonly formatValue = (num: number | null): string => {
     if (num === null || num === undefined || !Number.isFinite(num))
-      return "-";
+      { return "-"; }
     return num.toFixed(4);
   };
 
   /** Prefer compact DD.MM.YYYY so year/value fit the floating card. */
-  private formatDateLabel = (raw: string | null): string => {
+  private readonly formatDateLabel = (raw: string | null): string => {
     const s = String(raw || "").trim();
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
     if (m) return `${m[3]}.${m[2]}.${m[1]}`;
     return s || "-";
   };
 
-  private navigateDay = (direction: -1 | 1): void => {
+  private readonly navigateDay = (direction: -1 | 1): void => {
     const { date, availableDates, navigable } = this.state;
     if (!navigable || !date || availableDates.length < 2) return;
 
@@ -186,13 +187,13 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
     }
   };
 
-  private handlePrevDay = (e: React.MouseEvent<HTMLButtonElement>): void => {
+  private readonly handlePrevDay = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.preventDefault();
     e.stopPropagation();
     this.navigateDay(-1);
   };
 
-  private handleNextDay = (e: React.MouseEvent<HTMLButtonElement>): void => {
+  private readonly handleNextDay = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.preventDefault();
     e.stopPropagation();
     this.navigateDay(1);

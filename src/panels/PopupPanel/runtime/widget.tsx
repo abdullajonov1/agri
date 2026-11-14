@@ -4,9 +4,9 @@
 // The class is a thin host: every method delegates to a handler module that
 // receives the instance as a PopupWidgetHost (see ./popup-host.ts).
 
-import FeatureLayer from "esri/layers/FeatureLayer";
-import { JimuMapView } from "jimu-arcgis";
-import { AllWidgetProps, QueriableDataSource, React } from "jimu-core";
+import type FeatureLayer from "esri/layers/FeatureLayer";
+import { type JimuMapView } from "jimu-arcgis";
+import { type AllWidgetProps, type QueriableDataSource, React } from "jimu-core";
 import { type AgriDataSourceEngine } from "../../../gis/agri-data-source-engine";
 import { getSharedAgriDataSourceEngine } from "../../../gis/agri-engine-registry";
 import { VEG_INDEX_FIELDS as popupVegIndexFields } from "./popup-constants";
@@ -152,15 +152,15 @@ export default class AgriPolygon extends React.PureComponent<
   getResolvedTheme = (): boolean => layout.getResolvedTheme(asHost(this));
 
   componentDidMount(): void {
-    return field.componentDidMount(asHost(this));
+    field.componentDidMount(asHost(this));
   }
 
   componentWillUnmount(): void {
-    return field.componentWillUnmount(asHost(this));
+    field.componentWillUnmount(asHost(this));
   }
 
   pruneFeatureQueryCache(now = Date.now()): void {
-    return layout.pruneFeatureQueryCache(asHost(this), now);
+    layout.pruneFeatureQueryCache(asHost(this), now);
   }
 
   getFeatureQueryCacheKey(
@@ -181,7 +181,7 @@ export default class AgriPolygon extends React.PureComponent<
   }
 
   restoreDriftedDefinitionExpressions(snapshot: Map<AgriLayerLike, string>): void {
-    return mapH.restoreDriftedDefinitionExpressions(asHost(this), snapshot);
+    mapH.restoreDriftedDefinitionExpressions(asHost(this), snapshot);
   }
 
   async queryFeatureByObjectIdCached(
@@ -196,13 +196,13 @@ export default class AgriPolygon extends React.PureComponent<
   tr = (key: string, params?: Record<string, string | number>): string =>
     layout.tr(asHost(this), key, params);
 
-  setupThemeObserver = (): void => mapH.setupThemeObserver(asHost(this));
+  setupThemeObserver = (): void => { mapH.setupThemeObserver(asHost(this)); };
 
   handleThemeChange = (e: CustomEvent<PopupThemeDetail> | null | undefined): void =>
-    mapH.handleThemeChange(asHost(this), e);
+    { mapH.handleThemeChange(asHost(this), e); };
 
   handleLanguageChange = (e: CustomEvent<PopupLanguageDetail> | null | undefined): void =>
-    mapH.handleLanguageChange(asHost(this), e);
+    { mapH.handleLanguageChange(asHost(this), e); };
 
   /* --- pinned popup helpers --- */
   isDashboardEmbedded(): boolean {
@@ -218,7 +218,7 @@ export default class AgriPolygon extends React.PureComponent<
   }
 
   observeMapAreaResize(view: View): void {
-    return layout.observeMapAreaResize(asHost(this), view);
+    layout.observeMapAreaResize(asHost(this), view);
   }
 
   getEffectiveMapBottom(view: View, gap = 4): number {
@@ -233,29 +233,29 @@ export default class AgriPolygon extends React.PureComponent<
     return layout.popupPositionsEqual(asHost(this), a, b, epsilon);
   }
 
-  applyPopupPosition = (pos: XY): void => layout.applyPopupPosition(asHost(this), pos);
+  applyPopupPosition = (pos: XY): void => { layout.applyPopupPosition(asHost(this), pos); };
 
-  schedulePopupLayout = (): void => layout.schedulePopupLayout(asHost(this));
+  schedulePopupLayout = (): void => { layout.schedulePopupLayout(asHost(this)); };
 
   schedulePopupLayoutAfterContent = (): void =>
-    layout.schedulePopupLayoutAfterContent(asHost(this));
+    { layout.schedulePopupLayoutAfterContent(asHost(this)); };
 
   calculatePinnedPosition = (view: View): XY =>
     layout.calculatePinnedPosition(asHost(this), view);
 
-  repositionPinnedIfNeeded = () => layout.repositionPinnedIfNeeded(asHost(this));
+  repositionPinnedIfNeeded = () => { layout.repositionPinnedIfNeeded(asHost(this)); };
 
-  togglePinToCorner = () => layout.togglePinToCorner(asHost(this));
+  togglePinToCorner = () => { layout.togglePinToCorner(asHost(this)); };
 
   handleOutsideClick = (event: MouseEvent) =>
-    layout.handleOutsideClick(asHost(this), event);
+    { layout.handleOutsideClick(asHost(this), event); };
 
   onPopupHeaderMouseDown = (e: React.MouseEvent<HTMLDivElement>) =>
-    layout.onPopupHeaderMouseDown(asHost(this), e);
+    { layout.onPopupHeaderMouseDown(asHost(this), e); };
 
-  onPopupDragMove = (e: MouseEvent) => layout.onPopupDragMove(asHost(this), e);
+  onPopupDragMove = (e: MouseEvent) => { layout.onPopupDragMove(asHost(this), e); };
 
-  onPopupDragEnd = () => layout.onPopupDragEnd(asHost(this));
+  onPopupDragEnd = () => { layout.onPopupDragEnd(asHost(this)); };
 
   layerSupportsAttachments(
     layer: __esri.FeatureLayer | FeatureLayer | null | undefined,
@@ -265,16 +265,16 @@ export default class AgriPolygon extends React.PureComponent<
 
   /* ---------------- Highlight management ---------------- */
 
-  setupHighlightLayer = (view: View) => mapH.setupHighlightLayer(asHost(this), view);
+  setupHighlightLayer = (view: View) => { mapH.setupHighlightLayer(asHost(this), view); };
 
   highlightPolygon = (geometry: __esri.Geometry) =>
-    mapH.highlightPolygon(asHost(this), geometry);
+    { mapH.highlightPolygon(asHost(this), geometry); };
 
-  clearHighlight = () => mapH.clearHighlight(asHost(this));
+  clearHighlight = () => { mapH.clearHighlight(asHost(this)); };
 
-  restoreExtentBeforeSelection = () => mapH.restoreExtentBeforeSelection(asHost(this));
+  restoreExtentBeforeSelection = () => { mapH.restoreExtentBeforeSelection(asHost(this)); };
 
-  cleanupHighlight = () => mapH.cleanupHighlight(asHost(this));
+  cleanupHighlight = () => { mapH.cleanupHighlight(asHost(this)); };
 
   /* ---------------- Map wiring ---------------- */
 
@@ -287,12 +287,12 @@ export default class AgriPolygon extends React.PureComponent<
   }
 
   handleMapViewReady = (event: Event): void =>
-    mapH.handleMapViewReady(asHost(this), event);
+    { mapH.handleMapViewReady(asHost(this), event); };
 
-  scheduleMapViewFallback = (): void => mapH.scheduleMapViewFallback(asHost(this));
+  scheduleMapViewFallback = (): void => { mapH.scheduleMapViewFallback(asHost(this)); };
 
   scheduleMapInitRetry = (jmv: JimuMapView): void =>
-    mapH.scheduleMapInitRetry(asHost(this), jmv);
+    { mapH.scheduleMapInitRetry(asHost(this), jmv); };
 
   expandUseDataSourceEntries(useList: PopupUseDataSource[]): PopupUseDataSource[] {
     return mapH.expandUseDataSourceEntries(asHost(this), useList);
@@ -304,7 +304,7 @@ export default class AgriPolygon extends React.PureComponent<
     seen: Set<string>,
     layer: MaybeLayer,
     dsId?: string,
-  ): void => mapH.addResolvedLayer(asHost(this), target, layerKeyToDsId, seen, layer, dsId);
+  ): void => { mapH.addResolvedLayer(asHost(this), target, layerKeyToDsId, seen, layer, dsId); };
 
   collectLayersFromDataSources = (
     jmv: JimuMapView,
@@ -315,7 +315,7 @@ export default class AgriPolygon extends React.PureComponent<
   } => mapH.collectLayersFromDataSources(asHost(this), jmv, useList);
 
   onActiveViewChange = (jimuMapView: JimuMapView) =>
-    mapH.onActiveViewChange(asHost(this), jimuMapView);
+    { mapH.onActiveViewChange(asHost(this), jimuMapView); };
 
   initializeMapConnection = async (jmv: JimuMapView) =>
     mapH.initializeMapConnection(asHost(this), jmv);
@@ -338,18 +338,18 @@ export default class AgriPolygon extends React.PureComponent<
     layout.clampPopupToMapContainer(asHost(this), pos, view);
 
   attachMapClick(jmv: JimuMapView) {
-    return click.attachMapClick(asHost(this), jmv);
+    click.attachMapClick(asHost(this), jmv);
   }
 
   ensureMapClickAttached = (): boolean => click.ensureMapClickAttached(asHost(this));
 
-  handleXyPageClosed = (): void => click.handleXyPageClosed(asHost(this));
+  handleXyPageClosed = (): void => { click.handleXyPageClosed(asHost(this)); };
 
   handleMasterFilterChanged = (event: Event): void =>
-    click.handleMasterFilterChanged(asHost(this), event);
+    { click.handleMasterFilterChanged(asHost(this), event); };
 
   handleWidgetSelectionChanged = (event: Event): void =>
-    click.handleWidgetSelectionChanged(asHost(this), event);
+    { click.handleWidgetSelectionChanged(asHost(this), event); };
 
   openPopupForUniqueid = async (
     uniqueid: string,
@@ -360,7 +360,7 @@ export default class AgriPolygon extends React.PureComponent<
     click.handleSharedMapClick(asHost(this), event);
 
   detachMapClick() {
-    return click.detachMapClick(asHost(this));
+    click.detachMapClick(asHost(this));
   }
 
   /* ---------------- Click → hitTest → query full attrs ---------------- */
@@ -371,7 +371,7 @@ export default class AgriPolygon extends React.PureComponent<
     mapPoint?: { x?: number; y?: number; spatialReference?: { wkid?: number } },
   ): __esri.Point | null => click.toClickQueryGeometry(asHost(this), view, screenPoint, mapPoint);
 
-  private findHitGraphic = (
+  private readonly findHitGraphic = (
     hit: __esri.HitTestResult | null | undefined,
     layers: __esri.FeatureLayer[],
   ): __esri.Graphic | null => click.findHitGraphic(asHost(this), hit, layers);
@@ -427,10 +427,10 @@ export default class AgriPolygon extends React.PureComponent<
     clickedAt?: number,
     regionId?: number | null,
   ): void =>
-    click.notifyGraffPolygonSelection(asHost(this), uniqueid, polygonMode, clickedAt, regionId);
+    { click.notifyGraffPolygonSelection(asHost(this), uniqueid, polygonMode, clickedAt, regionId); };
 
   broadcastPopupVisibility = (open: boolean): void =>
-    click.broadcastPopupVisibility(asHost(this), open);
+    { click.broadcastPopupVisibility(asHost(this), open); };
 
   private static readonly VEG_INDEX_FIELDS = popupVegIndexFields;
 
@@ -452,7 +452,7 @@ export default class AgriPolygon extends React.PureComponent<
   }
 
   revokeAllAttachmentUrls() {
-    return field.revokeAllAttachmentUrls(asHost(this));
+    field.revokeAllAttachmentUrls(asHost(this));
   }
 
   isImageContentType(ct?: string) {
@@ -521,30 +521,30 @@ export default class AgriPolygon extends React.PureComponent<
     prevProps: Readonly<AllWidgetProps<Config>>,
     prevState: Readonly<State>,
   ) {
-    return field.componentDidUpdate(asHost(this), prevProps, prevState);
+    field.componentDidUpdate(asHost(this), prevProps, prevState);
   }
 
   closePopup = (opts?: { restoreExtent?: boolean; notifyDeselect?: boolean }) =>
-    field.closePopup(asHost(this), opts);
+    { field.closePopup(asHost(this), opts); };
 
-  minimizePopup = (): void => field.minimizePopup(asHost(this));
+  minimizePopup = (): void => { field.minimizePopup(asHost(this)); };
 
-  expandPopup = (): void => field.expandPopup(asHost(this));
+  expandPopup = (): void => { field.expandPopup(asHost(this)); };
 
   /* ---------------- DS hook (instantiates DS) ---------------- */
 
-  onDataSourceCreated = (ds: QueriableDataSource) => field.onDataSourceCreated(asHost(this), ds);
+  onDataSourceCreated = (ds: QueriableDataSource) => { field.onDataSourceCreated(asHost(this), ds); };
 
   /* ---------------- Chart rendering ---------------- */
 
-  toggleChartExpanded = (): void => field.toggleChartExpanded(asHost(this));
+  toggleChartExpanded = (): void => { field.toggleChartExpanded(asHost(this)); };
 
   renderChartIcon = (type: "bar" | "line" = "bar"): JSX.Element =>
     panel.renderChartIcon(asHost(this), type);
 
-  clearChartHover = (): void => field.clearChartHover(asHost(this));
+  clearChartHover = (): void => { field.clearChartHover(asHost(this)); };
 
-  setChartHover = (index: number): void => field.setChartHover(asHost(this), index);
+  setChartHover = (index: number): void => { field.setChartHover(asHost(this), index); };
 
   niceChartMax(value: number): number {
     return field.niceChartMax(asHost(this), value);

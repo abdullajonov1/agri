@@ -124,15 +124,15 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
         .goTo({ target }, { duration: 500, easing: arcgisEaseInOut })
         .then(
           () =>
-            agriMapClickDebug("zoom:complete-hit", {
+            { agriMapClickDebug("zoom:complete-hit", {
               uniqueid: hitCleanKey || null,
               scale: view.scale,
-            }),
+            }); },
           (error: unknown) =>
-            agriMapClickWarn("zoom:failed-hit", {
+            { agriMapClickWarn("zoom:failed-hit", {
               uniqueid: hitCleanKey || null,
               error: messageOrString(error),
-            }),
+            }); },
         );
     } catch {
       zoomedFromHit = false;
@@ -401,15 +401,15 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
           .goTo({ target }, { duration: 500, easing: arcgisEaseInOut })
           .then(
             () =>
-              agriMapClickDebug("zoom:complete", {
+              { agriMapClickDebug("zoom:complete", {
                 uniqueid: earlyCleanKey || null,
                 scale: view.scale,
-              }),
+              }); },
             (error: unknown) =>
-              agriMapClickWarn("zoom:failed", {
+              { agriMapClickWarn("zoom:failed", {
                 uniqueid: earlyCleanKey || null,
                 error: messageOrString(error),
-              }),
+              }); },
           );
       } catch {
         /* zoom is cosmetic — never block opening the popup */
@@ -470,7 +470,7 @@ export const onViewClick = async (host: PopupWidgetHost, ev: __esri.ViewClickEve
     );
     const fieldsWithData = configuredFields.filter(
       (name) =>
-        displayAttrs.hasOwnProperty(name) &&
+        Object.prototype.hasOwnProperty.call(displayAttrs, name) &&
         displayAttrs[name] != null &&
         displayAttrs[name] !== "",
     );

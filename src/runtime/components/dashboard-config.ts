@@ -47,6 +47,36 @@ export function toMutableUseDataSources(value: unknown): UseDataSource[] {
   return Array.from((value as ArrayLike<UseDataSource>) || []);
 }
 
+/**
+ * The WebMap the widget settings connect, or "" when they connect none:
+ * 1. the WebMap picked in "Select data" (must still be a selected source);
+ * 2. else the WebMap whose layers were picked in "Select data"
+ *    (the selected layers' rootDataSourceId).
+ * With nothing selected there is no map and the dashboard loads no data.
+ * `getRootType` (optional) reads a data source type from the app config so a
+ * layer of a plain map service is not taken for a WebMap.
+ */
+export function getConnectedWebMapId(
+  baseConfig: Record<string, unknown>,
+  useDataSources: unknown,
+  getRootType?: (dataSourceId: string) => string | undefined,
+): string {
+  const sources = toMutableUseDataSources(useDataSources);
+  const webMapId = String(baseConfig?.webMapDataSourceId || "").trim();
+  // A WebMap removed from the app (Data panel) leaves its id in the config;
+  // the selected layers then still connect their own WebMap below.
+  if (webMapId && sources.some((source) => String(source?.dataSourceId || "") === webMapId)) {
+    return webMapId;
+  }
+  for (const source of sources) {
+    const rootId = String(source?.rootDataSourceId || "").trim();
+    if (!rootId || rootId === String(source?.dataSourceId || "")) continue;
+    const type = getRootType?.(rootId);
+    if (type === undefined || type === "WEB_MAP") return rootId;
+  }
+  return "";
+}
+
 /** Plain config handed to the embedded Indicator (crop area) panel. */
 export function buildIndicatorChildConfig(
   baseConfig: Record<string, unknown>,

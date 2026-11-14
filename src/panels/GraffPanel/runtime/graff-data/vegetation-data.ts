@@ -9,6 +9,7 @@ import { matchGraffPolygonDashboardPack } from "../../../../data/agri-dashboard-
 import { getDashboardPack, patchDashboardPack } from "../../../../store/agri-dashboard-store";
 import type { VegetationIndex } from "../widget";
 import { getGraffPolygonSeriesCached } from "../../../../data/agri-stats-store";
+import { hasActiveVegetationOverlay, releaseIdleSurfaceLoading } from "../graff-raster-overlay";
 
 export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
   const { selecteduniqueid } = host.state;
@@ -148,7 +149,13 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
           });
       host._pendingOverlayWalk = { uniqueid: cleanId, promise: walkPromise };
       void walkPromise.then((hit) => {
-        if (isStale() || !hit || !host.state.selecteduniqueid) return;
+        if (isStale() || !host.state.selecteduniqueid) return;
+        if (!hit) {
+          releaseIdleSurfaceLoading(host);
+          return;
+        }
+        // A day picked (or drawn) while the walk ran wins over the walk date.
+        if (hasActiveVegetationOverlay(host)) return;
         void host.applyVegetationImageOverlay(
           host.state.selecteduniqueid,
           hit.date,
@@ -234,9 +241,9 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
     });
 
     const firstPass = host.preparePolygonGraphSeries(data, []);
-    let paintedDate = firstPass.nextDate;
-    let paintedIndex = firstPass.nextIndexKey;
-    let paintedFingerprint = firstPass.fingerprint;
+    const paintedDate = firstPass.nextDate;
+    const paintedIndex = firstPass.nextIndexKey;
+    const paintedFingerprint = firstPass.fingerprint;
 
     // Start overlay before chart setState so TIFF decode overlaps React paint.
     // Early dates/pack path above shares the same cache / skip-if-applied key.
@@ -310,7 +317,7 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
     }
 
     const availableDatesSet = new Set(availableDates);
-    let scopedData = data
+    const scopedData = data
       .map((row) => {
         const matched = host.resolveAgainstAvailableDates(
           row.raster_date,

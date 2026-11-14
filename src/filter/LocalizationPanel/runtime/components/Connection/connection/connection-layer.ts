@@ -2,14 +2,15 @@ import type { LocalizationConfig, LocalizationHost } from "../../host";
 import type { AgriMapLayer } from "../../../../../localization/agri-map-layer";
 import { featureAttributes } from "../../../../../localization/agri-map-layer";
 import { firstCollectionArray } from "../../../../../../gis/agri-layer-types";
-import { JimuMapView } from "jimu-arcgis";
+import { type JimuMapView } from "jimu-arcgis";
 import { agriLog } from "../../localization-log";
 import { safeLoadMapImageTree, getQueryableLayer } from "../../../../../../gis/feature-layer-data";
-import { DataSourceManager, DataSource, QueriableDataSource, type IMDataSourceInfo, type IMUseDataSource } from "jimu-core";
+import { DataSourceManager, type DataSource, type QueriableDataSource, type IMDataSourceInfo, type IMUseDataSource } from "jimu-core";
 import { getAgriTableDataLayer } from "../../../../../../gis/agri-table-data-source";
 import { dedupedQueryFeatures } from "../../../../../../data/agri-query-gateway";
 import { getAgriVegetationIndicesLayer } from "../../../../../../gis/agri-vegetation-data-source";
 import { errorMessage } from "../../../../../../shared/agri-plain-object";
+import { extractYearDigits } from "../../../../../../controller/agri-where-builder";
 
 /** Jimu layer view members read while matching a use-data-source. */
 interface LayerViewLike {
@@ -53,7 +54,7 @@ export const resolveFeatureLayerFromOneUseDataSource = async (
       (lv) => lv?.layerDataSourceId === id || lv?.dataSourceId === id,
     );
 
-  let jlv = matchByDsId(dsId) || (rootDsId ? matchByDsId(rootDsId) : null);
+  const jlv = matchByDsId(dsId) || (rootDsId ? matchByDsId(rootDsId) : null);
   // MapImage sublayers often aren't queryable until the parent finishes loading.
   try {
     await safeLoadMapImageTree(jlv?.layer);
@@ -490,9 +491,15 @@ export const fetchFilterOptions = async (host: LocalizationHost) => {
   try {
     host.setState({ loadingFilters: true });
 
-    const yilValues = await host.getUniqueValues("yil");
+    const rawYilValues = await host.getUniqueValues("yil");
 
     if (!host._isMounted) return;
+
+    // Layers spell the year differently ("2026", "2026 yil", "2026-yil");
+    // every query reduces it to the 4 digits, so offer each year once.
+    const yilValues = Array.from(
+      new Set(rawYilValues.map((v) => extractYearDigits(v, false) || String(v))),
+    );
 
     // Sort years so newest is last
     const sorted = yilValues.slice().sort((a, b) => {
@@ -502,7 +509,7 @@ export const fetchFilterOptions = async (host: LocalizationHost) => {
       return ay - by;
     });
     const latest = sorted.length ? sorted[sorted.length - 1] : "";
-    const prevYil = host.state.yil;
+    const prevYil = extractYearDigits(host.state.yil, false) || host.state.yil;
     const prevStillValid =
       !!prevYil && sorted.some((v) => String(v) === String(prevYil));
     // Refresh always opens default republic scope (latest year only).
