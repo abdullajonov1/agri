@@ -143,6 +143,16 @@ describe("click-events: hub handlers", () => {
       handleMasterFilterChanged(h, new Event("x"));
       expect(h._lastMasterGeoKey).toBe("||");
     });
+    test("treats malformed detail as empty filters without closing or opening", () => {
+      for (const malformed of ["garbage", 42, null, ["yil"], { filters: "oops" }, { filters: 7 }]) {
+        const h = make({ showPopup: true }, { _activeInspectedUniqueid: "keep" });
+        expect(() => handleMasterFilterChanged(h, evt(malformed))).not.toThrow();
+        expect(h._lastMasterGeoKey).toBe("||");
+        expect(h._activeInspectedUniqueid).toBe("keep");
+        expect(h.closePopup).not.toHaveBeenCalled();
+        expect(h.openPopupForUniqueid).not.toHaveBeenCalled();
+      }
+    });
   });
 
   describe("handleWidgetSelectionChanged", () => {

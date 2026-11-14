@@ -150,17 +150,6 @@ export interface PopupSelectionDetail {
   uniqueid?: unknown;
 }
 
-/** `masterFilterChanged` event detail (only the fields the popup reads). */
-export interface PopupMasterFilterDetail {
-  filters?: {
-    yil?: unknown;
-    viloyat?: unknown;
-    tuman?: unknown;
-    polygonMode?: boolean;
-    uniqueid?: unknown;
-  } | null;
-}
-
 /** `themeChanged` event detail. */
 export interface PopupThemeDetail {
   isDarkTheme?: unknown;

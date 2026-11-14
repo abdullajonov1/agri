@@ -4,11 +4,8 @@
  */
 import type { PopupWidgetHost } from "../../popup-host";
 import type { JimuMapView } from "jimu-arcgis";
-import type {
-  IHandleLike,
-  PopupMasterFilterDetail,
-  PopupSelectionDetail,
-} from "../../popup-types";
+import type { IHandleLike, PopupSelectionDetail } from "../../popup-types";
+import { readPanelEventDetail } from "../../../../panel-filter-detail";
 import { agriMapClickDebug } from "../../../../../gis/agri-map-click-debug";
 
 export function attachMapClick(host: PopupWidgetHost, jmv: JimuMapView) {
@@ -50,8 +47,7 @@ export const handleXyPageClosed = (host: PopupWidgetHost): void => {
  */
 export const handleMasterFilterChanged = (host: PopupWidgetHost, event: Event): void => {
   if (!host._isMounted) return;
-  const detail: PopupMasterFilterDetail = (event as CustomEvent<PopupMasterFilterDetail>).detail || {};
-  const f = detail.filters || {};
+  const f = readPanelEventDetail(event).filters || {};
   const geoKey = `${String(f.yil || "")}|${String(f.viloyat || "")}|${String(f.tuman || "")}`;
   const prevGeo = host._lastMasterGeoKey;
   host._lastMasterGeoKey = geoKey;

@@ -298,3 +298,86 @@ describe("render", () => {
     expect((c2.querySelector("div[title]") as HTMLElement).style.background).toBe("rgb(16, 185, 129)");
   });
 });
+
+describe("characterization: markup is stable across refactors", () => {
+  const LANGS = ["en", "ru", "uz_lat", "uz_cyr"] as const;
+  const crypto = require("crypto") as typeof import("crypto");
+  const hash = (html: string): string => crypto.createHash("md5").update(html).digest("hex");
+  const chartCfg = (over: Partial<Config> = {}): Config =>
+    ({ chartEnabled: true, chartFields: ["a", "b", "c"], chartType: "bar", chartTitle: "T", ...over }) as Config;
+  const attrs: PopupAttributes = { a: 10, b: "20", c: "abc", d: "x", e: "", f: 3 };
+  const attachments = [
+    { id: 1, name: "p.png", url: "u1", previewObjectUrl: "blob:1", contentType: "image/png", size: 2048 },
+    { id: 2, name: "", url: "u2", contentType: "application/pdf", size: 0 },
+  ] as unknown as AttachmentItem[];
+  const base = { showPopup: true, selectedAttrs: attrs };
+  const cfg: Config = { fieldsToShow: ["d", "e", "f"], ...chartCfg() } as Config;
+
+  type Case = [string, (lang: (typeof LANGS)[number]) => React.ReactNode | null];
+  const cases: Case[] = [
+    ["chart-collapsed", (l) => renderChart(makeHost({ selectedAttrs: attrs, currentLang: l }, chartCfg()))],
+    ["chart-bar-hover", (l) => renderChart(makeHost({ selectedAttrs: attrs, currentLang: l, chartExpanded: true, chartHoverIndex: 1 }, chartCfg()))],
+    ["chart-line-light", (l) => renderChart(makeHost({ selectedAttrs: attrs, currentLang: l, chartExpanded: true, chartHoverIndex: 0, isDarkTheme: false }, chartCfg({ chartType: "line" })))],
+    ["chart-pinned", (l) => renderChart(makeHost({ selectedAttrs: attrs, currentLang: l, pinToCorner: true }, chartCfg()))],
+    ["popup-minimized", (l) => renderPopup(makeHost({ ...base, currentLang: l, popupMinimized: true }, cfg))],
+    ["popup-full", (l) => renderPopup(makeHost({ ...base, currentLang: l, attachments, chartExpanded: true, latestIndexValues: { ndvi: 0.5 } as never }, cfg))],
+    ["popup-pinned-pos", (l) => renderPopup(makeHost({ ...base, currentLang: l, pinToCorner: true, popupPosition: { x: 5, y: 6 } as never }, cfg))],
+    ["popup-error-loading", (l) => renderPopup(makeHost({ showPopup: true, currentLang: l, error: "boom", loading: true, loadingAttachments: true }, cfg))],
+    ["popup-no-selection", (l) => renderPopup(makeHost({ showPopup: true, currentLang: l, attachmentsError: "err" }, {}))],
+    ["popup-no-fields", (l) => renderPopup(makeHost({ ...base, currentLang: l }, {}))],
+    ["popup-empty-values", (l) => renderPopup(makeHost({ showPopup: true, currentLang: l, selectedAttrs: { d: "" } }, { fieldsToShow: ["d"], settings: { showAttachments: false } } as Config))],
+  ];
+  const rows = cases.flatMap(([name, fn]) => LANGS.map((l) => [`${name}:${l}`, name, l] as const));
+  const EXPECTED: Record<string, string> = {
+  "chart-collapsed:en": "41fd3f90b7c58867e1fec75fee083bdb",
+  "chart-collapsed:ru": "41fd3f90b7c58867e1fec75fee083bdb",
+  "chart-collapsed:uz_lat": "41fd3f90b7c58867e1fec75fee083bdb",
+  "chart-collapsed:uz_cyr": "41fd3f90b7c58867e1fec75fee083bdb",
+  "chart-bar-hover:en": "35ae884574a23455e964116ae44fbf50",
+  "chart-bar-hover:ru": "35ae884574a23455e964116ae44fbf50",
+  "chart-bar-hover:uz_lat": "35ae884574a23455e964116ae44fbf50",
+  "chart-bar-hover:uz_cyr": "35ae884574a23455e964116ae44fbf50",
+  "chart-line-light:en": "a97061d1fe7510ab52e8d9d3364f2b1f",
+  "chart-line-light:ru": "a97061d1fe7510ab52e8d9d3364f2b1f",
+  "chart-line-light:uz_lat": "a97061d1fe7510ab52e8d9d3364f2b1f",
+  "chart-line-light:uz_cyr": "a97061d1fe7510ab52e8d9d3364f2b1f",
+  "chart-pinned:en": "19a0bb27d8b58e63736c4045c4f19be1",
+  "chart-pinned:ru": "19a0bb27d8b58e63736c4045c4f19be1",
+  "chart-pinned:uz_lat": "19a0bb27d8b58e63736c4045c4f19be1",
+  "chart-pinned:uz_cyr": "19a0bb27d8b58e63736c4045c4f19be1",
+  "popup-minimized:en": "2f94ca324b83e08511007a43e2c4ebd4",
+  "popup-minimized:ru": "f71d9bcc0668617ffbf791b9e36eefa5",
+  "popup-minimized:uz_lat": "3282807f74aea1a684d7e23a1a88ab8a",
+  "popup-minimized:uz_cyr": "9fba21477117592ab7df6d631e220742",
+  "popup-full:en": "13aba18a02f262bf18a27bfdbfd864d1",
+  "popup-full:ru": "c19284815b0e7c6028136f17c3f38075",
+  "popup-full:uz_lat": "8841684b115403b90f214894b62989f7",
+  "popup-full:uz_cyr": "3af71bf0d0a4f30feed7860b013183c1",
+  "popup-pinned-pos:en": "459be6d2a4d49cb796e141ce07a81ef4",
+  "popup-pinned-pos:ru": "6b1b7a9e10915980c39cedc0ebe6f647",
+  "popup-pinned-pos:uz_lat": "c15b9573d148df08a2590345993b0043",
+  "popup-pinned-pos:uz_cyr": "fba8b566d9f8356b10c85178bacae87b",
+  "popup-error-loading:en": "a39259063c5a080dbd9262b64e327d5f",
+  "popup-error-loading:ru": "00448b04e33adb7f1fe24b7d92da5faf",
+  "popup-error-loading:uz_lat": "571cd8c0eb069585f1023eaa2e85b202",
+  "popup-error-loading:uz_cyr": "cf2ec3b48752db306e6aaef5ef55b531",
+  "popup-no-selection:en": "564275a883c462e6b93d424c61c170cf",
+  "popup-no-selection:ru": "a9e60527e718f3763763d8ccb8df7802",
+  "popup-no-selection:uz_lat": "ad673eca39480a549d624a9998326f0d",
+  "popup-no-selection:uz_cyr": "f894c4ba1cea73f84fd8e462b140d3e0",
+  "popup-no-fields:en": "a12d03378ff9a04c9f30bf5a2f867c69",
+  "popup-no-fields:ru": "7ba8ee6a224431968aa239aa15b69639",
+  "popup-no-fields:uz_lat": "24f1eba4c5f54bd04bf9be219e271625",
+  "popup-no-fields:uz_cyr": "ab8c2da01ef095a8aa98f324afb06e7d",
+  "popup-empty-values:en": "c14d71b9434942f6bd5ba43f187b010b",
+  "popup-empty-values:ru": "be9c802dbd9144d41e64c42b68fe98dc",
+  "popup-empty-values:uz_lat": "d52740db081161f4fccef28c0ddac67c",
+  "popup-empty-values:uz_cyr": "f517f6a26dbc68b2e0135980990ea87f",
+  };
+
+  test.each(rows)("%s", (key, name, lang) => {
+    const fn = cases.find((c) => c[0] === name)![1];
+    const html = require("react-dom/server").renderToStaticMarkup(<div>{fn(lang)}</div>) as string;
+    expect(`${key}=${hash(html)}`).toBe(`${key}=${EXPECTED[key]}`);
+  });
+});
