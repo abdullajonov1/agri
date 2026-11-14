@@ -10,6 +10,9 @@ import { getPieVhFilterUniqueIds, getPieVhFilterUniqueIdsSig } from "../../../..
 import { waitForDashboardPackReady, getDashboardPack } from "../../../../../store/agri-dashboard-store";
 import { matchPieDashboardPack } from "../../../../../data/agri-dashboard-pack-match";
 
+/** Coalesces rapid region changes before starting a pie data fetch. */
+const FETCH_DEBOUNCE_MS = 16;
+
 /**
  * VH-first Pie: crop mix from agri_vegetation_indices (same source as VH bar).
  * Agri_table_data uniqueid joins are incomplete for many polygons.
@@ -242,7 +245,7 @@ export const fetchCategoryData = (host: PieWidgetHost): void => {
   // Short debounce so region changes feel immediate
   host._fetchDebounceTimer = setTimeout(() => {
     host._doFetchCategoryData();
-  }, 16);
+  }, FETCH_DEBOUNCE_MS);
 };
 export async function _doFetchCategoryData(host: PieWidgetHost): Promise<void> {
   const key = currentPieQueryKey(host);

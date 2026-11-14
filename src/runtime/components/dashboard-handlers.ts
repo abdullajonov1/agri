@@ -20,6 +20,13 @@ import {
   toPlainPopupConfig,
 } from "./dashboard-config";
 
+/** Waits for the indicator drawer collapse animation before marking it collapsed. */
+const INDICATOR_DRAWER_COLLAPSE_MS = 720;
+/** Waits for the indicator drawer expand animation before marking it expanded. */
+const INDICATOR_DRAWER_EXPAND_MS = 780;
+/** Re-syncs the indicator overlay after a popup opens, once its layout has settled. */
+const POPUP_OPEN_OVERLAY_SYNC_MS = 80;
+
 // Map-loading watchers and DOM layout live in their own modules; re-exported
 // here so this file stays the single entry point for the widget class.
 export {
@@ -114,7 +121,7 @@ function collapseIndicatorsForCompare(host: DashboardWidgetHost): void {
     host.indicatorAnimTimer = null;
     if (!host.dashboardRootRef.current) return;
     host.setState({ indicatorsAnimPhase: "collapsed" });
-  }, 720);
+  }, INDICATOR_DRAWER_COLLAPSE_MS);
 }
 
 export function componentDidMount(host: DashboardWidgetHost): void {
@@ -240,7 +247,7 @@ export const toggleIndicatorsDrawer = (host: DashboardWidgetHost, event: React.M
         indicatorsAnimPhase: opening ? "expanded" : "collapsed",
       });
     },
-    opening ? 780 : 720,
+    opening ? INDICATOR_DRAWER_EXPAND_MS : INDICATOR_DRAWER_COLLAPSE_MS,
   );
 };
 
@@ -354,14 +361,14 @@ export const handleMapPopupVisibility = (host: DashboardWidgetHost, event: Event
     host.syncIndicatorOverlayLayout();
     if (open) {
       requestAnimationFrame(() => { host.syncIndicatorOverlayLayout(); });
-      window.setTimeout(() => { host.syncIndicatorOverlayLayout(); }, 80);
+      window.setTimeout(() => { host.syncIndicatorOverlayLayout(); }, POPUP_OPEN_OVERLAY_SYNC_MS);
     }
     if (shouldCollapseIndicators) {
       host.indicatorAnimTimer = setTimeout(() => {
         host.indicatorAnimTimer = null;
         if (!host.dashboardRootRef.current) return;
         host.setState({ indicatorsAnimPhase: "collapsed" });
-      }, 720);
+      }, INDICATOR_DRAWER_COLLAPSE_MS);
     }
   };
 

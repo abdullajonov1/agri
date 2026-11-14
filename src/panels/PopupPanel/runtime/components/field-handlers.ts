@@ -22,6 +22,9 @@ import { getSelectedDsIds } from "../../../../gis/agri-data-source-engine";
 import { type AllWidgetProps, type QueriableDataSource } from "jimu-core";
 import { AGRI_ESRI_BLOB_TIMEOUT_MS } from "../../../../shared/agri-http";
 
+/** Polling interval while waiting for the map click handler to attach. */
+const MAP_CLICK_BOOTSTRAP_POLL_MS = 2500;
+
 /** `props.useMapWidgetIds` read defensively (ImmutableArray or plain array). */
 interface MapWidgetIdIndex {
   [index: number]: unknown;
@@ -447,7 +450,7 @@ export function componentDidMount(host: PopupWidgetHost): void {
       clearInterval(host.mapClickBootstrapTimer);
       host.mapClickBootstrapTimer = null;
     }
-  }, 2500);
+  }, MAP_CLICK_BOOTSTRAP_POLL_MS);
   agriMapClickDebug("AgriPolygon mounted", {
     widgetId: host.props.id,
     embedded: host.isDashboardEmbedded(),

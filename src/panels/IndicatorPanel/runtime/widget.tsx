@@ -72,6 +72,9 @@ import {
 } from "./components/render-panel";
 import type { IndicatorWidgetHost } from "./indicator-host";
 
+/** Clears the reset guard after filter state commits so the reset's own events are ignored. */
+const RESET_FLAG_CLEAR_MS = 500;
+
 
 
 
@@ -330,7 +333,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
           else if (this.state.connectionStatus === "connected")
             { this.fetchData(true); }
 
-          setTimeout(() => (this._isResetting = false), 500);
+          setTimeout(() => (this._isResetting = false), RESET_FLAG_CLEAR_MS);
         },
       );
     };

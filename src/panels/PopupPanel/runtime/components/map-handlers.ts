@@ -20,6 +20,11 @@ import type {
 } from "../popup-types";
 import { asDataSourceLike, readSupportsAttachments } from "../popup-type-guards";
 
+/** Waits for the map view to report in before falling back to the map view manager. */
+const MAP_VIEW_FALLBACK_MS = 600;
+/** Waits before retrying map connection initialization after a failed attempt. */
+const MAP_INIT_RETRY_MS = 800;
+
 type MaybeLayer = AgriLayerLike | null | undefined;
 
 /** `props.useMapWidgetIds` read defensively (ImmutableArray or plain array). */
@@ -389,7 +394,7 @@ export const scheduleMapViewFallback = (host: PopupWidgetHost): void => {
     if (host.state.jimuMapView?.view) return;
     const late = host.getMapViewFromManager(mapWidgetId);
     if (late?.view) host.onActiveViewChange(late);
-  }, 600);
+  }, MAP_VIEW_FALLBACK_MS);
 };
 
 export const scheduleMapInitRetry = (host: PopupWidgetHost, jmv: JimuMapView): void => {
@@ -400,7 +405,7 @@ export const scheduleMapInitRetry = (host: PopupWidgetHost, jmv: JimuMapView): v
     host.mapInitRetryTimer = null;
     if (!host._isMounted) return;
     void host.initializeMapConnection(jmv);
-  }, 800);
+  }, MAP_INIT_RETRY_MS);
 };
 
 export function expandUseDataSourceEntries(host: PopupWidgetHost, useList: PopupUseDataSource[]): PopupUseDataSource[] {

@@ -2,18 +2,13 @@
 import {
   DataSourceComponent,
   DataSourceManager,
-  getAppStore,
   jsx,
   React,
   type DataSource,
   type IMUseDataSource,
   type UseDataSource,
 } from "jimu-core";
-import {
-  type JimuMapView,
-  MapViewManager,
-  loadArcGISJSAPIModules,
-} from "jimu-arcgis";
+import { type JimuMapView } from "jimu-arcgis";
 import plusLight from "./assets/PlusLight.svg";
 import minusLight from "./assets/MinusLight.svg";
 import expandLight from "./assets/ExpandLight.svg";
@@ -23,10 +18,20 @@ import {
   readAgriAdminBordersVisible,
   setAgriAdminBordersVisible,
 } from "../gis/agri-admin-boundary-layer";
-import { looksLikeRegionYearLayerHaystack } from "../gis/feature-layer-data";
 import { installAgriCorsGuard, recreateDataSource } from "../shared/agri-cors-guard";
 import FieldComparePanel from "./field-compare-panel";
 import MapLandLayersPanel from "./map-land-layers-panel";
+import {
+  type AgriMapInitContext,
+  disposeAgriMap,
+  dispatchMapSettingsRequest,
+  initializeAgriMap,
+  readSelectedRegionEvent,
+  readThemeEvent,
+  syncFullscreenState,
+  toggleFullscreen as toggleMapFullscreen,
+  zoomViewBy,
+} from "./embedded-agri-map-setup";
 
 interface Props {
   mapWidgetId: string;
@@ -38,9 +43,6 @@ interface Props {
   onError?: (message: string) => void;
 }
 
-
-/** MapView exposes `resize()` at runtime although it is not in the public typings. */
-type ResizableMapView = __esri.MapView & { resize?: () => void };
 
 type MapLanguage = "uz_lat" | "uz_cyr" | "ru" | "en";
 
@@ -120,35 +122,6 @@ const BASEMAP_TEXT: Record<MapLanguage, {
     items: [["Тёмная", "dark-gray-vector"], ["Серая", "gray-vector"], ["Спутник", "satellite"], ["Гибрид", "hybrid"], ["Топографическая", "topo-vector"]],
   },
 };
-
-/** Portal-item fields read from a WebMap data source (some live only on the instance). */
-interface PortalItemDataSourceLike {
-  portalUrl?: string;
-  itemId?: string;
-  getDataSourceJson?: () => { portalUrl?: string; itemId?: string } | null;
-}
-
-/** `appConfig.portalUrl` is present at runtime but not declared on AppConfig. */
-const readUndeclaredPortalUrl = (value: unknown): unknown =>
-  (value as { portalUrl?: unknown } | null | undefined)?.portalUrl;
-
-type WindowWithJimuConfig = Window & { jimuConfig?: { portalUrl?: string } };
-
-function getPortalUrl(dataSource: PortalItemDataSourceLike | null): string {
-  const json = dataSource?.getDataSourceJson?.();
-  const state = getAppStore().getState();
-  return String(
-    dataSource?.portalUrl || json?.portalUrl || state?.portalUrl ||
-      readUndeclaredPortalUrl(state?.appConfig) ||
-      (window as WindowWithJimuConfig)?.jimuConfig?.portalUrl ||
-      "https://www.arcgis.com",
-  ).replace(/\/$/, "");
-}
-
-function getItemId(dataSource: PortalItemDataSourceLike | null): string {
-  const json = dataSource?.getDataSourceJson?.();
-  return String(dataSource?.itemId || json?.itemId || "").trim();
-}
 
 export default function EmbeddedAgriMap(props: Props) {
   const {
@@ -246,17 +219,10 @@ export default function EmbeddedAgriMap(props: Props) {
 
   React.useEffect(() => {
     const handleTheme = (event: Event): void => {
-      const detail = (event as CustomEvent)?.detail || {};
-      const dark = typeof detail.isDarkTheme === "boolean"
-        ? detail.isDarkTheme
-        : String(detail.theme || "").toLowerCase() === "dark";
-      setIsDarkTheme(dark);
+      setIsDarkTheme(readThemeEvent(event));
     };
     const handleFilter = (event: Event): void => {
-      const detail = (event as CustomEvent)?.detail || {};
-      const filters = detail.filters || detail.currentFilters || {};
-      const locked = detail.scope?.lockedViloyat || "";
-      setHasSelectedRegion(Boolean(String(locked || filters.viloyat || "").trim()));
+      setHasSelectedRegion(readSelectedRegionEvent(event));
     };
     document.addEventListener("agriV11ThemeToggled", handleTheme);
     document.addEventListener("masterFilterChanged", handleFilter);
@@ -277,96 +243,31 @@ export default function EmbeddedAgriMap(props: Props) {
   }, [automaticBasemapId]);
 
   React.useEffect(() => {
-    const syncFullscreenState = (): void => {
-      const mapSlot = containerRef.current?.closest(
-        ".agri-dashboard-map-slot",
-      ) as HTMLElement | null;
-      const fullscreenDocument = document as Document & {
-        webkitFullscreenElement?: Element | null;
-      };
-      const activeElement =
-        document.fullscreenElement ||
-        fullscreenDocument.webkitFullscreenElement ||
-        null;
-      setIsFullscreen(Boolean(mapSlot && activeElement === mapSlot));
-      window.requestAnimationFrame(() => {
-        try {
-          (viewRef.current as ResizableMapView | null)?.resize?.();
-        } catch {
-          /* MapView resize observer will handle it */
-        }
-      });
+    const syncState = (): void => {
+      syncFullscreenState(containerRef.current, viewRef, setIsFullscreen);
     };
 
-    document.addEventListener("fullscreenchange", syncFullscreenState);
+    document.addEventListener("fullscreenchange", syncState);
     document.addEventListener(
       "webkitfullscreenchange",
-      syncFullscreenState as EventListener,
+      syncState as EventListener,
     );
-    syncFullscreenState();
+    syncState();
 
     return () => {
-      document.removeEventListener("fullscreenchange", syncFullscreenState);
+      document.removeEventListener("fullscreenchange", syncState);
       document.removeEventListener(
         "webkitfullscreenchange",
-        syncFullscreenState as EventListener,
+        syncState as EventListener,
       );
     };
   }, []);
   const zoomBy = React.useCallback((delta: number): void => {
-    const view = viewRef.current;
-    if (!view || view.destroyed) return;
-    const minZoom = Number(view.constraints?.minZoom ?? 5);
-    const targetZoom = Math.max(minZoom, Number(view.zoom || minZoom) + delta);
-    void view.goTo(
-      { center: view.center, zoom: targetZoom },
-      { animate: true, duration: 420, easing: "ease-in-out" },
-    ).catch((): undefined => undefined);
+    zoomViewBy(viewRef.current, delta);
   }, []);
 
   const toggleFullscreen = React.useCallback(async (): Promise<void> => {
-    const mapSlot = containerRef.current?.closest(
-      ".agri-dashboard-map-slot",
-    ) as HTMLElement | null;
-    if (!mapSlot) return;
-
-    const fullscreenDocument = document as Document & {
-      webkitFullscreenElement?: Element | null;
-      webkitExitFullscreen?: () => Promise<void> | void;
-    };
-    const fullscreenMapSlot = mapSlot as HTMLElement & {
-      webkitRequestFullscreen?: () => Promise<void> | void;
-    };
-
-    try {
-      const activeElement =
-        document.fullscreenElement ||
-        fullscreenDocument.webkitFullscreenElement ||
-        null;
-      if (activeElement === mapSlot) {
-        if (typeof document.exitFullscreen === "function") {
-          await document.exitFullscreen();
-        } else {
-          await Promise.resolve(fullscreenDocument.webkitExitFullscreen?.());
-        }
-      } else {
-        if (activeElement) {
-          if (typeof document.exitFullscreen === "function") {
-            await document.exitFullscreen();
-          } else {
-            await Promise.resolve(fullscreenDocument.webkitExitFullscreen?.());
-          }
-        }
-        if (typeof mapSlot.requestFullscreen === "function") {
-          await mapSlot.requestFullscreen();
-        } else {
-          await Promise.resolve(fullscreenMapSlot.webkitRequestFullscreen?.());
-        }
-      }
-      setBasemapMenuOpen(false);
-    } catch {
-      /* Fullscreen may be blocked by the browser or iframe policy. */
-    }
+    await toggleMapFullscreen(containerRef.current, () => { setBasemapMenuOpen(false); });
   }, []);
 
   const selectBasemap = React.useCallback((basemapId: string): void => {
@@ -393,152 +294,24 @@ export default function EmbeddedAgriMap(props: Props) {
   }, [onViewReady, onLoadingChange, onError]);
 
   React.useEffect(() => {
-    let disposed = false;
-    let view: __esri.MapView | null = null;
-    let jimuMapViewId = "";
-    const updatingHandle: { remove?: () => void } | null = null;
-
-    const initialize = async (): Promise<void> => {
-      if (!containerRef.current) return;
-      onLoadingChangeRef.current?.(true);
-      try {
-        const manager = MapViewManager.getInstance();
-        // After the settings switch to another WebMap, `rootDataSource` still
-        // holds the previous one until DataSourceComponent reports the new
-        // one; opening it would pair the old map with the new data source id.
-        const ds = (rootDataSource && rootDataSource.id === effectiveRootDataSourceId
-          ? rootDataSource
-          : null) || (effectiveRootDataSourceId
-          ? DataSourceManager.getInstance().getDataSource(effectiveRootDataSourceId)
-          : null);
-        // No WebMap chosen in the settings: open nothing (no basemap-only map).
-        if (!effectiveRootDataSourceId) {
-          onLoadingChangeRef.current?.(false);
-          return;
-        }
-        // WebMap data source not created yet: the rootDataSource effect re-runs this.
-        if (!ds) return;
-        if (ds) {
-          try { await ds.ready?.(); } catch { /* WebMap loads from the portal item */ }
-        }
-
-        const itemId = getItemId(ds);
-        const portalUrl = getPortalUrl(ds);
-        const [WebMap, Map, MapView, Extent] = await loadArcGISJSAPIModules([
-          "esri/WebMap",
-          "esri/Map",
-          "esri/views/MapView",
-          "esri/geometry/Extent",
-        ]);
-        if (disposed || !containerRef.current) return;
-
-        const map = itemId
-          ? new WebMap({ portalItem: { id: itemId, portal: { url: portalUrl } } })
-          : new Map({ basemap: automaticBasemapRef.current });
-        mapRef.current = map;
-        setActiveBasemapId(automaticBasemapRef.current);
-
-        // Parse the WebMap before creating MapView, then hide every
-        // region+year operational layer. Otherwise MapView immediately sends
-        // exports for the WebMap's saved visibility and Localization hides
-        // them only after those expensive requests have already started.
-        if (itemId && typeof map.load === 'function') {
-          await map.load();
-          map.basemap = automaticBasemapRef.current;
-          setActiveBasemapId(automaticBasemapRef.current);
-          const operationalLayers =
-            map.allLayers?.toArray?.() || map.layers?.toArray?.() || [];
-          for (const layer of operationalLayers) {
-            const haystack = `${String(layer?.title || '')} ${String(layer?.url || '')}`;
-            const isRegionYearLayer =
-              String(layer?.type || '').toLowerCase() !== 'group' &&
-              looksLikeRegionYearLayerHaystack(haystack);
-            if (!isRegionYearLayer) continue;
-            // Hide only — do not layer.when()/load every region service here.
-            // Forcing load on all agri region layers at once can flood MapServer.
-            layer.visible = false;
-            if (Number(layer.opacity ?? 1) !== 1) layer.opacity = 1;
-          }
-        }
-
-        // Always frame Uzbekistan — WebMap portal viewpoint is often all of
-        // Central Asia, which looks like "UZ is incomplete / empty".
-        const uzbekistanExtent = new Extent({
-          xmin: 55.9,
-          ymin: 37.15,
-          xmax: 73.2,
-          ymax: 45.65,
-          spatialReference: { wkid: 4326 },
-        });
-
-        view = new MapView({
-          container: containerRef.current,
-          map,
-          extent: uzbekistanExtent,
-          constraints: { rotationEnabled: false, minZoom: 5, snapToZoom: false },
-          ui: { components: [] },
-        });
-        viewRef.current = view;
-        try {
-          view.ui.remove("attribution");
-        } catch {
-          /* already absent */
-        }
-        await view.when();
-        if (disposed) { view.destroy(); return; }
-
-        try {
-          await view.goTo(uzbekistanExtent, { animate: false });
-        } catch {
-          /* viewpoint already set via extent */
-        }
-
-        const jimuMapView = await manager.createJimuMapView({
-          mapWidgetId,
-          dataSourceId: effectiveRootDataSourceId,
-          view,
-          isActive: true,
-          isEnablePopup: false,
-          mapViewManager: manager,
-          useUrlHashLayersVisibility: false,
-        });
-        if (disposed) {
-          try {
-            MapViewManager.getInstance().destroyJimuMapView(jimuMapView.id);
-          } catch {
-            /* noop */
-          }
-          try { view.destroy(); } catch { /* noop */ }
-          return;
-        }
-        jimuMapViewId = jimuMapView.id;
-        jimuMapViewRef.current = jimuMapView;
-        setReadyView(view);
-        // The map is usable as soon as the view is ready. Hidden/background
-        // layer updates must not keep the whole dashboard behind a loader.
-        onLoadingChangeRef.current?.(false);
-        onViewReadyRef.current?.(jimuMapView);
-      } catch (error) {
-        if (!disposed) {
-          onLoadingChangeRef.current?.(false);
-          onErrorRef.current?.(
-            error instanceof Error ? error.message : "Xaritani yuklab bo'lmadi",
-          );
-        }
-      }
+    const ctx: AgriMapInitContext = {
+      mapWidgetId,
+      dataSourceId: effectiveRootDataSourceId,
+      rootDataSource,
+      session: { disposed: false, view: null, jimuMapViewId: "" },
+      containerRef,
+      viewRef,
+      mapRef,
+      jimuMapViewRef,
+      automaticBasemapRef,
+      onViewReadyRef,
+      onLoadingChangeRef,
+      onErrorRef,
+      setActiveBasemapId,
+      setReadyView,
     };
-
-    void initialize();
-    return () => {
-      disposed = true;
-      updatingHandle?.remove?.();
-      if (jimuMapViewId) MapViewManager.getInstance().destroyJimuMapView(jimuMapViewId);
-      jimuMapViewRef.current = null;
-      setReadyView(null);
-      viewRef.current = null;
-      mapRef.current = null;
-      try { view?.destroy(); } catch { /* noop */ }
-    };
+    void initializeAgriMap(ctx);
+    return () => { disposeAgriMap(ctx); };
     // Intentionally omit onLoadingChange/onViewReady/onError — parent passes
     // inline lambdas; including them remounts the map every setState (infinite loop).
   }, [mapWidgetId, effectiveRootDataSourceId, rootDataSource]);
@@ -548,13 +321,7 @@ export default function EmbeddedAgriMap(props: Props) {
       <div
         ref={containerRef}
         className="agri-dashboard-embedded-map"
-        onPointerDownCapture={() => {
-          window.dispatchEvent(
-            new CustomEvent("agri-main:map-settings-request", {
-              detail: { widgetId: mapWidgetId.replace(/-embedded-map$/, "") },
-            }),
-          );
-        }}
+        onPointerDownCapture={() => { dispatchMapSettingsRequest(mapWidgetId); }}
       />
       <div className="agri-dashboard-map-controls" aria-label={basemapText.controls}>
         <button

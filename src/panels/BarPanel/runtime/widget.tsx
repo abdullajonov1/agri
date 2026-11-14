@@ -23,6 +23,11 @@ import {
   type CssVarStyle,
 } from "../../panel-filter-detail";
 
+/** Defers ResizeObserver setup until the DOM is ready. */
+const RESPONSIVE_SIZING_DEFER_MS = 0;
+/** Coalesces rapid VH selection changes before dispatching widgetSelectionChanged. */
+const VH_DISPATCH_DEBOUNCE_MS = 40;
+
 const BAR_ANIM_MS = 680;
 const BAR_STAGGER_MS = 70;
 
@@ -329,7 +334,7 @@ export default class AgriBar extends React.PureComponent<
         });
         this._resizeObserver.observe(this._containerRef.current);
       }
-    }, 0);
+    }, RESPONSIVE_SIZING_DEFER_MS);
     if (this.props.externalFilters) {
       this.setState({
         selectedViloyat: this.props.externalFilters.viloyat || "",
@@ -479,7 +484,7 @@ export default class AgriBar extends React.PureComponent<
           bubbles: true,
         }),
       );
-    }, 40);
+    }, VH_DISPATCH_DEBOUNCE_MS);
   };
 
   /** Display-only: VH data comes from AgriFilter via masterFilterChanged.vhBarData */

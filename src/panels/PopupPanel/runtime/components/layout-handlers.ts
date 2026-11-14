@@ -2,6 +2,9 @@ import type { PopupWidgetHost } from "../popup-host";
 import { getInitialTheme, t } from "../messages";
 import { type React } from "jimu-core";
 
+/** Waits for popup layout changes to settle before repositioning a pinned popup. */
+const POPUP_LAYOUT_DEBOUNCE_MS = 48;
+
 export function getPopupWidth(host: PopupWidgetHost, view?: __esri.MapView | __esri.SceneView | null): number {
   const margin = host.POPUP_MARGIN;
   let preferred = host.POPUP_WIDTH;
@@ -187,7 +190,7 @@ export const schedulePopupLayout = (host: PopupWidgetHost): void => {
   host._popupLayoutTimer = setTimeout(() => {
     host._popupLayoutTimer = null;
     host.repositionPinnedIfNeeded();
-  }, 48);
+  }, POPUP_LAYOUT_DEBOUNCE_MS);
 };
 
 export const schedulePopupLayoutAfterContent = (host: PopupWidgetHost): void => {
