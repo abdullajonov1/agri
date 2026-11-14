@@ -21,7 +21,7 @@ import {
   type AgriMapViewHostLike,
   layerFieldNameList,
 } from "./agri-layer-types";
-import { agroV5Log } from "./agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
 /** Immutable (asMutable) or Collection (toArray) wrappers around a list. */
 interface PlainArraySource {

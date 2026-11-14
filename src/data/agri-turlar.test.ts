@@ -3,7 +3,7 @@ import {
   normalizeTurlarListSql,
   turlarSourceFromDetail,
 } from "./agri-turlar";
-import { normalizeApos } from "./agri-sql";
+import { normalizeApos } from "../shared/agri-sql";
 
 const upper = (s: string) => s.toUpperCase();
 

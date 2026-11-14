@@ -7,7 +7,7 @@ import {
   resolveExportImageWithDateWalk,
   type VegetationIndiceType,
 } from "../gis/agri-polygon-api-source";
-import { agroV5Log } from "./agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
 const SESSION_DATE_KEY = "agri.veg.overlay.lastDate";
 const SESSION_INDEX_KEY = "agri.veg.overlay.lastIndex";

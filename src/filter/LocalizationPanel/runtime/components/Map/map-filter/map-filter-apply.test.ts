@@ -42,7 +42,7 @@ jest.mock("../../../../../../gis/feature-layer-data", () => ({
   isMapImageOwnedLayer: jest.fn(),
   safeLoadMapLayer: jest.fn(),
 }));
-jest.mock("../../../../../../gis/agri-debug-log", () => ({
+jest.mock("../../../../../../shared/agri-debug-log", () => ({
   agroV5Log: jest.fn(),
 }));
 jest.mock("../../localization-log", () => ({
@@ -55,7 +55,7 @@ import * as target from "../../../../../localization/map-zoom-target";
 import * as shown from "../../../../../localization/map-shown-extent";
 import * as admin from "../../../../../../gis/agri-admin-boundary-layer";
 import * as fld from "../../../../../../gis/feature-layer-data";
-import { agroV5Log } from "../../../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../../../shared/agri-debug-log";
 import { isShownRegionYearLayerOpaque } from "../../../../../localization/map-filter-apply";
 import { makeFakeHost, type FakeHost, type FakeHostInit } from "../../__test-utils__/fake-host";
 import { applyMapFiltersOptimized } from "./map-filter-apply";

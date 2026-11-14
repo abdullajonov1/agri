@@ -1,7 +1,7 @@
 import { React } from "jimu-core";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import FieldComparePanel from "./field-compare-panel";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 import {
   fetchPolygonAvailableDates,
   fetchPolygonExportImageTiff,
@@ -12,7 +12,7 @@ jest.mock("../gis/agri-polygon-api-source", () => ({
   fetchPolygonAvailableDates: jest.fn(),
 }));
 
-jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("../shared/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 jest.mock("../gis/agri-vegetation-overlay-prefetch", () => ({
   getVegetationOverlayContext: () => ({ regionId: 4, year: 2026, lastIndex: "ndvi" }),

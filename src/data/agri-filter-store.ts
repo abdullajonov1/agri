@@ -9,7 +9,7 @@
  * multi-key store for 1 hour so re-selecting a prior filter reuses data.
  */
 import { scheduleDashboardOrchestrator } from "../controller/agri-dashboard-orchestrator";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 import { errorMessage } from "../shared/agri-plain-object";
 
 export type MasterFilterSnapshot = Record<string, unknown>;

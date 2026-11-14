@@ -12,7 +12,7 @@ import {
   escapeLikeLiteral,
   eqAposSmart,
   buildTumanEqualsSql,
-} from "../data/agri-sql";
+} from "../shared/agri-sql";
 import { buildTurlarSqlClause } from "../shared/agri-crop-labels";
 import { withAgriAccessWhere } from "../gis/feature-layer-data";
 

@@ -1,6 +1,6 @@
 import type { PieWidgetHost } from "../../pie-host";
 import { VH_CATEGORY_TO_NDVI_STATUS, type VegetationCropBreakdownRow, queryVegetationCropStatsForStatus, queryVegetationCropBreakdownForStatus } from "../../../../../gis/agri-vegetation-data-source";
-import { agroV5Log } from "../../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../../shared/agri-debug-log";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 import { messageOf } from "../../../../panel-filter-detail";
 import { queryAgriTuriCropMappings, getAgriTableDataLayer } from "../../../../../gis/agri-table-data-source";

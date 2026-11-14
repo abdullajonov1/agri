@@ -5,7 +5,7 @@ import { AGRI_EVENTS } from "../../shared/agri-events";
 import { type AllWidgetProps, React } from "jimu-core";
 import AgriDashboardSpinner from "../../shared/AgriDashboardSpinner";
 import AgriAnimatedCount from "../../shared/AgriAnimatedCount";
-import { normalizeApos } from "../../data/agri-sql";
+import { normalizeApos } from "../../shared/agri-sql";
 import { bindMasterFilter } from "../../data/agri-filter-bus";
 import {
   detectIsDarkTheme,

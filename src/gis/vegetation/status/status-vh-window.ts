@@ -1,6 +1,6 @@
 import { vegAccessCacheTag, type VegetationStatusCountsParams, getAgriVegetationIndicesLayer, queryVegFeatures, dateRangeInclusiveClause, formatArcgisDateToYmd, shiftYmd, agriVhLog, type VegQuery } from "../veg-base";
 import { buildCropClause } from "../veg-sql";
-import { escapeArcGIS } from "../../../data/agri-sql";
+import { escapeArcGIS } from "../../../shared/agri-sql";
 import { buildSpatialJoinWhere } from "../../agri-table-data-source";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 import { rememberAsync } from "../../../data/agri-persistent-cache";

@@ -1,8 +1,8 @@
-jest.mock("../../../../gis/agri-debug-log", () => ({
+jest.mock("../../../../shared/agri-debug-log", () => ({
   agroV5Log: jest.fn(),
 }));
 
-import { agroV5Log } from "../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../shared/agri-debug-log";
 import { agriLog, debugCatch } from "./localization-log";
 
 const logMock = jest.mocked(agroV5Log);

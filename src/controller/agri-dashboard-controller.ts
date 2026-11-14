@@ -38,7 +38,7 @@ import { getAgriTableDataLayer } from "../gis/agri-table-data-source";
 import { getAgriVegetationIndicesLayer } from "../gis/agri-vegetation-data-source";
 import { ensureLayerLoaded } from "../types/agri-layer";
 import { isPlainRecord } from "../shared/agri-plain-object";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
 const readErrorMessageField = (e: unknown): unknown =>
   e instanceof Error ? e.message : isPlainRecord(e) ? e.message : undefined;

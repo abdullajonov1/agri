@@ -8,7 +8,7 @@ import {
 } from "../veg-base";
 import { errorMessage } from "../../agri-layer-types";
 import { buildCropClause } from "../veg-sql";
-import { dateEqualsClause, escapeArcGIS } from "../../../data/agri-sql";
+import { dateEqualsClause, escapeArcGIS } from "../../../shared/agri-sql";
 import { buildSpatialJoinWhere } from "../../agri-table-data-source";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 

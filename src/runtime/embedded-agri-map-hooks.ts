@@ -14,7 +14,7 @@ import {
   toggleFullscreen as toggleMapFullscreen,
   zoomViewBy,
 } from "./embedded-agri-map-setup";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
 export type MapLanguage = "uz_lat" | "uz_cyr" | "ru" | "en";
 

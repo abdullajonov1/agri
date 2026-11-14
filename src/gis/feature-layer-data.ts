@@ -32,7 +32,7 @@ export {
   shouldRefreshMapImageParentOnly,
 } from "./map-image-predicates";
 
-export { escapeArcGIS } from "../data/agri-sql";
+export { escapeArcGIS } from "../shared/agri-sql";
 
 export { withAgriAccessWhere, resolveEfficiencyField, clampEfficiencyValue, isEfficiencyRangeActive, buildEfficiencyRangeWhere, mergeEfficiencyIntoFilters, MONTHLY_FIELDS, REGION_SOATO_TO_UZ_NAME, regionSoatoToDisplayName, regionDisplayNameToSoato, extractMapLayerIdFromDsId, isMapImageGroupSublayer, safeLoadMapLayer, isQueryableFieldLayer, getLayerFieldNames, extractYearFromHaystack, normalizeMapServiceUrl, normalizeQueryableLayerUrl, getAgriLayerMapKey, getMapImageParentLayer, isMapImageOwnedLayer, ensureAgriServerIdentityToken, resolveQueryableServiceUrl, refreshRegionYearMapExports, normalizeRegionToken, regionFilterValuesEqual, looksLikeRegionYearLayerHaystack, haystackHasKnownRegionToken, haystackMatchesYear, pickYearRegionLayerPool, apostropheVariants, expandRegionVariants, expandDistrictVariants, getMavsumGroupedValues, layerFieldKind, FARMER_TAX_NUMBER_FIELD, normalizeFarmerTaxSearchValue, landTypeIdForValue, hasActiveLandTypeFilter, flLog, installPbfJsonWorkaround, disableLayerPbf, getQueryUrl, isValidMapExtent, getDetachedQueryLayerForUrl } from "./feature-layer/primitives";
 export type { AgriFilters, ResolvedFeatureLayer, ShownRegionYearLayer, LayerFieldKind, PickWhereWithMavsumFallbackResult, PickWhereProgressiveResult } from "./feature-layer/primitives";

@@ -4,7 +4,7 @@ import { dedupedQueryFeatures } from "../../data/agri-query-gateway";
 import { queryRestJson } from "../../data/agri-rest-query";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../shared/agri-http";
 import type { AgriLayerUrlLike, AgriQueryableLayer } from "../../types/agri-layer";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 import { errorMessage } from "../agri-layer-types";
 import { withVegAccessWhere } from "./veg-sql";
 import type { AgriVegetationLayerHandle, VegQueryLike } from "./veg-types";

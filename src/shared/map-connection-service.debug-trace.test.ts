@@ -1,7 +1,7 @@
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "./agri-debug-log";
 import { resolveJimuMapView } from "./map-connection-service";
 
-jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("./agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 jest.mock(
   "jimu-arcgis",
   () => ({

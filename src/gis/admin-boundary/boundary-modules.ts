@@ -14,7 +14,7 @@ import {
   getAgriServiceUrls,
 } from "../../shared/agri-service-urls";
 import { readAgriAuthToken } from "../agri-auth-token";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 
 export interface BoundaryModules {
   FeatureLayer: typeof FeatureLayer;

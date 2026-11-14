@@ -12,7 +12,7 @@ const mockOutStat = jest.fn();
 jest.mock("../../../../../data/agri-indicator-stats", () => ({
   queryIndicatorOutStatNullable: (a: unknown): unknown => mockOutStat(a),
 }));
-jest.mock("../../../../../gis/agri-debug-log", () => ({ agriVhIndicatorLog: jest.fn() }));
+jest.mock("../../../../../shared/agri-debug-log", () => ({ agriVhIndicatorLog: jest.fn() }));
 const mockApiValue = jest.fn();
 jest.mock("./indicator-api-client", () => ({
   requestIndicatorApiValue: (...a: unknown[]): unknown => mockApiValue(...a),

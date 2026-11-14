@@ -1,5 +1,5 @@
 import { getAppStore } from "jimu-core";
-import { escapeArcGIS, normalizeAposKey, sanitizeLikeInput } from "../data/agri-sql";
+import { escapeArcGIS, normalizeAposKey, sanitizeLikeInput } from "./agri-sql";
 import { isPlainRecord, toPlainRecord } from "./agri-plain-object";
 
 /**

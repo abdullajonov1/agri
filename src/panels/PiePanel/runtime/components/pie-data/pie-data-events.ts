@@ -1,6 +1,6 @@
 import type { PieWidgetHost } from "../../pie-host";
 import { getPieVhFilterUniqueIdsSig } from "../../../../../gis/agri-chart-filter-order";
-import { agroV5Log } from "../../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../../shared/agri-debug-log";
 import { bindMasterFilter } from "../../../../../data/agri-filter-bus";
 import { normalizeTurlar } from "../../../../../data/agri-turlar";
 import { findAreaFieldByPreferredNames, AREA_FIELD_PREFERRED_PIE } from "../../../../../data/agri-area-field";

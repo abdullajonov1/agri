@@ -15,7 +15,7 @@ import AgriChartLoader from "../../../shared/AgriChartLoader";
 import { agriNoDataLabel } from "../../../shared/agriNoDataLabel";
 import { renderStatusBarShape, type StatusBarShapeProps } from "./statusBarShape";
 import { bindMasterFilter } from "../../../data/agri-filter-bus";
-import { agroV5Log } from "../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../shared/agri-debug-log";
 import { resolveInitialLanguage } from "../../../shared/agri-language";
 import {
   readPanelEventDetail,

@@ -4,7 +4,7 @@
  * definitionExpressions and refresh MapImage exports.
  */
 import { isAgriAdminBoundaryLayer } from "../map-image-predicates";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 import {
   type AgriLayerLike,
   type AgriWatchHandle,

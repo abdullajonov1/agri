@@ -21,7 +21,7 @@ jest.mock("../../../gis/agri-table-data-source", () => ({
   queryAgriTuriCropMappings: (): Promise<unknown[]> => mockMappings() as Promise<unknown[]>,
 }));
 const mockLog = jest.fn();
-jest.mock("../../../gis/agri-debug-log", () => ({
+jest.mock("../../../shared/agri-debug-log", () => ({
   agroV5Log: (...args: unknown[]): void => { mockLog(...args); },
 }));
 jest.mock("jimu-arcgis", () => ({ loadArcGISJSAPIModules: jest.fn() }));

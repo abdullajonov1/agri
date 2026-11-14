@@ -28,7 +28,7 @@ jest.mock("../gis/agri-table-data-source", () => ({
 jest.mock("../gis/agri-vegetation-data-source", () => ({
   getAgriVegetationIndicesLayer: (): Promise<unknown> => vegLayerMock(),
 }));
-jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("../shared/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 import {
   buildDashboardPackKey,

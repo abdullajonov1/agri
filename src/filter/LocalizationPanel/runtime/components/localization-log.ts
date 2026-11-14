@@ -1,4 +1,4 @@
-import { agroV5Log } from "../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../shared/agri-debug-log";
 import { errorMessage } from "../../../../shared/agri-plain-object";
 
 /** Opt-in via window.__AGRO_V5_DEBUG / __AGRO_V5_VH_DEBUG / __AGRO_V5_TUMAN_DEBUG */

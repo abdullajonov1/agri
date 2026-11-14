@@ -8,7 +8,7 @@ import {
   useAgriLandScope,
 } from "../gis/agri-land-layers";
 import { applyLandCropRenderer } from "../gis/agri-land-crop-renderer";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 import {
   getAgriLandOverlay,
   toggleAgriLandOverlay,

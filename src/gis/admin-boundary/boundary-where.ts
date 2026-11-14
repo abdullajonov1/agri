@@ -2,7 +2,7 @@
  * Selection → Hosted/regions + district WHERE candidates, plus the
  * client-side guard that drops district features from neighbouring viloyats.
  */
-import { escapeLikeLiteral, normalizeApos } from "../../data/agri-sql";
+import { escapeLikeLiteral, normalizeApos } from "../../shared/agri-sql";
 import { canonicalizeRegionFilterValue } from "../feature-layer-data";
 import type { AgriAttributes } from "../agri-layer-types";
 import {

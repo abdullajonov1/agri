@@ -3,7 +3,7 @@ import type { GraffWidgetHost } from "../graff-host";
 import { applyGraffDefinitionExpression, eventDetail, thrownMessage } from "../graff-guards";
 import { clearMapSelectionGraphics } from "../graff-map-utils";
 import { buildGidvSmartWhere } from "../../../../data/agri-uniqueid-sql";
-import { escapeLikeLiteral } from "../../../../data/agri-sql";
+import { escapeLikeLiteral } from "../../../../shared/agri-sql";
 import { escapeArcGIS } from "../../../../gis/feature-layer-data";
 import { buildYearLikeClause } from "../../../../controller/agri-where-builder";
 import type { RecordData } from "../widget";

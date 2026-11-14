@@ -5,7 +5,7 @@
 import type FeatureLayer from "esri/layers/FeatureLayer";
 import type Geometry from "esri/geometry/Geometry";
 import { isValidMapExtent } from "../feature-layer-data";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 import { getDetachedQueryLayer, getDistrictLayerUrlCandidates } from "./boundary-modules";
 import {
   type ViloyatDistrictFilter,

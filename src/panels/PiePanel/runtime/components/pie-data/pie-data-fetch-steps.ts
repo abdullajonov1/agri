@@ -1,5 +1,5 @@
 import type { PieWidgetHost } from "../../pie-host";
-import { agroV5Log } from "../../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../../shared/agri-debug-log";
 import { expandUniqueIdsForAgriTable } from "../../../../../gis/agri-table-data-source";
 import {
   buildPieCategoriesFromMergedRows,

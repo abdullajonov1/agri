@@ -8,7 +8,7 @@
  * queries it for its own fields (viloyat, tuman, maydon, turi, yil, f_name,
  * f_inn, f_cad, region, district, yld, crop_id, year1, year2, year3).
  */
-import { escapeArcGIS } from "../data/agri-sql";
+import { escapeArcGIS } from "../shared/agri-sql";
 import { combineAccessWhere, onAccessWhereChange } from "../shared/agri-access-config";
 import { getAgriServiceUrls } from "../shared/agri-service-urls";
 import {
@@ -17,7 +17,7 @@ import {
 } from "../shared/agri-singleton-layer-loader";
 import { type AgriAttributes, featureAttributeBag } from "./agri-layer-types";
 import { asStatisticDefinitions } from "../shared/agri-plain-object";
-import { agroV5Log } from "./agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 import { withHeavyQuerySlot } from "../data/agri-query-scheduler";
 
 /** esri Query plus the REST paging props the JS API typings omit. */

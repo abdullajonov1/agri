@@ -1,6 +1,6 @@
 import { vegAccessCacheTag, vegetationSeriesByUniqueIdCache, getAgriVegetationIndicesLayer, queryVegFeatures, type VegetationRegionalTimeseriesParams, agriVegetationLog, VEG_AVG_FIELDS, vegetationRegionalTimeseriesCache, type VegetationScopeParams, vegetationAvailableDatesCache, formatArcgisDateToYmd, type VegetationLatestDateByRegion, vegetationLatestDatesByRegionCache, agriVhLog, type VegetationSeriesRow, type VegetationPolygonSeriesRow } from "./veg-base";
 import { buildCropClause } from "./veg-sql";
-import { escapeArcGIS, isExactArcGisYmd } from "../../data/agri-sql";
+import { escapeArcGIS, isExactArcGisYmd } from "../../shared/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import type { AgriAttributes, AgriStatisticJson } from "../agri-layer-types";
 import { asStatisticDefinitions } from "../../shared/agri-plain-object";

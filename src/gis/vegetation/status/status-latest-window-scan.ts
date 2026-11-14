@@ -5,7 +5,7 @@
 
 import { vegAccessCacheTag, getAgriVegetationIndicesLayer, resolveVegetationUniqueIdPageSize, VEG_STATUS_ROW_MAX_PAGES, queryVegFeatures, agriVhLog, type VegQuery } from "../veg-base";
 import { errorMessage } from "../../agri-layer-types";
-import { escapeArcGIS } from "../../../data/agri-sql";
+import { escapeArcGIS } from "../../../shared/agri-sql";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 import { withHeavyQuerySlot } from "../../../data/agri-query-scheduler";
 import {

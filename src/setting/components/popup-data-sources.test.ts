@@ -1,10 +1,10 @@
 import type { DataSource, IMUseDataSource } from "jimu-core";
 import type { PopupSettingHost } from "../popup-setting-host";
 import type { State } from "../agri-popup-setting";
-import { agroV5Log } from "../../gis/agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 import * as ds from "./popup-data-sources";
 
-jest.mock("../../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("../../shared/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 type StatePatch = Partial<State>;
 type StateUpdater = StatePatch | ((prev: State) => StatePatch);

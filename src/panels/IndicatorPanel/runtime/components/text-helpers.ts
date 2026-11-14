@@ -3,7 +3,7 @@ import { normalizeLanguage } from "../../../../shared/agri-language";
 import { normalizeTurlarListSql } from "../../../../data/agri-turlar";
 import { buildTurlarSqlClause } from "../../../../shared/agri-crop-labels";
 import { expandUniqueIdsForAgriTable } from "../../../../gis/agri-table-data-source";
-import { agriVhIndicatorLog } from "../../../../gis/agri-debug-log";
+import { agriVhIndicatorLog } from "../../../../shared/agri-debug-log";
 import { errorMessage } from "../../../../shared/agri-plain-object";
 import { readPanelEventDetail } from "../../../panel-filter-detail";
 import { normalizeUzbekPlaceForApi } from "./indicator-data/indicator-api-places";

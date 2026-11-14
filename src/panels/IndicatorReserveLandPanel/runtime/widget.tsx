@@ -9,7 +9,7 @@ import {
   escapeLikeLiteral,
   eqAposSmart,
   normalizeApos,
-} from "../../../data/agri-sql";
+} from "../../../shared/agri-sql";
 import { getTuriCropLookupKey } from "../../../shared/agri-crop-labels";
 import { queryIndicatorOutStat } from "../../../data/agri-indicator-stats";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";

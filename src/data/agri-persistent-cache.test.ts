@@ -10,9 +10,9 @@ import {
   setAgriPersistentCache,
 } from "./agri-persistent-cache";
 
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
-jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("../shared/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 const mockState: { user?: { username?: string } | null; throws?: boolean } = {};
 jest.mock(

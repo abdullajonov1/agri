@@ -4,7 +4,7 @@
  */
 import { combineAccessWhere } from "../../shared/agri-access-config";
 import { getCropTuriMatchValues } from "../../shared/agri-crop-labels";
-import { escapeArcGIS } from "../../data/agri-sql";
+import { escapeArcGIS } from "../../shared/agri-sql";
 import type { AgriFieldLike, AgriLayerLike } from "../agri-layer-types";
 import { getQueryUrl } from "./query-cache";
 

@@ -6,7 +6,7 @@
 import { loadArcGISJSAPIModules } from "jimu-arcgis";
 import { React } from "jimu-core";
 import { bindMasterFilter } from "../data/agri-filter-bus";
-import { buildTumanEqualsSql, eqAposSmart, normalizeApos } from "../data/agri-sql";
+import { buildTumanEqualsSql, eqAposSmart, normalizeApos } from "../shared/agri-sql";
 import { buildYearLikeClause, joinAndClauses } from "../controller/agri-where-builder";
 import { panelEventDetail } from "../panels/panel-filter-detail";
 import { combineAccessWhereIfFieldsExist } from "../shared/agri-access-config";

@@ -1,14 +1,14 @@
 import { collectRegionYearLeafLayers, getAllFeatureLayersFromMap, canonicalizeRegionFilterValue, buildFarmerTaxWhere, buildLandTypeWhere } from "./layer-lookup";
 import { haystackMatchesYear, getMapImageParentLayer, type AgriFilters, type ResolvedFeatureLayer, pickYearRegionLayerPool, safeLoadMapLayer, disableLayerPbf, hasFieldIn, exactOrClause, getMavsumGroupedValues, normalizeFarmerTaxSearchValue, hasActiveLandTypeFilter, matchIndexedValues, buildEfficiencyRangeWhere, type PickWhereProgressiveResult, flLog, layerLabel } from "./primitives";
 import { haystackMatchesRegion, preloadRegionYearMapImages, scoreLayerForFilters, textMatchClause, buildCropSelectionWhere, countWhere, pickWhereWithMavsumFallback, medianField } from "./map-and-stats";
-import { escapeArcGIS } from "../../data/agri-sql";
+import { escapeArcGIS } from "../../shared/agri-sql";
 import {
   type AgriLayerLike,
   type AgriMapLike,
   type AgriMapViewHostLike,
   layerFieldNameList,
 } from "../agri-layer-types";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 
 /**
  * Wait for region-year MapImage metadata up to `maxWaitMs`, then reveal.

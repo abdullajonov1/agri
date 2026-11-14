@@ -6,7 +6,7 @@ import { queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-ve
 import { isVhYearSummaryScope } from "./vh-bar-prep";
 import { agriLog } from "../../localization-log";
 import { VH_TO_NDVI_STATUS } from "../../../../../localization/vh-constants";
-import { escapeArcGIS } from "../../../../../../data/agri-sql";
+import { escapeArcGIS } from "../../../../../../shared/agri-sql";
 import { errorMessage } from "../../../../../../shared/agri-plain-object";
 
 /**

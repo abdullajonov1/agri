@@ -1,5 +1,5 @@
 import { combineAccessWhereIfFieldsExist } from "../../shared/agri-access-config";
-import { escapeArcGIS, dateEqualsClause } from "../../data/agri-sql";
+import { escapeArcGIS, dateEqualsClause } from "../../shared/agri-sql";
 import type { AgriAttributes, AgriLayerWithMaxRecordCount } from "../agri-layer-types";
 import { dateRangeInclusiveClause } from "./veg-time";
 import type {

@@ -1,6 +1,6 @@
 import type { IndicatorWidgetHost } from "../../indicator-host";
 import { FILTER_FIELDS } from "../../indicator-constants";
-import { escapeLikeLiteral, eqAposSmart } from "../../../../../data/agri-sql";
+import { escapeLikeLiteral, eqAposSmart } from "../../../../../shared/agri-sql";
 import { buildSpatialJoinWhere } from "../../../../../gis/agri-table-data-source";
 import { withAgriAccessWhere } from "../../../../../gis/feature-layer-data";
 import { buildIndicatorStatsWhere } from "../../../../../controller/agri-where-builder";

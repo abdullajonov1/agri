@@ -4,7 +4,7 @@ const logMock = jest.fn();
 jest.mock("../controller/agri-dashboard-orchestrator", () => ({
   scheduleDashboardOrchestrator: (detail: Record<string, unknown>): void => scheduleMock(detail),
 }));
-jest.mock("../gis/agri-debug-log", () => ({
+jest.mock("../shared/agri-debug-log", () => ({
   agroV5Log: (tag: string, payload: unknown): void => logMock(tag, payload),
 }));
 

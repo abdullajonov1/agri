@@ -5,7 +5,7 @@ import {
   fetchPolygonExportImageTiff,
   type VegetationIndiceType,
 } from "../gis/agri-polygon-api-source";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 import {
   getVegetationOverlayContext,
   VEGETATION_OVERLAY_APPLIED_EVENT,

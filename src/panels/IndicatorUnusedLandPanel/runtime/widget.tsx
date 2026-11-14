@@ -2,7 +2,7 @@
 // Shows sum(maydon) from Agri_unused_land, scoped by the same master yil/viloyat/tuman filters.
 
 import { getAgriUnusedLandLayer } from "../../../gis/agri-unused-land-data-source";
-import { buildTumanEqualsSql, eqAposSmart, normalizeApos } from "../../../data/agri-sql";
+import { buildTumanEqualsSql, eqAposSmart, normalizeApos } from "../../../shared/agri-sql";
 import {
   buildYearLikeClause,
   joinAndClauses,

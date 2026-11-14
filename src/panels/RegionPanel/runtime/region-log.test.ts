@@ -1,6 +1,6 @@
 const mockLog = jest.fn<void, [string, Record<string, unknown> | undefined, string]>();
 
-jest.mock("../../../gis/agri-debug-log", () => ({
+jest.mock("../../../shared/agri-debug-log", () => ({
   agroV5Log: (phase: string, detail: Record<string, unknown> | undefined, topic: string) =>
     mockLog(phase, detail, topic),
 }));

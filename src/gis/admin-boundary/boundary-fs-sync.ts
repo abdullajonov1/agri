@@ -4,7 +4,7 @@
  */
 import type FeatureLayer from "esri/layers/FeatureLayer";
 import type EsriMap from "esri/Map";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 import {
   DISTRICT_LABEL_FIELD_PREF,
   DISTRICT_NAME_FIELDS,

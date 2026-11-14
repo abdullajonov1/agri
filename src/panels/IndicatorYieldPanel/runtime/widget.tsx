@@ -2,7 +2,7 @@
 // Shows avg(yld) from Agri_table_data, scoped by the same master yil/viloyat/tuman filters.
 
 import { getAgriTableDataLayer } from "../../../gis/agri-table-data-source";
-import { eqAposSmart } from "../../../data/agri-sql";
+import { eqAposSmart } from "../../../shared/agri-sql";
 import { buildIndicatorStatsWhere } from "../../../controller/agri-where-builder";
 import { queryIndicatorOutStatNullable } from "../../../data/agri-indicator-stats";
 import { normalizeTurlarListSql } from "../../../data/agri-turlar";

@@ -5,7 +5,7 @@ jest.mock("../graff-map-utils", () => ({ clearMapSelectionGraphics: (v: unknown)
 jest.mock("../../../../data/agri-uniqueid-sql", () => ({
   buildGidvSmartWhere: (raw: string, field: string): string => `gidv(${field}:${raw})`,
 }));
-jest.mock("../../../../data/agri-sql", () => ({ escapeLikeLiteral: (s: string): string => s.replace(/'/g, "''") }));
+jest.mock("../../../../shared/agri-sql", () => ({ escapeLikeLiteral: (s: string): string => s.replace(/'/g, "''") }));
 jest.mock("../../../../gis/feature-layer-data", () => ({
   escapeArcGIS: (s: string): string => s.replace(/'/g, "''"),
   isMapImageOwnedLayer: (): boolean => false,

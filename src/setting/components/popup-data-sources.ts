@@ -14,7 +14,7 @@ import {
   shouldReplaceField,
   type SchemaFieldLike,
 } from "./popup-field-utils";
-import { agroV5Log } from "../../gis/agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 
 /** Layer shape read while discovering popup fields. */
 export interface FieldBearingLayer {

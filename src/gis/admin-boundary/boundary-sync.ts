@@ -4,7 +4,7 @@
  */
 import type Extent from "esri/geometry/Extent";
 import { canonicalizeRegionFilterValue, isValidMapExtent } from "../feature-layer-data";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 import {
   type AdminBoundaryView,
   getAgriRegionBoundaryUrl,

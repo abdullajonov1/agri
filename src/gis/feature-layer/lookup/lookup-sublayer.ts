@@ -1,5 +1,5 @@
 import { buildMapDistrictClause } from "./lookup-collect";
-import { escapeArcGIS } from "../../../data/agri-sql";
+import { escapeArcGIS } from "../../../shared/agri-sql";
 import type { AgriFieldLike, AgriLayerLike } from "../../agri-layer-types";
 import { buildTuriMapClause, VH_CATEGORY_TO_STATUS, regionYearLog, isGroupSublayer, clearFieldLayerScaleLimits, guardSublayerDefinitionExpression, summarizeDefinitionExpression } from "../primitives";
 

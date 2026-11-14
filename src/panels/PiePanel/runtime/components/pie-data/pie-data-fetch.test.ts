@@ -5,7 +5,7 @@ jest.mock("../../../../../gis/agri-vegetation-data-source", () => ({
   queryVegetationCropStatsForStatus: (a: unknown): unknown => mockStats(a),
   queryVegetationCropBreakdownForStatus: (a: unknown): unknown => mockBreakdown(a),
 }));
-jest.mock("../../../../../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("../../../../../shared/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 const mockMappings = jest.fn();
 const mockGetLayer = jest.fn();
 const mockExpand = jest.fn();

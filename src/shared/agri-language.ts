@@ -2,7 +2,7 @@
  * Shared language + theme helpers for Agri dashboard panels.
  */
 
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "./agri-debug-log";
 
 export type AgriLanguage = "uz_cyr" | "uz_lat" | "ru" | "en";
 

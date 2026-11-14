@@ -1,5 +1,5 @@
 import { normalizeFarmerTaxSearchValue, hasFieldIn, FARMER_TAX_NUMBER_FIELD, layerFieldKind, FARMER_TAX_NUMBER_DIGITS, normalizeLandTypeValue, matchIndexedValues, apostropheVariants } from "../primitives";
-import { escapeArcGIS, escapeLikeLiteral } from "../../../data/agri-sql";
+import { escapeArcGIS, escapeLikeLiteral } from "../../../shared/agri-sql";
 import { addTextEqTerms } from "./lookup-match";
 import type { AgriLayerLike } from "../../agri-layer-types";
 

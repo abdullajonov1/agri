@@ -6,7 +6,7 @@ import {
   buildViloyatRegionSqlClause,
 } from "../../../../localization/map-where-clauses";
 import { resolveDistrictNumberFromMaps } from "../../../../localization/resolve-geo-codes";
-import { buildTumanEqualsSql, escapeArcGIS } from "../../../../../data/agri-sql";
+import { buildTumanEqualsSql, escapeArcGIS } from "../../../../../shared/agri-sql";
 import { buildYearLikeClause } from "../../../../../controller/agri-where-builder";
 import { buildSpatialJoinWhere } from "../../../../../gis/agri-table-data-source";
 import { withAgriAccessWhere } from "../../../../../gis/feature-layer-data";

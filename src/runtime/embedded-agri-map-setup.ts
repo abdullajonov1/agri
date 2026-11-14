@@ -9,7 +9,7 @@ import {
   loadArcGISJSAPIModules,
 } from "jimu-arcgis";
 import { looksLikeRegionYearLayerHaystack } from "../gis/feature-layer-data";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
 /** MapView exposes `resize()` at runtime although it is not in the public typings. */
 export type ResizableMapView = __esri.MapView & { resize?: () => void };

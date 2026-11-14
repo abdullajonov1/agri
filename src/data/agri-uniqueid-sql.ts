@@ -2,7 +2,7 @@
  * Uniqueid / GIDV SQL fragments used by GraffPanel (and similar search).
  * Pure string helpers — no layer / React state.
  */
-import { escapeArcGIS, escapeLikeLiteral } from "./agri-sql";
+import { escapeArcGIS, escapeLikeLiteral } from "../shared/agri-sql";
 
 /** Brace-stripped lowercase uniqueid for equality checks in UI. */
 export function normalizeUniqueidKey(

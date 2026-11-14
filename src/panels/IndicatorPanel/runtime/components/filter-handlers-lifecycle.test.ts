@@ -2,7 +2,7 @@ const mockBind = jest.fn();
 jest.mock("../../../../data/agri-filter-bus", () => ({
   bindMasterFilter: (cb: unknown): unknown => mockBind(cb),
 }));
-jest.mock("../../../../gis/agri-debug-log", () => ({ agriVhIndicatorLog: jest.fn() }));
+jest.mock("../../../../shared/agri-debug-log", () => ({ agriVhIndicatorLog: jest.fn() }));
 
 import type { AllWidgetProps } from "jimu-core";
 import { makeIndicatorHost } from "../__test-utils__/indicator-host-stub";

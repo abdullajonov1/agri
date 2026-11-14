@@ -1,5 +1,5 @@
 /**
- * Smoke asserts against the REAL production helpers in src/data/agri-sql.ts
+ * Smoke asserts against the REAL production helpers in src/shared/agri-sql.ts
  * (transpiled in-process). Run from widget root:
  *   node scripts/smoke-sql-helpers.mjs
  *
@@ -15,7 +15,7 @@ import os from "node:os";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const widgetRoot = path.resolve(__dirname, "..");
-const agriSqlPath = path.join(widgetRoot, "src", "data", "agri-sql.ts");
+const agriSqlPath = path.join(widgetRoot, "src", "shared", "agri-sql.ts");
 // Agro_widgetV5 → Agri3 → widgets → your-extensions → client
 const clientRoot = path.resolve(widgetRoot, "..", "..", "..", "..");
 const require = createRequire(path.join(clientRoot, "package.json"));
@@ -111,7 +111,7 @@ function transpileRel(rel, outName) {
     pathToFileURL(path.join(tmpDir, "vh-constants.mjs")).href,
   );
   outputText = outputText
-    .replace(/from\s+["'](?:\.\.\/)+data\/agri-sql["']/g, `from ${sqlHref}`)
+    .replace(/from\s+["'](?:\.\.\/)+shared\/agri-sql["']/g, `from ${sqlHref}`)
     .replace(
       /from\s+["'](?:\.\.\/)+controller\/agri-where-builder["']/g,
       `from ${whereHref}`,
@@ -178,5 +178,5 @@ try {
   /* ignore */
 }
 
-console.log("smoke-sql-helpers: OK (bound to src/data/agri-sql.ts)");
+console.log("smoke-sql-helpers: OK (bound to src/shared/agri-sql.ts)");
 console.log("widgetRoot:", widgetRoot);

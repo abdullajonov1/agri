@@ -6,7 +6,7 @@ import type { PopupWidgetHost } from "../../popup-host";
 import type { PopupAttributes } from "../../popup-types";
 import { messageOrString } from "../../popup-type-guards";
 import { AGRI_TABLE_JOIN_FIELD, queryAgriRecordByUniqueId } from "../../../../../gis/agri-table-data-source";
-import { escapeArcGIS } from "../../../../../data/agri-sql";
+import { escapeArcGIS } from "../../../../../shared/agri-sql";
 import { getAgriLayerMapKey } from "../../../../../gis/feature-layer-data";
 import { agriMapClickDebug, agriMapClickWarn } from "../../../../../gis/agri-map-click-debug";
 import { arcgisEaseInOut } from "../../../../../shared/agri-plain-object";

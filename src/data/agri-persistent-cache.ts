@@ -9,7 +9,7 @@
  */
 
 import { getAppStore } from "jimu-core";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
 export const AGRI_PERSIST_TTL_MS = 60 * 60 * 1000; // 1 hour
 

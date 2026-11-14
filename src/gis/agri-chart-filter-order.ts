@@ -8,7 +8,7 @@
  * 10k+ IDs through masterFilterChanged payloads.
  */
 
-import { agroV5Log } from "./agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
 export type ChartDim = "vh" | "turi";
 

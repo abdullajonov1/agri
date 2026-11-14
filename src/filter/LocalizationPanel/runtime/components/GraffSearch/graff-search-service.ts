@@ -1,4 +1,4 @@
-import { escapeLikeLiteral } from "../../../../../data/agri-sql";
+import { escapeLikeLiteral } from "../../../../../shared/agri-sql";
 import { buildYearLikeClause } from "../../../../../controller/agri-where-builder";
 import {
   getAgriTableDataLayer,

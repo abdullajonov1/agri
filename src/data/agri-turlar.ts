@@ -1,7 +1,7 @@
 /**
  * Shared crop (turlar / turi) list normalisation for the panels.
  */
-import { normalizeApos } from "./agri-sql";
+import { normalizeApos } from "../shared/agri-sql";
 
 export interface NormalizeTurlarOptions {
   /** Drop repeated values (first occurrence wins). */

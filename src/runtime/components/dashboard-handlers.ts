@@ -4,7 +4,7 @@ import { setAccessConfig } from "../../shared/agri-access-config";
 import { setAgriServiceUrls } from "../../shared/agri-service-urls";
 import { installAgriCorsGuard } from "../../shared/agri-cors-guard";
 import { getAppStore, AppMode, type React, Immutable, type AllWidgetProps } from "jimu-core";
-import { agroV5Log } from "../../gis/agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 
 import type { IMConfig, AgriPopupConfig } from "../../config";
 import type { AgriDashboardState, ChildSuffix } from "../widget";

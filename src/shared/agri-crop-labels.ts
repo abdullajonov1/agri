@@ -2,7 +2,7 @@
  * Canonical crop-type keys and display labels for Agro_widgetV5 charts.
  * Merges Cyrillic/Latin/apostrophe variants (e.g. Буғдой + Bug'doy) into one slice.
  */
-import { eqAposSmart } from "../data/agri-sql";
+import { eqAposSmart } from "./agri-sql";
 
 export type AgriCropLanguage = "uz_cyr" | "uz_lat" | "ru" | "en";
 

@@ -1,4 +1,4 @@
-import { agroV5Log } from "../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../shared/agri-debug-log";
 
 /** Tuman / Jadval debug — visible when __AGRO_V5_TUMAN_DEBUG !== false (default ON). */
 export function graffLog(

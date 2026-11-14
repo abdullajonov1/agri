@@ -1,4 +1,4 @@
-import { escapeArcGIS } from "../../../data/agri-sql";
+import { escapeArcGIS } from "../../../shared/agri-sql";
 import type { AgriQueryableLayer } from "../../../types/agri-layer";
 import { queryDistinctFieldCount, agriNotifyLog } from "../veg-base";
 

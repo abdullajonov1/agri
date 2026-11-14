@@ -6,7 +6,7 @@ import { findLayerFieldName as findLayerFieldNameShared, buildCropDistinctCacheK
 import { buildCropUniqueValueInfosFromValues as buildCropUniqueValueInfosShared } from "../../../../localization/crop-renderer";
 import { buildYearClauseForLayerFields, buildTableDateEqualsWhere } from "../../../../localization/map-where-clauses";
 import { getMasterFilterSnapshot } from "../../../../../data/agri-filter-store";
-import { eqAposSmart as eqAposSmartShared } from "../../../../../data/agri-sql";
+import { eqAposSmart as eqAposSmartShared } from "../../../../../shared/agri-sql";
 import type { ChartFilterFlags } from "../../../../../gis/agri-chart-filter-order";
 import { deriveChartFilterFlags } from "../../../../../gis/agri-chart-filter-order";
 

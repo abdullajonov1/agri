@@ -3,7 +3,7 @@ import type { AgriQueryableLayer } from "../../types/agri-layer";
 import { queryVegetationAvgNdviByUniqueIdOnce, queryVegetationAvgNdviByUniqueIdPaged } from "./veg-series";
 import { queryVegetationStatusCountsByStatus, listRegionsForProcessedDay, countDistinctUniqueIdsByRegionParallel, countDistinctViaOidCursor, fetchLastProcessedAtCalendarWindow } from "./veg-status";
 import { buildCropClause } from "./veg-sql";
-import { dateEqualsClause, escapeArcGIS } from "../../data/agri-sql";
+import { dateEqualsClause, escapeArcGIS } from "../../shared/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import { asStatisticDefinitions } from "../../shared/agri-plain-object";
 

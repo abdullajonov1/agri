@@ -19,7 +19,7 @@ jest.mock("../gis/agri-polygon-api-source", () => ({
   fetchPolygonAvailableDates: jest.fn(),
 }));
 
-jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("../shared/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 jest.mock("../gis/agri-vegetation-overlay-prefetch", () => ({
   getVegetationOverlayContext: () => ({ regionId: 4, year: 2026, lastIndex: "ndvi" }),

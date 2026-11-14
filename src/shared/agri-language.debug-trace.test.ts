@@ -1,7 +1,7 @@
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "./agri-debug-log";
 import { detectIsDarkTheme, ensureAgri3UzLatLanguageDefault, resolveInitialLanguage } from "./agri-language";
 
-jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("./agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 const logMock = agroV5Log as jest.Mock;
 

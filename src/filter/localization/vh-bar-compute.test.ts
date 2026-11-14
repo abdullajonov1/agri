@@ -19,7 +19,7 @@ jest.mock("../../data/agri-stats-store", () => ({
 }));
 
 const mockLog = jest.fn();
-jest.mock("../../gis/agri-debug-log", () => ({
+jest.mock("../../shared/agri-debug-log", () => ({
   agroV5Log: (...a: unknown[]) => mockLog(...a),
 }));
 

@@ -1,6 +1,6 @@
 import { AppMode, getAppStore } from "jimu-core";
 import { toPlainArray } from "./agri-data-source-engine";
-import { agroV5Log } from "./agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
 export type LinkedMapLayoutScope = "dashboard" | "plm";
 

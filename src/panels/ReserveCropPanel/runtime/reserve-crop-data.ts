@@ -3,8 +3,8 @@ import { buildLandLayerWhere, type AgriLandScope } from "../../../gis/agri-land-
 import { getAgriReserveLandLayer } from "../../../gis/agri-reserve-land-data-source";
 import { queryAgriTuriCropMappings } from "../../../gis/agri-table-data-source";
 import { getTuriCropLookupKey } from "../../../shared/agri-crop-labels";
-import { escapeArcGIS } from "../../../data/agri-sql";
-import { agroV5Log } from "../../../gis/agri-debug-log";
+import { escapeArcGIS } from "../../../shared/agri-sql";
+import { agroV5Log } from "../../../shared/agri-debug-log";
 import { errorMessage } from "../../../shared/agri-plain-object";
 
 /** Raw values a merged crop row came from — what the map filter matches. */

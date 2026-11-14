@@ -11,7 +11,7 @@ import { getVhBarLatestStatusCountsCached } from "../../data/agri-stats-store";
 import { queryStatusCountsSummary } from "../../gis/vegetation/status/status-counts-summary";
 import { aggregateVhServiceRows, buildEmptyVhBarData } from "./vh-bar-aggregate";
 import type { VHBarData } from "./vh-constants";
-import { agroV5Log } from "../../gis/agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 import { errorMessage } from "../../shared/agri-plain-object";
 
 export type VhBarComputeStateSlice = {

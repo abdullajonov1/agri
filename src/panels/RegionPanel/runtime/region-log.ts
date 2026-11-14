@@ -1,4 +1,4 @@
-import { agroV5Log } from "../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../shared/agri-debug-log";
 
 export function regionLog(
   phase: string,

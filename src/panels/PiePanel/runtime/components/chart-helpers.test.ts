@@ -22,10 +22,10 @@ const mockBootstrap = jest.fn();
 jest.mock("../../../../data/agri-bootstrap", () => ({
   getAgriDashboardBootstrap: (): unknown => mockBootstrap(),
 }));
-jest.mock("../../../../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("../../../../shared/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 import * as helpers from "./chart-helpers";
-import { agroV5Log } from "../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../shared/agri-debug-log";
 import type { PieWidgetHost } from "../pie-host";
 
 type PieState = PieWidgetHost["state"];

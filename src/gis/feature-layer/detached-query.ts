@@ -12,7 +12,7 @@ import { getAgriServiceUrls, getAgriPortalSharingRestUrl } from "../../shared/ag
 import { readAgriAuthToken } from "../agri-auth-token";
 import { errorMessage } from "../agri-layer-types";
 import { flLog } from "./query-cache";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 
 type FeatureLayerConstructor = typeof FeatureLayer;
 type ExtentConstructor = typeof Extent;

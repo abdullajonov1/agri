@@ -16,7 +16,7 @@ import {
   removeAgriPersistentCache,
   setAgriPersistentCache,
 } from "../data/agri-persistent-cache";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 import { errorMessage } from "../shared/agri-plain-object";
 
 type PackListener = (pack: DashboardPack) => void;

@@ -4,7 +4,7 @@ import { formatIndicatorStatValue, canConsumeIndicatorDashboardPack } from "../.
 import { waitForDashboardPackReady, getDashboardPack } from "../../../../../store/agri-dashboard-store";
 import { matchIndicatorDashboardPack } from "../../../../../data/agri-dashboard-pack-match";
 import { queryIndicatorOutStatNullable } from "../../../../../data/agri-indicator-stats";
-import { agriVhIndicatorLog } from "../../../../../gis/agri-debug-log";
+import { agriVhIndicatorLog } from "../../../../../shared/agri-debug-log";
 import { canonicalIndicatorApiPlaces } from "./indicator-api-places";
 import { requestIndicatorApiValue } from "./indicator-api-client";
 import { isAbortError } from "../../../../../shared/agri-http";

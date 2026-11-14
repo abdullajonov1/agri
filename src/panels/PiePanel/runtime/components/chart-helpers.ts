@@ -11,7 +11,7 @@ import { getAgriDashboardBootstrap } from "../../../../data/agri-bootstrap";
 import { type JimuMapView } from "jimu-arcgis";
 import { adjustHexColor as pieAdjustHexColor, APOSTROPHE_VARIANTS as pieApostropheVariants } from "../pie-colors";
 
-import { agroV5Log } from "../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../shared/agri-debug-log";
 import { errorMessage, toPlainRecord } from "../../../../shared/agri-plain-object";
 import { readPanelEventDetail, readThemeIsDark } from "../../../panel-filter-detail";
 import { isRepublicFeatureLayer, pickDefaultFeatureLayer } from "../../../panel-layer-helpers";

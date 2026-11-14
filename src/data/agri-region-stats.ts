@@ -7,7 +7,7 @@ import { getRegionGroupFeaturesCached } from "./agri-stats-store";
 import type { DashboardRegionRow } from "../types/dashboard-pack";
 import { makeRegionDistrictKey } from "../filter/localization/geo-keys";
 import { ensureLayerLoaded, type AgriAttributes } from "../types/agri-layer";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "../shared/agri-debug-log";
 
 export type RegionStatMode = "sum" | "count";
 

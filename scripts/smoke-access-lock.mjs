@@ -43,7 +43,7 @@ function transpileTo(fileRel, outName) {
       `from ${JSON.stringify(pathToFileURL(stubJimu).href)}`,
     )
     .replace(
-      /from\s+["']\.\.\/data\/agri-sql["']/g,
+      /from\s+["']\.\.\/shared\/agri-sql["']/g,
       `from ${JSON.stringify(pathToFileURL(path.join(tmpDir, "agri-sql.mjs")).href)}`,
     )
     .replace(
@@ -55,7 +55,7 @@ function transpileTo(fileRel, outName) {
   return out;
 }
 
-transpileTo("data/agri-sql.ts", "agri-sql.mjs");
+transpileTo("shared/agri-sql.ts", "agri-sql.mjs");
 transpileTo("shared/agri-plain-object.ts", "agri-plain-object.mjs");
 const accessOut = transpileTo("shared/agri-access-config.ts", "agri-access-config.mjs");
 

@@ -1,6 +1,6 @@
 import { canonicalizeRegionFilterValue } from "./lookup-region";
 import { normalizeRegionToken, REGION_ALIAS_GROUPS, type TextMatchKind, expandRegionVariants, expandDistrictVariants, apostropheVariants, matchIndexedValues, layerFieldKind, valueIndexCache, getQueryUrl, normalizeValueToken } from "../primitives";
-import { escapeArcGIS } from "../../../data/agri-sql";
+import { escapeArcGIS } from "../../../shared/agri-sql";
 import type { AgriLayerLike } from "../../agri-layer-types";
 
 /** Region name tokens for matching layer titles like "Water Fergana region 2025 year". */

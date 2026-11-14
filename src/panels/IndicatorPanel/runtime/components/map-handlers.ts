@@ -1,10 +1,10 @@
 import type { IndicatorWidgetHost } from "../indicator-host";
 import { type JimuMapView } from "jimu-arcgis";
-import { normalizeApos } from "../../../../data/agri-sql";
+import { normalizeApos } from "../../../../shared/agri-sql";
 import { FILTER_FIELDS } from "../indicator-constants";
 import { getAgriTableDataLayer } from "../../../../gis/agri-table-data-source";
 import { type DataSource, type QueriableDataSource, DataSourceStatus } from "jimu-core";
-import { agriVhIndicatorLog } from "../../../../gis/agri-debug-log";
+import { agriVhIndicatorLog } from "../../../../shared/agri-debug-log";
 import { errorMessage, toPlainRecord } from "../../../../shared/agri-plain-object";
 import { isRepublicFeatureLayer, pickDefaultFeatureLayer } from "../../../panel-layer-helpers";
 

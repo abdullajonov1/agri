@@ -1,5 +1,5 @@
 const mockLog = jest.fn();
-jest.mock("../agri-debug-log", () => ({ agroV5Log: (...a: unknown[]) => mockLog(...a) }));
+jest.mock("../../shared/agri-debug-log", () => ({ agroV5Log: (...a: unknown[]) => mockLog(...a) }));
 const mockReadToken = jest.fn<string | null, [{ allowGenericStorageKeys: boolean }]>();
 const mockLoadModules = jest.fn<Promise<unknown[]>, [string[]]>();
 

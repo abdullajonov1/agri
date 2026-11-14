@@ -9,7 +9,7 @@
  * microservice being reachable.
  */
 
-export { dateEqualsClause } from "../data/agri-sql";
+export { dateEqualsClause } from "../shared/agri-sql";
 
 export { agriVhLog, agriVegetationLog, getAgriVegetationIndicesUrl, getAgriVegetationIndicesLayer, VEG_AVG_FIELDS_CORE, formatArcgisDateToYmd, dateRangeInclusiveClause, REPUBLIC_VH_USE_STATUS_STATS, REGION_VH_BAR_USE_STATUS_STATS, VH_CATEGORY_TO_NDVI_STATUS, peekVegetationRecentDayRegionCounts } from "./vegetation/veg-base";
 export type { VhCropWindow } from "./vegetation/status/status-vh-window";

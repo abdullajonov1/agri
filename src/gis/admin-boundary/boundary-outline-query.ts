@@ -9,7 +9,7 @@ import type Graphic from "esri/Graphic";
 import type Geometry from "esri/geometry/Geometry";
 import type Extent from "esri/geometry/Extent";
 import { isValidMapExtent } from "../feature-layer-data";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 import { DISTRICT_LABEL_FIELD_PREF, pickField } from "./boundary-fields";
 import type { ViloyatDistrictFilter } from "./boundary-where";
 import { filterDistrictFeaturesToViloyat } from "./boundary-where";

@@ -1,9 +1,9 @@
 /**
  * Geography key helpers for LocalizationPanel.
- * Apostrophe normalization matches data/agri-sql (incl. U+2018 Yakkabog‘),
+ * Apostrophe normalization matches shared/agri-sql (incl. U+2018 Yakkabog‘),
  * plus trailing trim used by Localization dictionaries.
  */
-import { normalizeApos as normalizeAposSql } from "../../data/agri-sql";
+import { normalizeApos as normalizeAposSql } from "../../shared/agri-sql";
 
 /**
  * NFKC + unify apostrophes + trim.

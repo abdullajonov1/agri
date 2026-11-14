@@ -5,7 +5,7 @@
 import type FeatureLayer from "esri/layers/FeatureLayer";
 import type Extent from "esri/geometry/Extent";
 import { isValidMapExtent } from "../feature-layer-data";
-import { agroV5Log } from "../agri-debug-log";
+import { agroV5Log } from "../../shared/agri-debug-log";
 import {
   getAgriDistrictBoundaryUrl,
   getDetachedQueryLayer,

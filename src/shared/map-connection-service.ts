@@ -3,7 +3,7 @@
  * Keeps retry/poll limits in one place so dashboard + embedded panels stay aligned.
  */
 import type * as JimuArcgis from "jimu-arcgis";
-import { agroV5Log } from "../gis/agri-debug-log";
+import { agroV5Log } from "./agri-debug-log";
 type JimuMapView = JimuArcgis.JimuMapView;
 
 /** Dashboard shell: poll until MapView exists (~10.2 s max). */

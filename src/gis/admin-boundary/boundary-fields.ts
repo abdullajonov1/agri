@@ -3,7 +3,7 @@
  * Hosted/district and Tuman_chegara, field-kind detection, and the region /
  * district name spelling variants used to build WHERE clauses.
  */
-import { normalizeApos } from "../../data/agri-sql";
+import { normalizeApos } from "../../shared/agri-sql";
 import {
   REGION_SOATO_TO_UZ_NAME,
   normalizeRegionToken,

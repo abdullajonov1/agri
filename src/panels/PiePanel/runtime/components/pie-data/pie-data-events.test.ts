@@ -12,7 +12,7 @@ const mockStatsCached = jest.fn();
 jest.mock("../../../../../data/agri-stats-store", () => ({
   getPieCategoryStatsCached: (args: unknown): unknown => mockStatsCached(args),
 }));
-jest.mock("../../../../../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("../../../../../shared/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 jest.mock("../../../../../gis/agri-chart-filter-order", () => ({
   getPieVhFilterUniqueIdsSig: (): string => "SIG",
 }));

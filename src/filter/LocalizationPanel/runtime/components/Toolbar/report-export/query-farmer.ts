@@ -3,7 +3,7 @@
  * from Agri_table_data matched by INN / name × crop.
  */
 import { requireLayerLike } from "./layer-like";
-import { buildTumanEqualsSql } from "../../../../../../data/agri-sql";
+import { buildTumanEqualsSql } from "../../../../../../shared/agri-sql";
 import {
   getAgriTableDataLayer,
   queryAgriRegionDistrictMappings,

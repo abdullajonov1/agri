@@ -1,6 +1,6 @@
 import { isMapImageGroupSublayer, isQueryableFieldLayer, isLikelyBasemapServiceLayer, getLayerFieldNames, isAgriFieldLayerCandidate, expandDistrictVariants, hasFieldIn, layerFieldKind } from "../primitives";
 import { isAgriWaterTableLayer } from "./lookup-map-image";
-import { escapeArcGIS } from "../../../data/agri-sql";
+import { escapeArcGIS } from "../../../shared/agri-sql";
 import type { AgriFieldLike, AgriLayerLike } from "../../agri-layer-types";
 
 /**

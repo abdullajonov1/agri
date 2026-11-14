@@ -9,7 +9,7 @@
 
 import { vegAccessCacheTag, type VegetationStatusCount, type VegetationCropBreakdownRow, getAgriVegetationIndicesLayer, VEG_PIXEL_AREA_HA, agriVhLog, dateRangeInclusiveClause, shiftYmd, type VegQuery } from "../veg-base";
 import { errorMessage } from "../../agri-layer-types";
-import { escapeArcGIS } from "../../../data/agri-sql";
+import { escapeArcGIS } from "../../../shared/agri-sql";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 import { rememberAsync } from "../../../data/agri-persistent-cache";
 import { buildSpatialJoinWhere, queryAgriTableAreaByUniqueId, type AgriTableAreaRow } from "../../agri-table-data-source";

@@ -3,7 +3,7 @@
  * uniqueid-prefix sharded continuation for truncated results.
  */
 import { vegAccessCacheTag, getAgriVegetationIndicesLayer, queryVegFeatures, agriVhLog, buildVegetationScopeClauses, type VegetationAvgNdviUniqueRow, vegetationAvgNdviOidCursorCache, VEG_PIXEL_AREA_HA, vegetationAvgNdviByUniqueIdCache } from "./veg-base";
-import { escapeArcGIS } from "../../data/agri-sql";
+import { escapeArcGIS } from "../../shared/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import type { AgriLayerWithMaxRecordCount } from "../agri-layer-types";
 import { asStatisticDefinitions } from "../../shared/agri-plain-object";

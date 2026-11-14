@@ -4,7 +4,7 @@
 import { getQueryUrl, valueIndexCache, valueIndexLoading, VALUE_INDEX_FIELDS, hasFieldIn, flLog, layerLabel, type TextMatchKind, regionDisplayNameToSoato, layerFieldKind, expandRegionVariants, apostropheVariants } from "./primitives";
 import { canonicalizeRegionFilterValue, distinctValues, matchRegionValuesFromIndex, addTextEqTerms, literalVariantsForMatch } from "./layer-lookup";
 import { isRegionSoatoCode } from "../map-image-predicates";
-import { escapeArcGIS } from "../../data/agri-sql";
+import { escapeArcGIS } from "../../shared/agri-sql";
 import type { AgriLayerLike } from "../agri-layer-types";
 
 export async function prepareValueIndex(

@@ -12,7 +12,7 @@ import {
   type AgriRestQueryResponse,
   errorMessage,
 } from "../../agri-layer-types";
-import { agroV5Log } from "../../agri-debug-log";
+import { agroV5Log } from "../../../shared/agri-debug-log";
 
 /** Feature-ish item whose attributes are read (Graphic or REST JSON). */
 type AttributeCarrier = { attributes?: AgriAttributes | null } | null | undefined;

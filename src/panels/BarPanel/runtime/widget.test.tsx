@@ -15,7 +15,7 @@ jest.mock("../../../shared/AgriChartLoader", () => ({
   default: (): JSX.Element => <div data-testid="loader" />,
 }));
 const mockLog = jest.fn();
-jest.mock("../../../gis/agri-debug-log", () => ({
+jest.mock("../../../shared/agri-debug-log", () => ({
   agroV5Log: (...a: unknown[]): void => {
     mockLog(...a);
   },

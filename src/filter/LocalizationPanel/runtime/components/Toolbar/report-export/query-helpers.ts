@@ -6,9 +6,9 @@ import {
   buildYearLikeClause,
   joinAndClauses,
 } from "../../../../../../controller/agri-where-builder";
-import { buildTumanEqualsSql, eqAposSmart } from "../../../../../../data/agri-sql";
+import { buildTumanEqualsSql, eqAposSmart } from "../../../../../../shared/agri-sql";
 import type { AgriRegionDistrictMappingRow } from "../../../../../../gis/agri-table-data-source";
-import { agroV5Log } from "../../../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../../../shared/agri-debug-log";
 import { combineAccessWhereIfFieldsExist } from "../../../../../../shared/agri-access-config";
 import { sameReportPlace } from "./place-key";
 import type { ReportScope } from "./types";

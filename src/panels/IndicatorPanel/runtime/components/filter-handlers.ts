@@ -2,11 +2,11 @@ import { AGRI_EVENTS } from "../../../../shared/agri-events";
 import type { IndicatorWidgetHost } from "../indicator-host";
 import { bindMasterFilter } from "../../../../data/agri-filter-bus";
 import { normalizeLanguage } from "../../../../shared/agri-language";
-import { normalizeApos } from "../../../../data/agri-sql";
+import { normalizeApos } from "../../../../shared/agri-sql";
 import { type AllWidgetProps } from "jimu-core";
 import type { IndicatorConfig, VegetationStatsWidgetState } from "../widget";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../shared/map-connection-service";
-import { agriVhIndicatorLog } from "../../../../gis/agri-debug-log";
+import { agriVhIndicatorLog } from "../../../../shared/agri-debug-log";
 import { errorMessage } from "../../../../shared/agri-plain-object";
 import { readPanelEventDetail } from "../../../panel-filter-detail";
 

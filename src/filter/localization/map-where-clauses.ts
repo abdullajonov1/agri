@@ -6,7 +6,7 @@ import {
   escapeArcGIS,
   escapeLikeLiteral,
   isExactArcGisYmd,
-} from "../../data/agri-sql";
+} from "../../shared/agri-sql";
 import { extractYearDigits } from "../../controller/agri-where-builder";
 import { VH_TO_NDVI_STATUS } from "./vh-constants";
 

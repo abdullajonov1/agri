@@ -19,7 +19,7 @@ jest.mock("../../shared/agri-service-urls", () => ({
   setAgriServiceUrls: jest.fn(),
 }));
 jest.mock("../../data/agri-dashboard-cache-clear", () => ({ clearDashboardCaches: jest.fn() }));
-jest.mock("../../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+jest.mock("../../shared/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 const mockStore = getAppStore as unknown as jest.Mock<{ getState: () => { appRuntimeInfo?: { appMode?: string } } }, []>;
 
@@ -192,7 +192,7 @@ describe("lifecycle", () => {
     handlers.componentDidMount(first.host);
     handlers.componentDidMount(second.host);
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { agroV5Log } = jest.requireMock("../../gis/agri-debug-log") as { agroV5Log: jest.Mock };
+    const { agroV5Log } = jest.requireMock("../../shared/agri-debug-log") as { agroV5Log: jest.Mock };
     expect(agroV5Log).toHaveBeenCalledWith("AgriDashboard:single-instance-warn", expect.any(Object));
     handlers.componentWillUnmount(first.host);
     handlers.componentWillUnmount(second.host);

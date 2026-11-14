@@ -1,4 +1,4 @@
-import { normalizeApos } from "../../../../../../data/agri-sql";
+import { normalizeApos } from "../../../../../../shared/agri-sql";
 import { makeRegionDistrictKey } from "../../../../../localization/geo-keys";
 
 const SPELLING_ALIASES: Record<string, string> = {

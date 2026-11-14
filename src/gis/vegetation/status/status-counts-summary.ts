@@ -1,11 +1,11 @@
 import { queryRestJson } from "../../../data/agri-rest-query";
 import { rememberAsync } from "../../../data/agri-persistent-cache";
-import { escapeArcGIS } from "../../../data/agri-sql";
+import { escapeArcGIS } from "../../../shared/agri-sql";
 import { buildCropClause } from "../veg-sql";
 import { getAccessWhere } from "../../../shared/agri-access-config";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../../shared/agri-http";
 import { getAgriServiceUrls } from "../../../shared/agri-service-urls";
-import { agroV5Log } from "../../agri-debug-log";
+import { agroV5Log } from "../../../shared/agri-debug-log";
 import type { AgriAttributes } from "../../agri-layer-types";
 import { translateAccessWhereForSummary } from "../veg-summary-series";
 import type { VegetationStatusCount } from "../veg-base";

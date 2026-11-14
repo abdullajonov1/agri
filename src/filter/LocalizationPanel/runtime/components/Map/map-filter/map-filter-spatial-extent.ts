@@ -1,7 +1,7 @@
 import type { AgriMapLayer } from "../../../../../localization/agri-map-layer";
 import { canQuerySpatialFeatureExtent, readSpatialFeatureExtentWhere, appendSpatialFeatureExtent } from "../../../../../localization/map-shown-extent";
 import { isMapImageOwnedLayer, safeLoadMapLayer } from "../../../../../../gis/feature-layer-data";
-import { agroV5Log } from "../../../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../../../shared/agri-debug-log";
 import { errorMessage } from "../../../../../../shared/agri-plain-object";
 
 export interface SpatialExtentResult {

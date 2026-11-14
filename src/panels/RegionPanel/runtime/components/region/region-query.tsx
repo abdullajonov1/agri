@@ -3,7 +3,7 @@ import { type JimuMapView } from "jimu-arcgis";
 import { getQueryableLayer } from "../../../../../gis/feature-layer-data";
 import { DataSourceManager, type DataSource, type QueriableDataSource } from "jimu-core";
 import { findAreaFieldNumeric } from "../../../../../data/agri-area-field";
-import { normalizeAposKey } from "../../../../../data/agri-sql";
+import { normalizeAposKey } from "../../../../../shared/agri-sql";
 import { buildRegionAggregatesWhere } from "../../../../../controller/agri-where-builder";
 import type { RegionalDataItem } from "../../widget";
 import { type RegionGroupAccumulator, regionOutStatName, accumulateRegionGroupFeaturesByCode, regionAccumulatorToSortedRows } from "../../../../../data/agri-region-stats";

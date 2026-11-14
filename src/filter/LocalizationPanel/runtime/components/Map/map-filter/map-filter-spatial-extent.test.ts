@@ -7,13 +7,13 @@ jest.mock("../../../../../../gis/feature-layer-data", () => ({
   isMapImageOwnedLayer: jest.fn(),
   safeLoadMapLayer: jest.fn(),
 }));
-jest.mock("../../../../../../gis/agri-debug-log", () => ({
+jest.mock("../../../../../../shared/agri-debug-log", () => ({
   agroV5Log: jest.fn(),
 }));
 
 import * as shown from "../../../../../localization/map-shown-extent";
 import * as fld from "../../../../../../gis/feature-layer-data";
-import { agroV5Log } from "../../../../../../gis/agri-debug-log";
+import { agroV5Log } from "../../../../../../shared/agri-debug-log";
 import { queryMergedSpatialExtent } from "./map-filter-spatial-extent";
 
 const m = (f: unknown) => f as jest.Mock<unknown, unknown[]>;

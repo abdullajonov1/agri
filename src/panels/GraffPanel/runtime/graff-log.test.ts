@@ -1,5 +1,5 @@
 const mockAgroV5Log = jest.fn();
-jest.mock("../../../gis/agri-debug-log", () => ({
+jest.mock("../../../shared/agri-debug-log", () => ({
   agroV5Log: (...args: unknown[]): void => {
     mockAgroV5Log(...args);
   },
