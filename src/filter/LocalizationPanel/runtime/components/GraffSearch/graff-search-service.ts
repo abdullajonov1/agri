@@ -9,6 +9,18 @@ import { agriLog } from "../localization-log";
 import type { LocalizationHost } from "../host";
 import type { FilterState, GeoWidgetState, GraffSearchRecord } from "../../widget";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
+import { pickLabel } from "../../../../../shared/agri-i18n";
+import {
+  GRAFF_AREA_LABEL,
+  GRAFF_CROP_TYPE_LABEL,
+  GRAFF_DISTRICT_LABEL,
+  GRAFF_FARMER_NAME_LABEL,
+  GRAFF_TIN_LABEL,
+  GRAFF_VH_LABEL,
+} from "./graff-search-messages";
+
+/** Debounce for typing in the Graff search box before autocomplete runs. */
+const GRAFF_SEARCH_DEBOUNCE_MS = 300;
 
 export const emitGraffTableSearchChanged = (
   host: LocalizationHost,
@@ -101,49 +113,16 @@ export const getGraffSearchFieldLabel = (
   language: FilterState["language"],
 ): string => {
   const lower = fieldName.toLowerCase();
-  if (lower === "f_inn")
-    { return language === "en"
-      ? "TIN"
-      : language === "ru"
-        ? "ИНН"
-        : language === "uz_lat"
-          ? "STIR"
-          : "СТИР"; }
-  if (lower === "uniqueid")
-    { return language === "en"
-      ? "TIN"
-      : language === "ru"
-        ? "ИНН"
-        : language === "uz_lat"
-          ? "STIR"
-          : "СТИР"; }
-  if (lower === "tuman")
-    { return language === "en" ? "District" : language === "ru" ? "Район" : language === "uz_lat" ? "Tuman" : "Туман"; }
-  if (lower === "f_name")
-    { return language === "en"
-      ? "Farmer name"
-      : language === "ru"
-      ? "Название фермера"
-      : language === "uz_lat"
-        ? "Fermer nomi"
-        : "Фермер номи"; }
-  if (lower === "maydon")
-    { return language === "en"
-      ? "Area"
-      : language === "ru"
-      ? "Площадь"
-      : language === "uz_lat"
-        ? "Maydon"
-        : "Майдон"; }
-  if (lower === "turi" || lower === "uzspace")
-    { return language === "en"
-      ? "Crop type"
-      : language === "ru"
-      ? "Тип посева"
-      : language === "uz_lat"
-        ? "Ekin turi"
-        : "Экин тури"; }
-  if (lower === "vh") return language === "en" ? "VS" : language === "uz_lat" ? "VH" : "ВХ";
+  if (lower === "f_inn" || lower === "uniqueid") {
+    return pickLabel(GRAFF_TIN_LABEL, language);
+  }
+  if (lower === "tuman") return pickLabel(GRAFF_DISTRICT_LABEL, language);
+  if (lower === "f_name") return pickLabel(GRAFF_FARMER_NAME_LABEL, language);
+  if (lower === "maydon") return pickLabel(GRAFF_AREA_LABEL, language);
+  if (lower === "turi" || lower === "uzspace") {
+    return pickLabel(GRAFF_CROP_TYPE_LABEL, language);
+  }
+  if (lower === "vh") return pickLabel(GRAFF_VH_LABEL, language);
   return fieldName;
 };
 
@@ -383,7 +362,7 @@ export const handleGraffSearchInputChange = (
   // zoom the map until the user picks a row from that list.
   host._graffSearchDebounceTimer = setTimeout(() => {
     host.runGraffAutoComplete(trimmed);
-  }, 300);
+  }, GRAFF_SEARCH_DEBOUNCE_MS);
 };
 
 export const handleGraffSearchFocus = (host: LocalizationHost): void => {

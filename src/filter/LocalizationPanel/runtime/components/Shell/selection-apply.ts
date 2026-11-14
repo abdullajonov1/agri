@@ -6,6 +6,9 @@ import type { MapZoomRequest } from "../../../../localization/map-zoom-policy";
 import { hasDistrictMappingForSelection } from "../../../../localization/resolve-geo-codes";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 
+/** Upper bound on waiting for region codes before map filters are applied anyway. */
+const REGION_CODES_WAIT_MS = 120;
+
 /**
  * Apply phase of `handleWidgetSelection` (runs inside its setState callback).
  * Split out of selection-service.ts to keep that module under the size cap;
@@ -137,7 +140,7 @@ export async function applyGeographyOrCropSelection(
             await Promise.race([
               ensureRegionPromise,
               new Promise<void>((resolve) =>
-                setTimeout(resolve, 120),
+                setTimeout(resolve, REGION_CODES_WAIT_MS),
               ),
             ]);
           }

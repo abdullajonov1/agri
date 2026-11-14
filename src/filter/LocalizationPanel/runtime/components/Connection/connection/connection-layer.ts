@@ -8,9 +8,13 @@ import { safeLoadMapImageTree, getQueryableLayer } from "../../../../../../gis/f
 import { DataSourceManager, type DataSource, type QueriableDataSource, type IMDataSourceInfo, type IMUseDataSource } from "jimu-core";
 import { getAgriTableDataLayer } from "../../../../../../gis/agri-table-data-source";
 import { dedupedQueryFeatures } from "../../../../../../data/agri-query-gateway";
+
 import { getAgriVegetationIndicesLayer } from "../../../../../../gis/agri-vegetation-data-source";
 import { errorMessage } from "../../../../../../shared/agri-plain-object";
 import { extractYearDigits } from "../../../../../../controller/agri-where-builder";
+
+/** Debounce for data-source info changes before data is refetched. */
+const DATA_SOURCE_INFO_DEBOUNCE_MS = 300;
 
 /** Jimu layer view members read while matching a use-data-source. */
 interface LayerViewLike {
@@ -405,7 +409,7 @@ export const onDataSourceInfoChange = (
   host._dataSourceInfoDebounceTimer = setTimeout(() => {
     if (!host._isMounted) return;
     host.fetchDataWithCurrentState();
-  }, 300);
+  }, DATA_SOURCE_INFO_DEBOUNCE_MS);
 };
 export const retryMapConnection = (host: LocalizationHost) => {
   host.setState({

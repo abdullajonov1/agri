@@ -151,6 +151,7 @@ describe("graff-search-service", () => {
     ["vh", "en", "VS"],
     ["vh", "uz_lat", "VH"],
     ["vh", "ru", "ВХ"],
+    ["vh", "uz_cyr", "ВХ"],
     ["other", "en", "other"],
   ] as const)("label for %s in %s is %s", (field, lang, expected) => {
     expect(getGraffSearchFieldLabel(makeFakeHost(), field, lang)).toBe(expected);

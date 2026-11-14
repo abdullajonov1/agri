@@ -6,6 +6,9 @@ import { MAP_CONNECTION_RETRY_MS } from "../../../../../shared/map-connection-se
 import { subscribeDashboardPack, getDashboardPack } from "../../../../../store/agri-dashboard-store";
 import { subscribeAgriLandOverlay } from "../../../../../store/agri-land-overlay-store";
 
+/** Delay after mount before the deferred widget initialization check runs. */
+const INITIALIZATION_DELAY_MS = 3000;
+
 export function componentDidMount(host: LocalizationHost) {
   host._isMounted = true;
   host.hydrateNotificationCache();
@@ -81,7 +84,7 @@ export function componentDidMount(host: LocalizationHost) {
 
   host.initializationTimer = setTimeout(
     () => { host.ensureInitialization(); },
-    3000,
+    INITIALIZATION_DELAY_MS,
   );
 }
 
