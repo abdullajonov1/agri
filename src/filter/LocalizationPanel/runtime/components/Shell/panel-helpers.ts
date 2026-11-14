@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import type { CropUniqueValueInfo } from "../host";
 import type { PanelHelpersHost } from "./shell-host";
 import type { AgriMapLayer } from "../../../../localization/agri-map-layer";
@@ -42,7 +43,7 @@ export const handleRequestMasterFilterState = (host: PanelHelpersHost): void => 
   const detail = getMasterFilterSnapshot() ?? host._lastBroadcastDetail;
   if (!detail) return;
   document.dispatchEvent(
-    new CustomEvent("masterFilterChanged", {
+    new CustomEvent(AGRI_EVENTS.masterFilterChanged, {
       detail,
       bubbles: true,
     }),

@@ -1,4 +1,5 @@
 /** @jsx jsx */
+import { AGRI_EVENTS } from "../shared/agri-events";
 import { jsx, React } from "jimu-core";
 import { type VegetationIndiceType } from "../gis/agri-polygon-api-source";
 import {
@@ -130,7 +131,7 @@ export default function FieldComparePanel(props: Props): JSX.Element {
     setOpen((current) => {
       const next = !current;
       if (next) {
-        document.dispatchEvent(new CustomEvent("agriFieldCompareToggled", {
+        document.dispatchEvent(new CustomEvent(AGRI_EVENTS.agriFieldCompareToggled, {
           detail: { open: true },
           bubbles: true,
         }));

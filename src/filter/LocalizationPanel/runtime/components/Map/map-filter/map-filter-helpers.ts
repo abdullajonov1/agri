@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../../shared/agri-events";
 import type { LocalizationConfig } from "../../host";
 import type { MapFilterHelpersHost } from "../map-host";
 import { buildNdviTableWhereWithRegion } from "../../../../../localization/map-where-clauses";
@@ -15,7 +16,7 @@ import { arcgisEaseInOut, errorMessage, errorName } from "../../../../../../shar
 export const setMapNoData = (host: MapFilterHelpersHost, noData: boolean, reason: string): void => {
   try {
     document.dispatchEvent(
-      new CustomEvent("agriMapNoData", {
+      new CustomEvent(AGRI_EVENTS.agriMapNoData, {
         detail: { noData, reason, timestamp: Date.now() },
         bubbles: true,
       }),

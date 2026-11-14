@@ -1,5 +1,6 @@
 // VH Categories Widget - Display only. Filter state from AgriFilter via shared filter store.
 
+import { AGRI_EVENTS } from "../../../shared/agri-events";
 import { type AllWidgetProps, React } from "jimu-core";
 import { TriangleAlert } from "lucide-react";
 import { useMemo } from "react";
@@ -290,7 +291,7 @@ export default class AgriBar extends React.PureComponent<
       "agriV11ThemeToggled",
       this.handleThemeChange as EventListener,
     );
-    document.addEventListener("resetAllFilters", this._onReset);
+    document.addEventListener(AGRI_EVENTS.resetAllFilters, this._onReset);
 
     // responsive sizing (deferred to ensure DOM is ready)
     setTimeout(() => {
@@ -338,7 +339,7 @@ export default class AgriBar extends React.PureComponent<
       "agriV11ThemeToggled",
       this.handleThemeChange as EventListener,
     );
-    document.removeEventListener("resetAllFilters", this._onReset);
+    document.removeEventListener(AGRI_EVENTS.resetAllFilters, this._onReset);
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
@@ -459,7 +460,7 @@ export default class AgriBar extends React.PureComponent<
       this._vhDispatchTimer = null;
       if (!this._isMounted) return;
       document.dispatchEvent(
-        new CustomEvent("widgetSelectionChanged", {
+        new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
           detail,
           bubbles: true,
         }),

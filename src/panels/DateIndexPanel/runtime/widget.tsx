@@ -5,6 +5,7 @@
 // no ArcGIS queries of its own. Hidden when nothing is selected.
 // Round prev/next chevrons sit outside the card and step the selected date.
 
+import { AGRI_EVENTS } from "../../../shared/agri-events";
 import { type AllWidgetProps, React } from "jimu-core";
 import {
   detectIsDarkTheme,
@@ -74,7 +75,7 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
   componentDidMount(): void {
     this._isMounted = true;
     document.addEventListener(
-      "graffDateIndexSelectionChanged",
+      AGRI_EVENTS.graffDateIndexSelectionChanged,
       this.handleSelectionChanged as EventListener,
     );
     document.addEventListener(
@@ -82,7 +83,7 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
       this.handleThemeChange as EventListener,
     );
     document.addEventListener(
-      "languageChanged",
+      AGRI_EVENTS.languageChanged,
       this.handleLanguageChange as EventListener,
     );
   }
@@ -90,7 +91,7 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
   componentWillUnmount(): void {
     this._isMounted = false;
     document.removeEventListener(
-      "graffDateIndexSelectionChanged",
+      AGRI_EVENTS.graffDateIndexSelectionChanged,
       this.handleSelectionChanged as EventListener,
     );
     document.removeEventListener(
@@ -98,7 +99,7 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
       this.handleThemeChange as EventListener,
     );
     document.removeEventListener(
-      "languageChanged",
+      AGRI_EVENTS.languageChanged,
       this.handleLanguageChange as EventListener,
     );
   }
@@ -172,7 +173,7 @@ export default class AgriDateIndexIndicator extends React.PureComponent<
 
     try {
       document.dispatchEvent(
-        new CustomEvent("graffDateIndexNavigate", {
+        new CustomEvent(AGRI_EVENTS.graffDateIndexNavigate, {
           detail: {
             date: availableDates[nextIdx],
             direction,

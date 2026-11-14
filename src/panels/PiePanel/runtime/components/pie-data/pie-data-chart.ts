@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import type { PieWidgetHost } from "../../pie-host";
 import { toPieSliceData, type PieEChartsOption } from "../../echarts-setup";
 import { toPlainRecord } from "../../../../../shared/agri-plain-object";
@@ -221,7 +222,7 @@ export const handleSliceClick = (host: PieWidgetHost, data: { rawKey?: string; n
     },
     () => {
       document.dispatchEvent(
-        new CustomEvent("widgetSelectionChanged", {
+        new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
           detail: {
             turi: singleTuriName,
             turlar: turiNames,
@@ -251,7 +252,7 @@ export const applyCategoryFilter = async (host: PieWidgetHost): Promise<void> =>
   const turiNames = host.cropIdsToTuriNames(selectedCategories);
 
   document.dispatchEvent(
-    new CustomEvent("categoryFilterChanged", {
+    new CustomEvent(AGRI_EVENTS.categoryFilterChanged, {
       detail: {
         yil,
         viloyat,

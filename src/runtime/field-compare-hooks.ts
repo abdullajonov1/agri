@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../shared/agri-events";
 import { React } from "jimu-core";
 import {
   fetchPolygonAvailableDates,
@@ -118,7 +119,7 @@ export function useCompareDocumentEvents(args: CompareEventsArgs): void {
       if (openRef.current) return;
       openRef.current = true;
       setOpen(true);
-      document.dispatchEvent(new CustomEvent("agriFieldCompareToggled", {
+      document.dispatchEvent(new CustomEvent(AGRI_EVENTS.agriFieldCompareToggled, {
         detail: { open: true },
         bubbles: true,
       }));
@@ -196,17 +197,17 @@ export function useCompareDocumentEvents(args: CompareEventsArgs): void {
       setOpen(false);
       onOpenChangeRef.current?.(false);
     };
-    document.addEventListener("widgetSelectionChanged", onSelection);
-    document.addEventListener("graffDateIndexSelectionChanged", onDate);
+    document.addEventListener(AGRI_EVENTS.widgetSelectionChanged, onSelection);
+    document.addEventListener(AGRI_EVENTS.graffDateIndexSelectionChanged, onDate);
     document.addEventListener(VEGETATION_OVERLAY_APPLIED_EVENT, onOverlayApplied);
-    document.addEventListener("agriIndicatorsDrawerToggled", onIndicators);
-    document.addEventListener("agriLandLayersToggled", onIndicators);
+    document.addEventListener(AGRI_EVENTS.agriIndicatorsDrawerToggled, onIndicators);
+    document.addEventListener(AGRI_EVENTS.agriLandLayersToggled, onIndicators);
     return () => {
-      document.removeEventListener("widgetSelectionChanged", onSelection);
-      document.removeEventListener("graffDateIndexSelectionChanged", onDate);
+      document.removeEventListener(AGRI_EVENTS.widgetSelectionChanged, onSelection);
+      document.removeEventListener(AGRI_EVENTS.graffDateIndexSelectionChanged, onDate);
       document.removeEventListener(VEGETATION_OVERLAY_APPLIED_EVENT, onOverlayApplied);
-      document.removeEventListener("agriIndicatorsDrawerToggled", onIndicators);
-      document.removeEventListener("agriLandLayersToggled", onIndicators);
+      document.removeEventListener(AGRI_EVENTS.agriIndicatorsDrawerToggled, onIndicators);
+      document.removeEventListener(AGRI_EVENTS.agriLandLayersToggled, onIndicators);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- refs and state setters are stable; deps kept identical to the original component
   }, []);

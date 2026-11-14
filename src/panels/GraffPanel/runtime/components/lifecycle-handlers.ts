@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../shared/agri-events";
 import type { GraffWidgetHost } from "../graff-host";
 import { describeThrown, eventDetail, setDataSourceDefinitionExpression } from "../graff-guards";
 import { graffLog } from "../graff-log";
@@ -41,7 +42,7 @@ export function componentDidMount(host: GraffWidgetHost) {
     host.handleThemeChange as EventListener,
   );
   document.addEventListener(
-    "languageChanged",
+    AGRI_EVENTS.languageChanged,
     host.handleAppLanguageChanged as EventListener,
   );
 
@@ -49,8 +50,8 @@ export function componentDidMount(host: GraffWidgetHost) {
   // Bypass Localization for overlay kickoff — Popup notify → Graff same tick.
   host._unbindPopupPolygonSelection = (() => {
     const handler = host.handlePopupPolygonSelectionFastPath as EventListener;
-    document.addEventListener("widgetSelectionChanged", handler);
-    return () => { document.removeEventListener("widgetSelectionChanged", handler); };
+    document.addEventListener(AGRI_EVENTS.widgetSelectionChanged, handler);
+    return () => { document.removeEventListener(AGRI_EVENTS.widgetSelectionChanged, handler); };
   })();
   document.addEventListener(
     "agriGraff4TableSearchChanged",
@@ -63,11 +64,11 @@ export function componentDidMount(host: GraffWidgetHost) {
 
   document.addEventListener("mousedown", host.handleDocumentMouseDown);
   document.addEventListener(
-    "resetAllFilters",
+    AGRI_EVENTS.resetAllFilters,
     host.handleResetAll as EventListener,
   );
   document.addEventListener(
-    "graffDateIndexNavigate",
+    AGRI_EVENTS.graffDateIndexNavigate,
     host.handleDateIndexNavigate as EventListener,
   );
 
@@ -256,7 +257,7 @@ export function componentWillUnmount(host: GraffWidgetHost) {
   // showing stale info once this chart is gone.
   try {
     document.dispatchEvent(
-      new CustomEvent("graffDateIndexSelectionChanged", {
+      new CustomEvent(AGRI_EVENTS.graffDateIndexSelectionChanged, {
         detail: {
           date: null,
           indexKey: null,
@@ -276,7 +277,7 @@ export function componentWillUnmount(host: GraffWidgetHost) {
     host.handleThemeChange as EventListener,
   );
   document.removeEventListener(
-    "languageChanged",
+    AGRI_EVENTS.languageChanged,
     host.handleAppLanguageChanged as EventListener,
   );
 
@@ -300,11 +301,11 @@ export function componentWillUnmount(host: GraffWidgetHost) {
   }
 
   document.removeEventListener(
-    "resetAllFilters",
+    AGRI_EVENTS.resetAllFilters,
     host.handleResetAll as EventListener,
   );
   document.removeEventListener(
-    "graffDateIndexNavigate",
+    AGRI_EVENTS.graffDateIndexNavigate,
     host.handleDateIndexNavigate as EventListener,
   );
   document.removeEventListener("mousedown", host.handleDocumentMouseDown);

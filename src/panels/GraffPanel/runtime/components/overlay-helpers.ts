@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../shared/agri-events";
 import type { GraffWidgetHost } from "../graff-host";
 import { applyGraffDefinitionExpression, eventDetail } from "../graff-guards";
 import { buildUniqueidUpperEqualsWhere, stripUniqueidBraces } from "../../../../data/agri-uniqueid-sql";
@@ -476,7 +477,7 @@ export const clearPolygonSelectionFromMapClick = (host: GraffWidgetHost): void =
       }
       try {
         document.dispatchEvent(
-          new CustomEvent("widgetSelectionChanged", {
+          new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
             detail: {
               source: "AgriGraffWidget",
               polygonMode: false,

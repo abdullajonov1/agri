@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../shared/agri-events";
 import { applyGraffDefinitionExpression, describeThrown, type AgriQueryableLayer } from "./graff-guards";
 import { arcgisEaseInOut } from "../../../shared/agri-plain-object";
 import type { TaggedLayer } from "./components/spatial-candidates";
@@ -61,7 +62,7 @@ const clearRowSelection = async (
       }
       try {
         document.dispatchEvent(
-          new CustomEvent("widgetSelectionChanged", {
+          new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
             detail: {
               source: "AgriGraffWidget",
               polygonMode: false,
@@ -259,7 +260,7 @@ const commitRowSelection = (
 
       try {
         document.dispatchEvent(
-          new CustomEvent("widgetSelectionChanged", {
+          new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
             detail: {
               source: "AgriGraffWidget",
               polygonMode: true,

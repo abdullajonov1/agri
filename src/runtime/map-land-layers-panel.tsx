@@ -1,4 +1,5 @@
 /** @jsx jsx */
+import { AGRI_EVENTS } from "../shared/agri-events";
 import { jsx, React } from "jimu-core";
 import {
   holdInactiveLandLayersHidden,
@@ -103,9 +104,9 @@ export default function MapLandLayersPanel(props: Props): JSX.Element {
       if ((event as CustomEvent<{ open?: boolean }>).detail?.open !== true) return;
       setOpen(false);
     };
-    document.addEventListener("agriFieldCompareToggled", onFieldCompare);
+    document.addEventListener(AGRI_EVENTS.agriFieldCompareToggled, onFieldCompare);
     return () => {
-      document.removeEventListener("agriFieldCompareToggled", onFieldCompare);
+      document.removeEventListener(AGRI_EVENTS.agriFieldCompareToggled, onFieldCompare);
       setAgriLandOverlay(null);
     };
   }, []);
@@ -114,7 +115,7 @@ export default function MapLandLayersPanel(props: Props): JSX.Element {
     const next = !open;
     setOpen(next);
     if (next) {
-      document.dispatchEvent(new CustomEvent("agriLandLayersToggled", {
+      document.dispatchEvent(new CustomEvent(AGRI_EVENTS.agriLandLayersToggled, {
         detail: { open: true },
         bubbles: true,
       }));

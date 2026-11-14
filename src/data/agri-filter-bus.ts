@@ -5,6 +5,7 @@
  * document listeners for yilChanged / regionChanged / categoryFilterChanged.
  * Localization still dispatches document CustomEvents for map / ExB hooks only.
  */
+import { AGRI_EVENTS } from "../shared/agri-events";
 import {
   getMasterFilterSnapshot,
   subscribeMasterFilter,
@@ -18,7 +19,7 @@ export type MasterFilterHandler = (event: Event) => void;
 export type MasterFilterDetailHandler = (detail: MasterFilterSnapshot) => void;
 
 function toFilterEvent(detail: MasterFilterSnapshot): CustomEvent {
-  return new CustomEvent("masterFilterChanged", { detail });
+  return new CustomEvent(AGRI_EVENTS.masterFilterChanged, { detail });
 }
 
 /**
@@ -36,7 +37,7 @@ export function bindMasterFilter(handler: MasterFilterHandler): () => void {
   if (snapshot) {
     onSnapshot(snapshot);
   } else {
-    document.dispatchEvent(new CustomEvent("requestMasterFilterState"));
+    document.dispatchEvent(new CustomEvent(AGRI_EVENTS.requestMasterFilterState));
   }
 
   return unsub;

@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import { agriLog } from "../localization-log";
 import type { ValueChangeEvent } from "../host";
 import type { PanelHandlersHost } from "./shell-host";
@@ -56,7 +57,7 @@ export function getAdminBoundarySelection(host: PanelHandlersHost) {
 export const setMapSurfaceLoading = (host: PanelHandlersHost, loading: boolean, reason: string) => {
   try {
     document.dispatchEvent(
-      new CustomEvent("agriMapSurfaceLoading", {
+      new CustomEvent(AGRI_EVENTS.agriMapSurfaceLoading, {
         detail: { loading, reason, timestamp: Date.now() },
         bubbles: true,
       }),
@@ -219,7 +220,7 @@ export const applyLanguage = (host: PanelHandlersHost, lang: FilterState["langua
     }
 
     document.dispatchEvent(
-      new CustomEvent("languageChanged", {
+      new CustomEvent(AGRI_EVENTS.languageChanged, {
         detail: {
           lang,
           language: lang,

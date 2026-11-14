@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import type { PopupWidgetHost } from "../../popup-host";
 import { agriMapClickDebug, agriMapClickWarn } from "../../../../../gis/agri-map-click-debug";
 import { arcgisEaseInOut } from "../../../../../shared/agri-plain-object";
@@ -37,7 +38,7 @@ export const cleanKey = (value: unknown): string =>
 export const dispatchClickPhase = (phase: string): void => {
   try {
     document.dispatchEvent(
-      new CustomEvent("agriPolygonMapClickPhase", {
+      new CustomEvent(AGRI_EVENTS.agriPolygonMapClickPhase, {
         detail: { phase, timestamp: Date.now() },
       }),
     );

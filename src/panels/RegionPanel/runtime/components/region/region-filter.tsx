@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import type { RegionFilterUpdates, RegionWidgetHost } from "../../region-host";
 import { messageOf, panelEventDetail } from "../../../../panel-filter-detail";
 import { regionLog as regionLogFn } from "../../region-log";
@@ -410,7 +411,7 @@ export const notifyAgriFilter = (host: RegionWidgetHost, updates: RegionFilterUp
 
   regionLogFn("notifyAgriFilter:dispatching", { detail });
   document.dispatchEvent(
-    new CustomEvent("widgetSelectionChanged", {
+    new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
       detail,
       bubbles: true,
     }),

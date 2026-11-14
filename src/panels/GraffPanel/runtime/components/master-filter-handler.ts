@@ -2,6 +2,7 @@
  * ✅ MAIN INPUT: Master filter state from AgriFilter
  * - reacts to yil + viloyat + tuman + turi + vh
  */
+import { AGRI_EVENTS } from "../../../../shared/agri-events";
 import type { GraffWidgetHost } from "../graff-host";
 import type { VegetationIndiceType } from "../../../../gis/agri-polygon-api-source";
 import type { AgriLanguage } from "../../../../shared/agri-language";
@@ -216,7 +217,7 @@ function afterMasterFilterApplied(
     clearMapSelectionGraphics(host.state.activeMapView?.view);
     try {
       document.dispatchEvent(
-        new CustomEvent("widgetSelectionChanged", {
+        new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
           detail: {
             source: "AgriGraffWidget",
             polygonMode: false,

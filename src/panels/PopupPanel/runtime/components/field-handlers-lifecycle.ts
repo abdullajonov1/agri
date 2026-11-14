@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../shared/agri-events";
 import type { PopupWidgetHost } from "../popup-host";
 import type {
   Config,
@@ -94,17 +95,17 @@ export function componentDidMount(host: PopupWidgetHost): void {
     host.setState({ isDarkTheme });
   }
   document.addEventListener(
-    "themeChanged",
+    AGRI_EVENTS.themeChanged,
     host.handleThemeChange as EventListener,
   );
   document.addEventListener(
-    "languageChanged",
+    AGRI_EVENTS.languageChanged,
     host.handleLanguageChange as EventListener,
   );
   document.addEventListener("mousedown", host.handleOutsideClick);
   host._unbindMasterFilter = bindMasterFilter(host.handleMasterFilterChanged);
   document.addEventListener(
-    "widgetSelectionChanged",
+    AGRI_EVENTS.widgetSelectionChanged,
     host.handleWidgetSelectionChanged as EventListener,
   );
   window.addEventListener("resize", host.schedulePopupLayout);
@@ -144,11 +145,11 @@ export function componentWillUnmount(host: PopupWidgetHost): void {
     host.broadcastPopupVisibility(false);
   }
   document.removeEventListener(
-    "themeChanged",
+    AGRI_EVENTS.themeChanged,
     host.handleThemeChange as EventListener,
   );
   document.removeEventListener(
-    "languageChanged",
+    AGRI_EVENTS.languageChanged,
     host.handleLanguageChange as EventListener,
   );
   host.detachMapClick();
@@ -157,7 +158,7 @@ export function componentWillUnmount(host: PopupWidgetHost): void {
   host._unbindMasterFilter?.();
   host._unbindMasterFilter = null;
   document.removeEventListener(
-    "widgetSelectionChanged",
+    AGRI_EVENTS.widgetSelectionChanged,
     host.handleWidgetSelectionChanged as EventListener,
   );
   window.removeEventListener("resize", host.schedulePopupLayout);

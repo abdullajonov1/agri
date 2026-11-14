@@ -1,5 +1,6 @@
 // Reserve land by crop type — shown in the Graff slot while the reserve overlay is on.
 
+import { AGRI_EVENTS } from "../../../shared/agri-events";
 import { React } from "jimu-core";
 import { TriangleAlert } from "lucide-react";
 import AgriChartLoader from "../../../shared/AgriChartLoader";
@@ -236,11 +237,11 @@ export default function ReserveCropPanel(props: { active: boolean }): JSX.Elemen
     const unbind = bindMasterFilter((event) => {
       applyLanguage(panelEventDetail(event).filters?.language);
     });
-    document.addEventListener("languageChanged", onLanguage);
+    document.addEventListener(AGRI_EVENTS.languageChanged, onLanguage);
     document.addEventListener("agriV11ThemeToggled", onTheme);
     return () => {
       unbind();
-      document.removeEventListener("languageChanged", onLanguage);
+      document.removeEventListener(AGRI_EVENTS.languageChanged, onLanguage);
       document.removeEventListener("agriV11ThemeToggled", onTheme);
     };
   }, []);

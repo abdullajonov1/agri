@@ -2,6 +2,7 @@
  * Mouse / click handlers for the Graff vegetation chart: hover tooltip and
  * point selection (which drives the vegetation raster overlay).
  */
+import { AGRI_EVENTS } from "../../../../shared/agri-events";
 import type { React } from "jimu-core";
 import type { GraffIndexKey } from "../graff-graph-constants";
 import { graffLog } from "../graff-log";
@@ -53,7 +54,7 @@ const describeDate = (date: Date): string =>
 
 const dispatchSelectionChanged = (ndviDate: string): void => {
   document.dispatchEvent(
-    new CustomEvent("widgetSelectionChanged", {
+    new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
       detail: {
         ndviDate,
         source: "AgriGraffWidget",

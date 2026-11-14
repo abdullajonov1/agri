@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../shared/agri-events";
 import type { DashboardChildProps, DashboardWidgetHost } from "../dashboard-host";
 import { setAccessConfig } from "../../shared/agri-access-config";
 import { setAgriServiceUrls } from "../../shared/agri-service-urls";
@@ -144,15 +145,15 @@ export function componentDidMount(host: DashboardWidgetHost): void {
   host.scheduleMapSlotLayout(true);
   host.scheduleMapLoadingWatchers();
   document.addEventListener(
-    "agriMapSurfaceLoading",
+    AGRI_EVENTS.agriMapSurfaceLoading,
     host.handleMapSurfaceLoading as EventListener,
   );
   document.addEventListener(
-    "agriMapNoData",
+    AGRI_EVENTS.agriMapNoData,
     host.handleMapNoData as EventListener,
   );
   document.addEventListener(
-    "agriMapPopupVisibility",
+    AGRI_EVENTS.agriMapPopupVisibility,
     host.handleMapPopupVisibility as EventListener,
   );
   const onFieldCompare: EventListener = (event) => {
@@ -160,7 +161,7 @@ export function componentDidMount(host: DashboardWidgetHost): void {
     if (detail?.open === true) collapseIndicatorsForCompare(host);
   };
   fieldCompareListeners.set(host, onFieldCompare);
-  document.addEventListener("agriFieldCompareToggled", onFieldCompare);
+  document.addEventListener(AGRI_EVENTS.agriFieldCompareToggled, onFieldCompare);
   requestAnimationFrame(() => {
     host.ensurePortalHost();
     host.forceUpdate(() => {
@@ -232,7 +233,7 @@ export const toggleIndicatorsDrawer = (host: DashboardWidgetHost, event: React.M
   });
   if (opening) {
     document.dispatchEvent(
-      new CustomEvent("agriIndicatorsDrawerToggled", {
+      new CustomEvent(AGRI_EVENTS.agriIndicatorsDrawerToggled, {
         detail: { open: true },
         bubbles: true,
       }),
@@ -260,20 +261,20 @@ export function componentWillUnmount(host: DashboardWidgetHost): void {
   }
   document.documentElement.classList.remove("agri-dashboard-active");
   document.removeEventListener(
-    "agriMapSurfaceLoading",
+    AGRI_EVENTS.agriMapSurfaceLoading,
     host.handleMapSurfaceLoading as EventListener,
   );
   document.removeEventListener(
-    "agriMapNoData",
+    AGRI_EVENTS.agriMapNoData,
     host.handleMapNoData as EventListener,
   );
   document.removeEventListener(
-    "agriMapPopupVisibility",
+    AGRI_EVENTS.agriMapPopupVisibility,
     host.handleMapPopupVisibility as EventListener,
   );
   const onFieldCompare = fieldCompareListeners.get(host);
   if (onFieldCompare) {
-    document.removeEventListener("agriFieldCompareToggled", onFieldCompare);
+    document.removeEventListener(AGRI_EVENTS.agriFieldCompareToggled, onFieldCompare);
     fieldCompareListeners.delete(host);
   }
   host.dashboardRootRef.current?.classList.remove("agri-popup-open");

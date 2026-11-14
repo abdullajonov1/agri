@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import type { LocalizationWidgetProps } from "../host";
 import type { LifecycleHost } from "./shell-host";
 import { debugCatch } from "../localization-log";
@@ -70,16 +71,16 @@ export function componentDidMount(host: LifecycleHost) {
 
   // ONLY listen to widget selection events - no cross-widget events
   document.addEventListener(
-    "widgetSelectionChanged",
+    AGRI_EVENTS.widgetSelectionChanged,
     host.handleWidgetSelection as EventListener,
   );
   document.addEventListener(
-    "agriPolygonMapClickPhase",
+    AGRI_EVENTS.agriPolygonMapClickPhase,
     host.handlePolygonMapClickPhase as EventListener,
   );
-  document.addEventListener("resetAllFilters", host._onReset as EventListener);
+  document.addEventListener(AGRI_EVENTS.resetAllFilters, host._onReset as EventListener);
   document.addEventListener(
-    "requestMasterFilterState",
+    AGRI_EVENTS.requestMasterFilterState,
     host.handleRequestMasterFilterState as EventListener,
   );
 
@@ -100,16 +101,16 @@ export function componentWillUnmount(host: LifecycleHost) {
     host._notificationPaintFrame = 0;
   }
   document.removeEventListener(
-    "widgetSelectionChanged",
+    AGRI_EVENTS.widgetSelectionChanged,
     host.handleWidgetSelection as EventListener,
   );
   document.removeEventListener(
-    "agriPolygonMapClickPhase",
+    AGRI_EVENTS.agriPolygonMapClickPhase,
     host.handlePolygonMapClickPhase as EventListener,
   );
-  document.removeEventListener("resetAllFilters", host._onReset);
+  document.removeEventListener(AGRI_EVENTS.resetAllFilters, host._onReset);
   document.removeEventListener(
-    "requestMasterFilterState",
+    AGRI_EVENTS.requestMasterFilterState,
     host.handleRequestMasterFilterState as EventListener,
   );
   document.removeEventListener("mousedown", host.handleDocumentClick);

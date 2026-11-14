@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../../shared/agri-events";
 import type { LocalizationConfig } from "../../host";
 import type { VhBarPrepHost, VhBarYearScopeHost } from "../vh-bar-host";
 import { type VHBarData, VH_TO_NDVI_STATUS } from "../../../../../localization/vh-constants";
@@ -201,7 +202,7 @@ export const publishVhBarPartial = (host: VhBarPrepHost, vhBarData: VHBarData): 
   host._lastBroadcastDigest = "";
   syncMasterFilterSnapshot(detail);
   document.dispatchEvent(
-    new CustomEvent("masterFilterChanged", {
+    new CustomEvent(AGRI_EVENTS.masterFilterChanged, {
       detail,
       bubbles: true,
     }),

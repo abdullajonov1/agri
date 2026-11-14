@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import type { GraffWidgetHost } from "../../graff-host";
 import { graffLog } from "../../graff-log";
 import { setVegetationOverlayContext } from "../../../../../gis/agri-vegetation-overlay-prefetch";
@@ -69,7 +70,7 @@ export const broadcastDateIndexSelection = (host: GraffWidgetHost): void => {
       selectedChartIndexKey: selectedChartIndexKey || null,
     });
     document.dispatchEvent(
-      new CustomEvent("graffDateIndexSelectionChanged", {
+      new CustomEvent(AGRI_EVENTS.graffDateIndexSelectionChanged, {
         detail: {
           date: null,
           indexKey: null,
@@ -112,7 +113,7 @@ export const broadcastDateIndexSelection = (host: GraffWidgetHost): void => {
   });
 
   document.dispatchEvent(
-    new CustomEvent("graffDateIndexSelectionChanged", {
+    new CustomEvent(AGRI_EVENTS.graffDateIndexSelectionChanged, {
       detail: {
         date: selectedNdviDate,
         indexKey: selectedChartIndexKey,
@@ -209,7 +210,7 @@ export const clearVegetationImageSurfaceLoading = (host: GraffWidgetHost, reques
     host.setState({ polygonImageLoading: false });
   }
   document.dispatchEvent(
-    new CustomEvent("agriMapSurfaceLoading", {
+    new CustomEvent(AGRI_EVENTS.agriMapSurfaceLoading, {
       detail: {
         loading: false,
         source: "AgriGraffWidget",
@@ -225,7 +226,7 @@ export const beginVegetationImageSurfaceLoading = (host: GraffWidgetHost): void 
     host.setState({ polygonImageLoading: true, polygonImageError: null });
   }
   document.dispatchEvent(
-    new CustomEvent("agriMapSurfaceLoading", {
+    new CustomEvent(AGRI_EVENTS.agriMapSurfaceLoading, {
       detail: {
         loading: true,
         source: "AgriGraffWidget",
@@ -245,7 +246,7 @@ export const cancelVegetationImageOverlay = (host: GraffWidgetHost): void => {
   host.removeVegetationImageOverlay();
   host.setState({ polygonImageLoading: false, polygonImageError: null });
   document.dispatchEvent(
-    new CustomEvent("agriMapSurfaceLoading", {
+    new CustomEvent(AGRI_EVENTS.agriMapSurfaceLoading, {
       detail: {
         loading: false,
         source: "AgriGraffWidget",

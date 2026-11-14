@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import { agriLog } from "../localization-log";
 import type { BroadcastHost } from "./shell-host";
 import { syncMasterFilterSnapshot } from "../../../../../data/agri-filter-store";
@@ -143,7 +144,7 @@ export const buildSendLogPayload = (
 export const publishBroadcast = (detail: BroadcastDetail): void => {
   syncMasterFilterSnapshot(detail);
   document.dispatchEvent(
-    new CustomEvent("masterFilterChanged", {
+    new CustomEvent(AGRI_EVENTS.masterFilterChanged, {
       detail,
       bubbles: true,
     }),

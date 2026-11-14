@@ -2,6 +2,7 @@
  * Shared vegetation overlay context so Popup can warm export-image as soon as
  * uniqueid is known — without waiting for Graff setState / available-dates race.
  */
+import { AGRI_EVENTS } from "../shared/agri-events";
 import {
   resolveExportImageWithDateWalk,
   type VegetationIndiceType,
@@ -94,7 +95,7 @@ function writeSession(next: OverlayContext): void {
 }
 
 /** Fired after the Graff map overlay draws a polygon index image. */
-export const VEGETATION_OVERLAY_APPLIED_EVENT = "agriVegetationOverlayApplied";
+export const VEGETATION_OVERLAY_APPLIED_EVENT = AGRI_EVENTS.agriVegetationOverlayApplied;
 
 export interface VegetationOverlayAppliedDetail {
   uniqueid: string;

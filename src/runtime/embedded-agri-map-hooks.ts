@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps -- dependency arrays are intentionally identical to the original component (setters/refs are stable; see R20). */
+import { AGRI_EVENTS } from "../shared/agri-events";
 import { React, type DataSource } from "jimu-core";
 import { type JimuMapView } from "jimu-arcgis";
 import { setAgriAdminBordersVisible } from "../gis/agri-admin-boundary-layer";
@@ -48,8 +49,8 @@ export function useMapLanguage(): MapLanguage {
       const detail = (event as CustomEvent)?.detail || {};
       setLanguage(normalizeMapLanguage(detail.lang || detail.language || detail.code));
     };
-    document.addEventListener("languageChanged", handleLanguageChange);
-    return () => { document.removeEventListener("languageChanged", handleLanguageChange); };
+    document.addEventListener(AGRI_EVENTS.languageChanged, handleLanguageChange);
+    return () => { document.removeEventListener(AGRI_EVENTS.languageChanged, handleLanguageChange); };
   }, []);
 
   return language;
@@ -128,10 +129,10 @@ export function useThemeAndRegionListeners(
       setHasSelectedRegion(readSelectedRegionEvent(event));
     };
     document.addEventListener("agriV11ThemeToggled", handleTheme);
-    document.addEventListener("masterFilterChanged", handleFilter);
+    document.addEventListener(AGRI_EVENTS.masterFilterChanged, handleFilter);
     return () => {
       document.removeEventListener("agriV11ThemeToggled", handleTheme);
-      document.removeEventListener("masterFilterChanged", handleFilter);
+      document.removeEventListener(AGRI_EVENTS.masterFilterChanged, handleFilter);
     };
   }, []);
 }

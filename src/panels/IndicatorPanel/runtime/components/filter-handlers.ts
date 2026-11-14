@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../shared/agri-events";
 import type { IndicatorWidgetHost } from "../indicator-host";
 import { bindMasterFilter } from "../../../../data/agri-filter-bus";
 import { normalizeLanguage } from "../../../../shared/agri-language";
@@ -37,8 +38,8 @@ export function componentDidMount(host: IndicatorWidgetHost) {
   host._unbindMasterFilter = bindMasterFilter(host.handleMasterFilterChanged);
 
   // keep reset support
-  BUS.addEventListener("resetAllFilters", host._onReset as EventListener);
-  BUS.addEventListener("resetAllWidgets", host._onReset as EventListener);
+  BUS.addEventListener(AGRI_EVENTS.resetAllFilters, host._onReset as EventListener);
+  BUS.addEventListener(AGRI_EVENTS.resetAllWidgets, host._onReset as EventListener);
 
   // optional: url hydration if you still want it
   window.addEventListener("popstate", host.readFiltersFromUrl);
@@ -288,8 +289,8 @@ export function componentWillUnmount(host: IndicatorWidgetHost) {
   host._unbindMasterFilter?.();
   host._unbindMasterFilter = null;
 
-  BUS.removeEventListener("resetAllFilters", host._onReset as EventListener);
-  BUS.removeEventListener("resetAllWidgets", host._onReset as EventListener);
+  BUS.removeEventListener(AGRI_EVENTS.resetAllFilters, host._onReset as EventListener);
+  BUS.removeEventListener(AGRI_EVENTS.resetAllWidgets, host._onReset as EventListener);
 
   window.removeEventListener("popstate", host.readFiltersFromUrl);
   BUS.removeEventListener(

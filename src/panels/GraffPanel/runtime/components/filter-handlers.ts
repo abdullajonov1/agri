@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../shared/agri-events";
 import type { GraffWidgetHost } from "../graff-host";
 import { describeThrown } from "../graff-guards";
 import { toPlainValue } from "../../../../shared/agri-plain-object";
@@ -224,7 +225,7 @@ export const handleConstructionYearChange = (host: GraffWidgetHost, event: Custo
 
       // Broadcast updated filters so AgriFilter/AgriBar react automatically
       document.dispatchEvent(
-        new CustomEvent("widgetSelectionChanged", {
+        new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
           detail: {
             source: "AgriGraffWidget",
             yil: next.yil,
@@ -444,7 +445,7 @@ export const handleLandCategoryChange = (host: GraffWidgetHost, event: CustomEve
 
       try {
         document.dispatchEvent(
-          new CustomEvent("widgetSelectionChanged", {
+          new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
             detail: {
               source: "AgriGraffWidget",
               polygonMode: false,
@@ -495,7 +496,7 @@ export const handleRegionalChange = (host: GraffWidgetHost, event: CustomEvent) 
       host.scheduleRefresh();
 
       document.dispatchEvent(
-        new CustomEvent("widgetSelectionChanged", {
+        new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
           detail: {
             source: "AgriGraffWidget",
             yil: next.yil,
@@ -583,7 +584,7 @@ export const handleGeneralFilterChange = (host: GraffWidgetHost, event: CustomEv
       host.scheduleRefresh();
 
       document.dispatchEvent(
-        new CustomEvent("widgetSelectionChanged", {
+        new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
           detail: {
             source: "AgriGraffWidget",
             yil: next.yil,

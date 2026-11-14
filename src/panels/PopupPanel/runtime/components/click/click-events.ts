@@ -2,6 +2,7 @@
  * Map-click wiring and hub event handlers (master filter, widget selection,
  * popup visibility / Graff polygon broadcasts).
  */
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import type { PopupWidgetHost } from "../../popup-host";
 import type { JimuMapView } from "jimu-arcgis";
 import type { IHandleLike, PopupSelectionDetail } from "../../popup-types";
@@ -138,7 +139,7 @@ export function detachMapClick(host: PopupWidgetHost) {
 export const notifyGraffPolygonSelection = (host: PopupWidgetHost, uniqueid: string, polygonMode: boolean, clickedAt?: number, regionId?: number | null): void => {
   try {
     document.dispatchEvent(
-      new CustomEvent("widgetSelectionChanged", {
+      new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
         detail: {
           source: "AgriPopup",
           polygonMode,
@@ -164,7 +165,7 @@ export const broadcastPopupVisibility = (host: PopupWidgetHost, open: boolean): 
   const pinned = !!host.state.pinToCorner;
   try {
     document.dispatchEvent(
-      new CustomEvent("agriMapPopupVisibility", {
+      new CustomEvent(AGRI_EVENTS.agriMapPopupVisibility, {
         detail: {
           open: !!open,
           pinned,
@@ -182,7 +183,7 @@ export const broadcastPopupVisibility = (host: PopupWidgetHost, open: boolean): 
     requestAnimationFrame(() => {
       try {
         document.dispatchEvent(
-          new CustomEvent("agriMapPopupVisibility", {
+          new CustomEvent(AGRI_EVENTS.agriMapPopupVisibility, {
             detail: {
               open: true,
               pinned,

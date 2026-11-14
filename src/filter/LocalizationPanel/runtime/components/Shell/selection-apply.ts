@@ -1,3 +1,4 @@
+import { AGRI_EVENTS } from "../../../../../shared/agri-events";
 import { agriLog } from "../localization-log";
 import type { SelectionApplyHost } from "./shell-host";
 import { clearPieVhFilterUniqueIds } from "../../../../../gis/agri-chart-filter-order";
@@ -296,7 +297,7 @@ export async function applyVhOnlySelection(
         if (!isApplyCurrent()) return;
         try {
           document.dispatchEvent(
-            new CustomEvent("widgetSelectionChanged", {
+            new CustomEvent(AGRI_EVENTS.widgetSelectionChanged, {
               detail: {
                 source: "AgriFilter",
                 polygonMode: false,

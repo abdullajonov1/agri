@@ -1,6 +1,7 @@
 // Shared logic for the standalone stat indicators (Yield, Unused land, Reserve land).
 // Variants supply only their config: layer loader, label/unit, and the fetch itself.
 
+import { AGRI_EVENTS } from "../../shared/agri-events";
 import { type AllWidgetProps, React } from "jimu-core";
 import AgriDashboardSpinner from "../../shared/AgriDashboardSpinner";
 import AgriAnimatedCount from "../../shared/AgriAnimatedCount";
@@ -93,7 +94,7 @@ export abstract class IndicatorStatBase extends React.PureComponent<
       this.handleThemeChange as EventListener,
     );
     document.addEventListener(
-      "languageChanged",
+      AGRI_EVENTS.languageChanged,
       this.handleLanguageChange as EventListener,
     );
 
@@ -130,7 +131,7 @@ export abstract class IndicatorStatBase extends React.PureComponent<
       this.handleThemeChange as EventListener,
     );
     document.removeEventListener(
-      "languageChanged",
+      AGRI_EVENTS.languageChanged,
       this.handleLanguageChange as EventListener,
     );
   }
