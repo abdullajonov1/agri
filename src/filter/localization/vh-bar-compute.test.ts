@@ -18,6 +18,11 @@ jest.mock("../../data/agri-stats-store", () => ({
   getVhBarLatestStatusCountsCached: (a: Record<string, unknown>) => mockCounts(a),
 }));
 
+const mockLog = jest.fn();
+jest.mock("../../gis/agri-debug-log", () => ({
+  agroV5Log: (...a: unknown[]) => mockLog(...a),
+}));
+
 const mockSummary = jest.fn<Promise<CountsResult | null>, [Record<string, unknown>]>();
 
 jest.mock("../../gis/vegetation/status/status-counts-summary", () => ({
@@ -149,6 +154,20 @@ describe("executeVhBarCompute status-counts summary", () => {
     const out = await executeVhBarCompute(makeDeps({ state: buxoro }));
     expect(mockCounts).toHaveBeenCalledTimes(1);
     expect(areaOf(out)["4-Past"]).toBe(5);
+  });
+
+  test("failing summary is traced and falls back to the old scan", async () => {
+    mockQueryDates.mockResolvedValue(["2025-09-30"]);
+    mockSummary.mockRejectedValue(new Error("summary down"));
+    mockCounts.mockResolvedValue(counts([row("yaxshi", 40, 4)]));
+    const out = await executeVhBarCompute(makeDeps({ state: buxoro }));
+    expect(mockLog).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ error: expect.stringContaining("summary down") }),
+      "vh",
+    );
+    expect(mockCounts).toHaveBeenCalled();
+    expect(areaOf(out)["2-Yaxshi"]).toBe(40);
   });
 
   test("locked calendar day skips the summary", async () => {

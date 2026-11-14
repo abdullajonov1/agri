@@ -11,6 +11,7 @@ import { getVhBarLatestStatusCountsCached } from "../../data/agri-stats-store";
 import { queryStatusCountsSummary } from "../../gis/vegetation/status/status-counts-summary";
 import { aggregateVhServiceRows, buildEmptyVhBarData } from "./vh-bar-aggregate";
 import type { VHBarData } from "./vh-constants";
+import { agroV5Log } from "../../gis/agri-debug-log";
 import { errorMessage } from "../../shared/agri-plain-object";
 
 export type VhBarComputeStateSlice = {
@@ -64,7 +65,14 @@ function loadVhBarCounts(useSummary: boolean, args: VhBarCountsArgs) {
         region: args.region,
         district: args.district,
         cropIds: args.cropIds,
-      }).catch(() => null)
+      }).catch((error: unknown) => {
+        agroV5Log(
+          "vh-bar status-counts summary failed",
+          { year: args.year, region: args.region, district: args.district, error: errorMessage(error) },
+          "vh",
+        );
+        return null;
+      })
     : Promise.resolve(null);
   return summaryPromise.then((summary) =>
     summary

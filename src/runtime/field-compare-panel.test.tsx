@@ -1,6 +1,7 @@
 import { React } from "jimu-core";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import FieldComparePanel from "./field-compare-panel";
+import { agroV5Log } from "../gis/agri-debug-log";
 import {
   fetchPolygonAvailableDates,
   fetchPolygonExportImageTiff,
@@ -10,6 +11,8 @@ jest.mock("../gis/agri-polygon-api-source", () => ({
   fetchPolygonExportImageTiff: jest.fn(),
   fetchPolygonAvailableDates: jest.fn(),
 }));
+
+jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 jest.mock("../gis/agri-vegetation-overlay-prefetch", () => ({
   getVegetationOverlayContext: () => ({ regionId: 4, year: 2026, lastIndex: "ndvi" }),
@@ -148,6 +151,23 @@ describe("FieldComparePanel", () => {
       rejectFetch(new Error("no raster"));
     });
     expect(screen.getByText("Снимок отсутствует")).toBeTruthy();
+  });
+
+  test("traces a failing available-dates fetch and keeps the panel working", async () => {
+    fetchDates.mockRejectedValue(new Error("dates down"));
+    (agroV5Log as jest.Mock).mockClear();
+    render(<FieldComparePanel language="uz_lat" />);
+    fireEvent.click(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }));
+    act(() => {
+      document.dispatchEvent(new CustomEvent("widgetSelectionChanged", {
+        detail: { source: "AgriPopup", polygonMode: true, uniqueid: "{abc}", regionId: 4 },
+      }));
+    });
+    await waitFor(() => expect(agroV5Log).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ uniqueid: "abc", error: expect.stringContaining("dates down") }),
+    ));
+    expect(document.querySelector(".agri-dashboard-compare-panel")).not.toBeNull();
   });
 
   test("closes when the land layers panel opens", () => {

@@ -5,6 +5,7 @@ import {
   fetchPolygonExportImageTiff,
   type VegetationIndiceType,
 } from "../gis/agri-polygon-api-source";
+import { agroV5Log } from "../gis/agri-debug-log";
 import { getVegetationOverlayContext } from "../gis/agri-vegetation-overlay-prefetch";
 
 export type CompareLanguage = "uz_lat" | "uz_cyr" | "ru" | "en";
@@ -263,7 +264,14 @@ export default function FieldComparePanel(props: Props): JSX.Element {
         if (cancelled || indexDatesRef.current) return;
         setKnownDates(readDates(dates).slice().sort());
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        agroV5Log("field-compare available dates failed", {
+          uniqueid,
+          regionId,
+          year,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     return () => {
       cancelled = true;
     };

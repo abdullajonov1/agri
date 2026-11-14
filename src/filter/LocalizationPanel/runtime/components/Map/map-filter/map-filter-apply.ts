@@ -1,18 +1,13 @@
 import type { LocalizationHost } from "../../host";
-import { type MapZoomRequest, decideMapSurfaceCover, shouldDeferCropForFastReveal, shouldDeferVhUniqueIdResolve, buildDefinitionExpressionDigest, isGeographyZoomReason, shouldNavigateMapZoom, isEmptyMapExtent } from "../../../../../localization/map-zoom-policy";
+import { type MapZoomRequest, decideMapSurfaceCover, buildDefinitionExpressionDigest, isGeographyZoomReason, shouldNavigateMapZoom, isEmptyMapExtent } from "../../../../../localization/map-zoom-policy";
 import { isShownRegionYearLayerOpaque } from "../../../../../localization/map-filter-apply";
 import { agriLog, debugCatch } from "../../localization-log";
-import type { AgriMapLayer } from "../../../../../localization/agri-map-layer";
 import { clearAgriAdminBoundaries, syncAgriAdminBoundaries, queryAgriAdminBoundaryExtentOnly } from "../../../../../../gis/agri-admin-boundary-layer";
 import { zoomGoToDurationMsForReason, isDistrictZoomPath, districtAdminExpandFactor, districtFallbackRegionExpandFactor, shouldSkipHomeGoTo, pickHomeExtentCandidate, homeGoToDurationMs, preferShownRegionYearExtent, raceRegionExtentPick, planCropNdviExtentSource, zoomExpandFactorForReason } from "../../../../../localization/map-zoom-target";
-import { collectShownRegionYearQueryTargets, readQueryableDefinitionExpression, unionMapExtents, unionShownRegionYearFullExtents, canQuerySpatialFeatureExtent, readSpatialFeatureExtentWhere, appendSpatialFeatureExtent } from "../../../../../localization/map-shown-extent";
-import { getDetachedQueryLayerFor, isMapImageOwnedLayer, safeLoadMapLayer } from "../../../../../../gis/feature-layer-data";
-import { arcgisEaseInOut, errorMessage, errorName } from "../../../../../../shared/agri-plain-object";
-
-/** View animation members read before goTo (MapView exposes them). */
-interface ViewAnimationLike {
-  animation?: { state?: string; stop?: () => void } | null;
-}
+import { errorMessage, errorName } from "../../../../../../shared/agri-plain-object";
+import { runFilterPaintStage } from "./map-filter-paint-stage";
+import { queryMergedSpatialExtent } from "./map-filter-spatial-extent";
+import { createExtentNavigator, queryShownRegionYearExtent as queryShownRegionYearExtentFor } from "./map-filter-zoom-extent";
 
 /** Runtime `fullExtent` some web maps carry (not in the Map typings). */
 type MapWithFullExtent = __esri.Map & { fullExtent?: __esri.Extent | null };
@@ -56,170 +51,12 @@ export const applyMapFiltersOptimized = async (
     vhSelected: !!String(host.state.vh || "").trim(),
     vhUniqueIdsReady: Array.isArray(host._vhMapUniqueIds),
   });
-  let loadingToken = 0;
-  let mapOverlayDismissed = false;
-  const dismissMapOverlay = (): void => {
-    if (
-      !mapOverlayDismissed &&
-      coverMap &&
-      loadingToken === host._mapSurfaceLoadingToken
-    ) {
-      mapOverlayDismissed = true;
-      host.setMapSurfaceLoading(false, coverReason);
-    }
-  };
-  if (coverMap) {
-    loadingToken = ++host._mapSurfaceLoadingToken;
-    host.setMapSurfaceLoading(true, coverReason);
-    // One frame is enough for the overlay to paint; double-rAF added
-    // ~32ms of pure wait before every region/year reveal.
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => { resolve(); });
-    });
-  }
-
-  let revealAfterCrop = false;
-  // First viloyat/year reveal: do NOT block zoom/overlay on crop distinct
-  // query + forced MapImage redraw (often 1–3s). Layer visibility already
-  // starts the export; crop colors catch up in the background.
-  const deferCropForFastReveal = shouldDeferCropForFastReveal(
-    zoomRequest.reason,
-  );
-  // Preserve a defer requested by VH-only cold+narrow click; otherwise
-  // defer only for crop/tuman refreshes while a VH status stays active.
-  const deferVhIds = shouldDeferVhUniqueIdResolve({
-    priorDefer: host._deferVhUniqueIdResolve,
+  const paintCurrent = await runFilterPaintStage(host, zoomRequest, stillCurrent, {
+    coverMap,
+    coverReason,
     vhOnly,
-    vhSelected: !!String(host.state.vh || "").trim(),
-    zoomReason: zoomRequest.reason,
-    cropScopesVhUniqueIds: host.getChartFilterFlags().filterVhBarByCrop,
   });
-  host._deferVhUniqueIdResolve = deferVhIds;
-  try {
-    await host.applyFiltersPersistent(stillCurrent);
-    if (!stillCurrent()) return;
-
-    // Region/year: layers are visible and exporting — lift the spinner now
-    // instead of waiting for admin-boundary sync + zoom animation.
-    if (deferCropForFastReveal) {
-      dismissMapOverlay();
-    }
-
-    // Crop/tuman first paint done — resolve VH uniqueids in background and
-    // re-apply DE without covering the map again.
-    if (deferVhIds && stillCurrent()) {
-      host._deferVhUniqueIdResolve = false;
-      void (async () => {
-        try {
-          await host.resolveVhMapUniqueIds(stillCurrent);
-          if (!stillCurrent()) {
-            // Do not leave the map stuck on turi-only after a superseded
-            // apply — the newer apply owns the next uniqueid resolve.
-            return;
-          }
-          host._suppressLegacyVhOnMap = false;
-          host._vhUniqueIdsReadyForApply = true;
-          await host.applyFiltersPersistent(stillCurrent, {
-            vhDeferredSecondPass: true,
-          });
-          // Region/Pie/Indicator listen to masterFilterChanged — without
-          // this rebroadcast they keep 1=0 / stale ids after VH→crop.
-          if (stillCurrent()) {
-            host.broadcastFilterState();
-            await host.fetchDataWithCurrentState();
-          }
-        } catch (error) {
-          agriLog(
-            "applyMapFiltersOptimized:deferred-vh-FAILED",
-            { error: errorMessage(error) },
-          );
-          // Keep turi-only paint (suppressLegacy) rather than writing legacy vh.
-          if (stillCurrent()) {
-            host._suppressLegacyVhOnMap = true;
-            host.broadcastFilterState();
-          }
-        }
-      })();
-    }
-
-    // Opacity stays at 1 now (leaf/Sublayer paint fix), so revealAfterCrop
-    // is often false — still wait for MapImage redraw after region/year
-    // crop-renderer so the first paint isn't default symbology.
-    revealAfterCrop = (host._lastShownRegionYearLayers || []).some(
-      (entry) =>
-        !!entry?.layer && Number(entry.layer?.opacity ?? 1) <= 0.05,
-    );
-    const awaitRedrawAfterCrop =
-      revealAfterCrop ||
-      zoomRequest.reason === "region" ||
-      zoomRequest.reason === "year";
-    // Skip crop re-query while VH uniqueid filter is active (or loading):
-    // distinct-turi over a huge `uniqueid IN (...)` WHERE is very slow and
-    // raced with deferred VH resolve when ekin turi was picked after VH.
-    const vhFilterActive = !!String(host.state.vh || "").trim();
-    const shouldSyncCrop =
-      !vhOnly &&
-      !vhFilterActive &&
-      host.state.cropRendererMode === "on" &&
-      (host._lastShownRegionYearLayers || []).length > 0;
-    if (shouldSyncCrop && deferCropForFastReveal) {
-      agriLog("applyMapFiltersOptimized:defer-crop", {
-        reason: zoomRequest.reason,
-      });
-      // CRITICAL: do NOT refresh/crop while the first visibility export is
-      // in flight — that aborts the MapImage request and fields stay blank
-      // until a second export finishes. Wait for the first paint, then colorize.
-      void (async () => {
-        try {
-          await host.waitForShownRegionYearRedraw(false);
-          if (!stillCurrent()) return;
-          await host.syncCropRenderer();
-        } catch (error) {
-          agriLog(
-            "applyMapFiltersOptimized:deferred-crop-FAILED",
-            { error: errorMessage(error) },
-          );
-        }
-      })();
-    } else if (shouldSyncCrop) {
-      await host.syncCropRenderer();
-      if (!stillCurrent()) return;
-      // Crop refresh already kicked parent MapImage — wait for that export
-      // instead of forcing another (canceled duplicate rows).
-      if (awaitRedrawAfterCrop) await host.waitForShownRegionYearRedraw(false);
-    }
-    if (vhOnly) {
-      // Apply DE immediately; don't block the UI on a full MapImage export
-      // (that was the main perceived lag when switching VH statuses).
-      void host.waitForShownRegionYearRedraw(false);
-    }
-    if (revealAfterCrop) {
-      host.setShownRegionYearOpacity(1);
-      // One more paint under the spinner so the colored export is on screen
-      // before the overlay lifts (avoids a green flash at dismiss).
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => { resolve(); });
-      });
-    }
-  } finally {
-    host._deferVhUniqueIdResolve = false;
-    if (revealAfterCrop) host.setShownRegionYearOpacity(1);
-    // Always clear if this call still owns the overlay — including when the
-    // apply went stale. Previously we only cleared when stillCurrent, which
-    // left the spinner stuck after SKIP-stale-apply races.
-    if (!mapOverlayDismissed && coverMap && loadingToken === host._mapSurfaceLoadingToken) {
-      host.setMapSurfaceLoading(false, coverReason);
-    }
-    // Strict: VH selection with zero matching uniqueids → no-data overlay.
-    const vhSelected = !!String(host.state.vh || "").trim();
-    const vhNoData =
-      vhSelected &&
-      Array.isArray(host._vhMapUniqueIds) &&
-      host._vhMapUniqueIds.length === 0;
-    if (stillCurrent()) {
-      host.setMapNoData(vhNoData, "vegetation");
-    }
-  }
+  if (!paintCurrent) return;
 
   // Admin boundary outlines — await so district names paint on view.graphics
   // above MapImage (fire-and-forget used to lose the race / look unchanged).
@@ -317,103 +154,10 @@ export const applyMapFiltersOptimized = async (
     !host._isMounted || requestId !== host._zoomRequestId;
   const isEmptyExtent = isEmptyMapExtent;
 
-  const navigate = async (
-    target: __esri.Extent | null | undefined,
-    duration: number,
-  ): Promise<void> => {
-    if (!target || isStale()) return;
-    try {
-      const animation = (view as ViewAnimationLike)?.animation;
-      if (animation?.state === "running" && typeof animation.stop === "function") {
-        animation.stop();
-      }
-    } catch (err) {
-      debugCatch("zoom:navigate:animation-stop-failed", err);
-    }
-    if (isStale()) return;
-    // view.goTo() can occasionally never settle (interrupted animation, view
-    // mid-update) — and this navigate() is awaited inside the
-    // handleWidgetSelection apply chain, so a hung goTo would leave `loading`
-    // (the map spinner) stuck forever. This bit users when deselecting a
-    // viloyat (mode:"home"). Race goTo against a timeout and swallow the
-    // expected AbortError so the chain always continues and loading clears.
-    try {
-      await Promise.race([
-        view.goTo(target, {
-          duration,
-          easing: arcgisEaseInOut,
-        }),
-        new Promise<void>((resolve) => setTimeout(resolve, duration + 1200)),
-      ]);
-    } catch (error) {
-      if (errorName(error) !== "AbortError") {
-        agriLog("zoom:navigate:failed", {
-          message: errorMessage(error),
-        });
-      }
-    }
-  };
+  const navigate = createExtentNavigator(view, isStale);
+  const queryShownRegionYearExtent = (): Promise<__esri.Extent | null> =>
+    queryShownRegionYearExtentFor(host, zoomRequest, isStale);
 
-  /**
-   * Extent of the currently shown region-year MapImage layer(s), using the
-   * live definitionExpression (tuman/turi when set, else whole viloyat).
-   * Never unions every spatialMapLayers entry — those are MapImage leaves
-   * for ALL regions and would zoom to the entire republic.
-   */
-  const queryShownRegionYearExtent = async (): Promise<__esri.Extent | null> => {
-    const extentTasks: Promise<__esri.Extent | null>[] = [];
-    for (const entry of host._lastShownRegionYearLayers) {
-      if (isStale()) return null;
-      const queryTargets = collectShownRegionYearQueryTargets(entry);
-      for (const sublayer of queryTargets) {
-        extentTasks.push(
-          (async (): Promise<__esri.Extent | null> => {
-            if (isStale()) return null;
-            try {
-              const where = readQueryableDefinitionExpression(sublayer);
-              if (!where) return null;
-              const detached = (await getDetachedQueryLayerFor(
-                sublayer,
-              )) as __esri.FeatureLayer | null;
-              if (!detached || isStale()) return null;
-              const query = detached.createQuery();
-              query.where = where;
-              query.returnGeometry = true;
-              const extent = (await detached.queryExtent(query))?.extent;
-              return isEmptyExtent(extent) ? null : extent;
-            } catch {
-              return null;
-            }
-          })(),
-        );
-      }
-    }
-
-    const results = await Promise.all(extentTasks);
-    let queried = 0;
-    for (const extent of results) {
-      if (!isEmptyExtent(extent)) queried += 1;
-    }
-    let merged = unionMapExtents(results);
-
-    if (isEmptyExtent(merged)) {
-      merged = unionShownRegionYearFullExtents(
-        host._lastShownRegionYearLayers,
-      );
-    }
-
-    agriLog("zoom:shown-region-extent", {
-      reason: zoomRequest.reason,
-      queriedSublayerCount: queried,
-      parallelTasks: extentTasks.length,
-      hasExtent: !isEmptyExtent(merged),
-      xmin: merged?.xmin,
-      ymin: merged?.ymin,
-      xmax: merged?.xmax,
-      ymax: merged?.ymax,
-    });
-    return isEmptyExtent(merged) ? null : merged;
-  };
 
   const resolveAdminBoundaryExtent = async (): Promise<void> => {
     if (!activeMapView?.view || isStale()) return;
@@ -565,31 +309,12 @@ export const applyMapFiltersOptimized = async (
     } else {
       // Crop / NDVI / vegetation: prefer non-MapImage spatial FeatureLayers
       // that carry the uniqueid mirror; skip MapImage-owned leaves.
-      for (const spatialLayer of host.state.spatialMapLayers || []) {
-        if (isStale()) return;
-        if (isMapImageOwnedLayer(spatialLayer)) continue;
-        try {
-          const spatial: AgriMapLayer = spatialLayer;
-          if (typeof spatial?.load === "function") {
-            await safeLoadMapLayer(spatialLayer);
-          }
-          if (!canQuerySpatialFeatureExtent(spatialLayer)) continue;
-          const where = readSpatialFeatureExtentWhere(spatialLayer);
-          if (!where) continue;
-          const query: __esri.QueryProperties = spatial?.createQuery
-            ? spatial.createQuery()
-            : {};
-          query.where = where;
-          const result = await spatial.queryExtent(query);
-          if (isStale()) return;
-          mergedExtent = appendSpatialFeatureExtent(
-            mergedExtent,
-            result?.extent,
-          );
-        } catch {
-          /* continue */
-        }
-      }
+      const spatial = await queryMergedSpatialExtent(
+        host.state.spatialMapLayers || [],
+        isStale,
+      );
+      if (spatial.stale) return;
+      mergedExtent = spatial.extent;
 
       const cropPlan = planCropNdviExtentSource({
         hasMergedSpatialExtent: !!mergedExtent,

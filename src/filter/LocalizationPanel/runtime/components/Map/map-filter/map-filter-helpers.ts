@@ -1,10 +1,11 @@
 import type { LocalizationConfig, LocalizationHost } from "../../host";
 import { buildNdviTableWhereWithRegion } from "../../../../../localization/map-where-clauses";
 import { normalizeUniqueidKey } from "../../../../../../data/agri-uniqueid-sql";
-import { shouldForceRegionYearMapExportRefresh, decideVhUniqueIdApplyPhase, isAgriTableDataUrl, augmentWhereWithNdviClauses, pickPrimaryWhereForSpatialJoin, spatialWhereFromPrimarySync } from "../../../../../localization/map-filter-apply";
-import { ensureRegionYearMapImagesReady, unlockShownRegionYearFieldScales, refreshRegionYearMapExports, isMapImageOwnedLayer, getDetachedQueryLayerFor } from "../../../../../../gis/feature-layer-data";
-import { getAgriTableDataUrl, buildSpatialJoinWhere, queryAgriUniqueIdsForWhere } from "../../../../../../gis/agri-table-data-source";
+import { shouldForceRegionYearMapExportRefresh, decideVhUniqueIdApplyPhase, isAgriTableDataUrl, augmentWhereWithNdviClauses, pickPrimaryWhereForSpatialJoin } from "../../../../../localization/map-filter-apply";
+import { getDetachedQueryLayerFor } from "../../../../../../gis/feature-layer-data";
+import { getAgriTableDataUrl } from "../../../../../../gis/agri-table-data-source";
 import { buildDefinitionExpressionDigest, isEmptyMapExtent } from "../../../../../localization/map-zoom-policy";
+import { revealRegionYearLayers, mirrorWhereOnSpatialLayers } from "./map-filter-layer-sync";
 import { agriLog, debugCatch } from "../../localization-log";
 import { collectShownRegionYearQueryTargets, readQueryableDefinitionExpression, unionMapExtents } from "../../../../../localization/map-shown-extent";
 import { arcgisEaseInOut, errorMessage, errorName } from "../../../../../../shared/agri-plain-object";
@@ -194,58 +195,7 @@ export async function applyFiltersPersistent(
     if (isCurrent && !isCurrent()) return;
   }
 
-  // Reveal region-year MapImage layers before chart/table DE work so the
-  // first export starts while Agri_table filters are still updating.
-  try {
-    const map = host.state.activeMapView?.view?.map;
-    if (map) {
-      const effectiveViloyat = host.getEffectiveViloyat();
-      if (host.state.yil && effectiveViloyat) {
-        // MapImage layerDefs only stick after metadata load — but never
-        // block forever (race with maxWaitMs). Early preload overlaps this
-        // wait. Geography uses ~1.5s so cold load usually finishes before
-        // first DE (700ms left fields blank until a manual zoom).
-        const hasVh = !!String(host.state.vh || "").trim();
-        const ensureResult = await ensureRegionYearMapImagesReady(
-          map,
-          host.state.yil,
-          effectiveViloyat,
-          hasVh ? 2000 : 1500,
-        );
-        if (isCurrent && !isCurrent()) return;
-        host._lastShownRegionYearLayers = host.syncShownRegionYearLayers(map);
-        unlockShownRegionYearFieldScales(host._lastShownRegionYearLayers);
-        host.applyInstantCropPaletteNoRefresh();
-        if (forceMapExportRefresh) {
-          refreshRegionYearMapExports(host._lastShownRegionYearLayers);
-          // Timed-out ensure: metadata was not ready — re-sync DE after
-          // load (layerDefs often don't stick before load), then refresh.
-          if (ensureResult.timedOut) {
-            void ensureResult.preload.then(() => {
-              if (isCurrent && !isCurrent()) return;
-              const mapReady = host.state.activeMapView?.view?.map;
-              if (mapReady && host.state.yil && host.getEffectiveViloyat()) {
-                host._lastShownRegionYearLayers =
-                  host.syncShownRegionYearLayers(mapReady);
-              }
-              unlockShownRegionYearFieldScales(
-                host._lastShownRegionYearLayers,
-              );
-              refreshRegionYearMapExports(host._lastShownRegionYearLayers);
-            });
-          }
-        }
-      } else {
-        host._lastShownRegionYearLayers = host.syncShownRegionYearLayers(map);
-        host.applyInstantCropPaletteNoRefresh();
-        if (forceMapExportRefresh) {
-          refreshRegionYearMapExports(host._lastShownRegionYearLayers);
-        }
-      }
-    }
-  } catch {
-    /* best-effort; attribute-level data queries are unaffected */
-  }
+  if (!(await revealRegionYearLayers(host, isCurrent, forceMapExportRefresh))) return;
 
   const { featureLayers, spatialMapLayers } = host.state;
   let primaryWhere: string | null = null;
@@ -277,38 +227,7 @@ export async function applyFiltersPersistent(
       });
     });
 
-    // Agri_table_data has no geometry — mirror the same filter onto
-    // FeatureLayer polygon layers, joined by uniqueid.
-    // NEVER overwrite MapImage / sublayer definitionExpression here:
-    // region-year MapImages are owned by syncRegionYearLayerVisibility
-    // (tuman/turi text clauses). A uniqueid-IN rewrite flashes every
-    // other district and races the first field click / popup.
-    if (spatialMapLayers?.length && primaryWhere != null) {
-      try {
-        let spatialWhere = spatialWhereFromPrimarySync(primaryWhere);
-        if (spatialWhere == null) {
-          try {
-            spatialWhere = buildSpatialJoinWhere(
-              await queryAgriUniqueIdsForWhere(primaryWhere),
-            );
-          } catch {
-            // While AGRI_UNIQUEID_QUERY_ENABLED=false the query returns []
-            // (buildSpatialJoinWhere → "1=0") instead of reaching here.
-            // On a real query failure, hide rather than leave the layer at
-            // its last "1=1" (every parcel in the country).
-            spatialWhere = "1=0";
-          }
-        }
-        spatialMapLayers.forEach((sl) => {
-          if (isMapImageOwnedLayer(sl)) return;
-          if (sl.definitionExpression !== spatialWhere) {
-            sl.definitionExpression = spatialWhere;
-          }
-        });
-      } catch {
-        /* map visual sync is best-effort; data-side filtering is unaffected */
-      }
-    }
+    await mirrorWhereOnSpatialLayers(spatialMapLayers, primaryWhere);
   }
   host._prevDefinitionExpression = buildDefinitionExpressionDigest(
     featureLayers || [],
