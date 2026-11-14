@@ -14,6 +14,7 @@ import { resolveCropColors } from "../shared/agri-crop-color-registry";
 import { hexToRgba, type CropFillSymbolJson } from "../filter/localization/crop-renderer";
 import { getAgriReserveLandLayer } from "./agri-reserve-land-data-source";
 import { getAgriUnusedLandLayer } from "./agri-unused-land-data-source";
+import { isRendererJson } from "../shared/agri-type-guards";
 import type { AgriLandOverlay } from "../store/agri-land-overlay-store";
 import type { AgriLandScope } from "./agri-land-layers";
 
@@ -160,6 +161,7 @@ export async function applyLandCropRenderer(
   if (isStale()) return false;
   const renderer = buildLandCropRenderer(layer, rows);
   if (!renderer) return false;
-  layer.renderer = renderer as unknown as __esri.Renderer;
+  if (!isRendererJson(renderer)) return false;
+  layer.renderer = renderer;
   return true;
 }

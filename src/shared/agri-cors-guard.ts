@@ -17,6 +17,7 @@
  */
 import { loadArcGISJSAPIModules } from "jimu-arcgis";
 import { DataSourceManager, getAppStore, type DataSource } from "jimu-core";
+import { readStatePortalUrl } from "./agri-type-guards";
 import { getAgriServiceUrls, type AgriServiceUrls } from "./agri-service-urls";
 
 interface ProxyRuleLike {
@@ -102,8 +103,8 @@ export function collectAgriArcgisUrls(): string[] {
     .filter((key) => !NON_ARCGIS_KEYS.includes(key))
     .map((key) => urls[key]);
   try {
-    const state = getAppStore().getState() as unknown as { portalUrl?: string };
-    if (state?.portalUrl) list.push(state.portalUrl);
+    const portalUrl = readStatePortalUrl(getAppStore().getState());
+    if (portalUrl) list.push(portalUrl);
   } catch {
     /* no store (tests) */
   }

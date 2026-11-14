@@ -1,4 +1,5 @@
 import { vegAccessCacheTag, vegetationSeriesByUniqueIdCache, getAgriVegetationIndicesLayer, queryVegFeatures, type VegetationRegionalTimeseriesParams, agriVegetationLog, VEG_AVG_FIELDS, vegetationRegionalTimeseriesCache, type VegetationScopeParams, vegetationAvailableDatesCache, formatArcgisDateToYmd, type VegetationLatestDateByRegion, vegetationLatestDatesByRegionCache, agriVhLog, type VegetationSeriesRow, type VegetationPolygonSeriesRow } from "./veg-base";
+import { buildCropClause } from "./veg-sql";
 import { escapeArcGIS, isExactArcGisYmd } from "../../data/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import type { AgriAttributes, AgriStatisticJson } from "../agri-layer-types";
@@ -113,22 +114,11 @@ export async function queryVegetationRegionalTimeseries(
   clauses.push(
     `raster_date >= DATE '${params.startDate}' AND raster_date <= DATE '${params.endDate}'`,
   );
-  const requestedCropIds = Array.from(
-    new Set(
-      [...(params.cropIds || []), ...(params.cropId ? [params.cropId] : [])]
-        .map((value) => String(value).trim())
-        .filter(Boolean),
-    ),
-  );
-  if (requestedCropIds.length === 1) {
-    clauses.push(`crop_id='${escapeArcGIS(requestedCropIds[0])}'`);
-  } else if (requestedCropIds.length > 1) {
-    clauses.push(
-      `crop_id IN (${requestedCropIds
-        .map((value) => `'${escapeArcGIS(value)}'`)
-        .join(",")})`,
-    );
-  }
+  const cropClause = buildCropClause([
+    ...(params.cropIds || []),
+    params.cropId,
+  ]);
+  if (cropClause) clauses.push(cropClause);
   const where = clauses.join(" AND ");
   const cacheKey = `${where}|avg=${fieldsForStats.join(",")}${vegAccessCacheTag()}`;
   return rememberAsync({

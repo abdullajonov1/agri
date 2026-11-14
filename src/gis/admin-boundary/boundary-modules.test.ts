@@ -1,3 +1,5 @@
+const mockLog = jest.fn();
+jest.mock("../agri-debug-log", () => ({ agroV5Log: (...a: unknown[]) => mockLog(...a) }));
 const mockReadToken = jest.fn<string | null, [{ allowGenericStorageKeys: boolean }]>();
 const mockLoadModules = jest.fn<Promise<unknown[]>, [string[]]>();
 
@@ -55,6 +57,7 @@ describe("registerServerToken", () => {
       throw new Error("bad prefix");
     });
     registerServerToken({ registerToken } as unknown as typeof IdentityManager);
+    expect(mockLog).toHaveBeenCalledWith("boundaryModules.registerToken", { error: "bad prefix" });
     expect(mockReadToken).toHaveBeenCalledWith({ allowGenericStorageKeys: false });
     expect(registerToken.mock.calls.map((c) => (c[0] as { server: string }).server)).toEqual([
       "https://gis/server/rest/services",

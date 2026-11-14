@@ -1,8 +1,8 @@
-import { pruneTimedCache, queryCountCache, queryStatsCache, queryJsonCache, getQueryUrl, cacheKey, stableCachePayload, getEsriRequest, QUERY_CACHE_TTL_MS, getExtentClass, isValidMapExtent, flLog, layerLabel } from "../primitives";
+import { pruneTimedCache, queryCountCache, queryStatsCache, queryJsonCache, getQueryUrl, cacheKey, stableCachePayload, QUERY_CACHE_TTL_MS, getExtentClass, isValidMapExtent, flLog, layerLabel } from "../primitives";
 import { getQueryableLayer } from "./lookup-collect";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../../shared/agri-http";
+import { queryRestJson } from "../../../data/agri-rest-query";
 import type Extent from "esri/geometry/Extent";
-import type Query from "esri/rest/support/Query";
 import type { AgriStatsRow } from "../query-cache";
 import {
   type AgriAttributes,
@@ -12,6 +12,7 @@ import {
   type AgriRestQueryResponse,
   errorMessage,
 } from "../../agri-layer-types";
+import { agroV5Log } from "../../agri-debug-log";
 
 /** Feature-ish item whose attributes are read (Graphic or REST JSON). */
 type AttributeCarrier = { attributes?: AgriAttributes | null } | null | undefined;
@@ -48,17 +49,11 @@ export async function queryLayerJson(
   if (hit && hit.expires > now) return hit.value as Promise<AgriRestQueryResponse>;
 
   const job = (async (): Promise<AgriRestQueryResponse> => {
-    const esriRequest = await getEsriRequest();
-    const res = await esriRequest(url, {
-      query: { f: "json", ...params },
-      responseType: "json",
-      timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
-    });
-    const data: AgriRestQueryResponse = res?.data;
-    if (data?.error) {
-      throw new Error(String(data.error?.message || "Query error"));
-    }
-    return data;
+    return queryRestJson(
+      url,
+      { f: "json", ...params },
+      { timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS, errorFallback: "Query error" },
+    );
   })();
 
   queryJsonCache.set(key, { expires: now + QUERY_CACHE_TTL_MS, value: job });
@@ -103,7 +98,8 @@ export async function queryLayerExtent(
       const res = await queryable.queryExtent(q);
       if (isValidMapExtent(res?.extent)) return res.extent ?? null;
     }
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("lookupQuery.extentNative", { error: err instanceof Error ? err.message : String(err) });
     /* REST fallback below */
   }
 
@@ -116,7 +112,8 @@ export async function queryLayerExtent(
     if (isValidMapExtent(data?.extent)) {
       return extentFromJson(data.extent);
     }
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("lookupQuery.extentJson", { error: err instanceof Error ? err.message : String(err) });
     /* geometry fallback below */
   }
 
@@ -278,7 +275,7 @@ export async function runStatsQueryUncached(
     query.where = w;
     query.returnGeometry = false;
     // Library boundary: plain statistic JSON is autocast by the Query setter.
-    query.outStatistics = outStatistics as unknown as Query["outStatistics"];
+    query.outStatistics = outStatistics;
     if (groupBy?.length) query.groupByFieldsForStatistics = groupBy;
     if (typeof layer.queryFeatures !== "function") {
       throw new TypeError("layer.queryFeatures is not a function");
@@ -391,7 +388,8 @@ export async function distinctValues(
       return [];
     }
     return collect(res?.features || []);
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("lookupQuery.distinctQueryFeatures", { error: err instanceof Error ? err.message : String(err) });
     /* JSON fallback below */
   }
 
@@ -408,7 +406,8 @@ export async function distinctValues(
       return [];
     }
     return collect(data?.features || []);
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("lookupQuery.distinctJson", { error: err instanceof Error ? err.message : String(err) });
     return [];
   }
 }

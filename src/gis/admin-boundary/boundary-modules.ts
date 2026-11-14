@@ -14,6 +14,7 @@ import {
   getAgriServiceUrls,
 } from "../../shared/agri-service-urls";
 import { readAgriAuthToken } from "../agri-auth-token";
+import { agroV5Log } from "../agri-debug-log";
 
 export interface BoundaryModules {
   FeatureLayer: typeof FeatureLayer;
@@ -92,7 +93,8 @@ export function registerServerToken(identityManager: typeof IdentityManager): vo
   ]) {
     try {
       identityManager.registerToken({ server, token });
-    } catch {
+    } catch (err: unknown) {
+      agroV5Log("boundaryModules.registerToken", { error: err instanceof Error ? err.message : String(err) });
       /* best effort — one bad server prefix must not block the others */
     }
   }

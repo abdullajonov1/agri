@@ -8,6 +8,7 @@ import {
   type AgriMapViewHostLike,
   layerFieldNameList,
 } from "../agri-layer-types";
+import { agroV5Log } from "../agri-debug-log";
 
 /**
  * Wait for region-year MapImage metadata up to `maxWaitMs`, then reveal.
@@ -121,7 +122,8 @@ export async function resolveFeatureLayerForFilters(
       regionScoped: bestRegionMatch || bestScore >= 25,
       yearScoped: haystackMatchesYear(haystack, filters.yil),
     };
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("whereAndResolve.resolveForFilters", { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }
@@ -144,7 +146,8 @@ export async function getFeatureLayerFromView(
     await safeLoadMapLayer(layer);
     const fields: string[] = layerFieldNameList(layer);
     return { layer, fields };
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("whereAndResolve.firstLayerFromView", { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }

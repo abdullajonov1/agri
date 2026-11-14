@@ -1,5 +1,6 @@
 import { AppMode, getAppStore } from "jimu-core";
 import { toPlainArray } from "./agri-data-source-engine";
+import { agroV5Log } from "./agri-debug-log";
 
 export type LinkedMapLayoutScope = "dashboard" | "plm";
 
@@ -91,13 +92,15 @@ export function isKnownMapWidgetId(widgetId?: string | null): boolean {
     const widgets = readAppWidgets();
     const widget = widgets[id];
     if (widget && isMapWidgetConfig(widget)) return true;
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("linkedMapLayout.readAppWidgets", { error: err instanceof Error ? err.message : String(err) });
     /* app config may still be warming up */
   }
 
   try {
     return !!findWidgetRenderer(id);
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("linkedMapLayout.findRenderer", { error: err instanceof Error ? err.message : String(err) });
     return false;
   }
 }
@@ -164,7 +167,8 @@ export function discoverMapWidgetIdInApp(options: {
       }
     });
     return bestId;
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("linkedMapLayout.nearestWidget", { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }

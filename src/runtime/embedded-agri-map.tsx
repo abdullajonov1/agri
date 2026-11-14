@@ -5,7 +5,6 @@ import {
   jsx,
   React,
   type DataSource,
-  type IMUseDataSource,
   type UseDataSource,
 } from "jimu-core";
 import { type JimuMapView } from "jimu-arcgis";
@@ -18,6 +17,7 @@ import {
   readAgriAdminBordersVisible,
   setAgriAdminBordersVisible,
 } from "../gis/agri-admin-boundary-layer";
+import { isUseDataSourceLike } from "../shared/agri-type-guards";
 import { installAgriCorsGuard, recreateDataSource } from "../shared/agri-cors-guard";
 import FieldComparePanel from "./field-compare-panel";
 import MapLandLayersPanel from "./map-land-layers-panel";
@@ -236,7 +236,7 @@ export default function EmbeddedAgriMap(props: Props) {
     const map = viewRef.current?.map || mapRef.current;
     if (!map || viewRef.current?.destroyed) return;
     if (String(map.basemap?.id || map.basemap || "") !== automaticBasemapId) {
-      map.basemap = automaticBasemapId as unknown as __esri.Basemap;
+      map.basemap = automaticBasemapId;
     }
     setActiveBasemapId(automaticBasemapId);
     setBasemapMenuOpen(false);
@@ -273,7 +273,7 @@ export default function EmbeddedAgriMap(props: Props) {
   const selectBasemap = React.useCallback((basemapId: string): void => {
     const view = viewRef.current;
     if (!view?.map || view.destroyed) return;
-    view.map.basemap = basemapId as unknown as __esri.Basemap;
+    view.map.basemap = basemapId;
     setActiveBasemapId(basemapId);
     setBasemapMenuOpen(false);
   }, []);
@@ -462,11 +462,11 @@ export default function EmbeddedAgriMap(props: Props) {
           if (open) setBasemapMenuOpen(false);
         }}
       />
-      {effectiveRootUseDataSource && (
+      {isUseDataSourceLike(effectiveRootUseDataSource) && (
         <div style={{ display: "none" }} aria-hidden="true">
           <DataSourceComponent
             // Plain (mutable) use-data-source object, exactly as before.
-            useDataSource={effectiveRootUseDataSource as unknown as IMUseDataSource}
+            useDataSource={effectiveRootUseDataSource}
             widgetId={mapWidgetId}
             onDataSourceCreated={(dataSource: DataSource) => { setRootDataSource(dataSource); }}
             // Without this the map waits for the data source forever and the

@@ -3,11 +3,11 @@ import {
   DataSourceComponent,
   jsx,
   type DataSource,
-  type IMUseDataSource,
   type QueriableDataSource,
   type UseDataSource,
 } from "jimu-core";
 import { JimuMapViewComponent, type JimuMapView } from "jimu-arcgis";
+import { isUseDataSourceLike } from "../shared/agri-type-guards";
 import { toPlainArray } from "./agri-data-source-engine";
 
 interface Props {
@@ -30,11 +30,11 @@ export function AgriHiddenConnectors(props: Props): JSX.Element {
 
   return (
     <div style={{ display: "none" }} aria-hidden="true">
-      {primaryDs ? (
+      {isUseDataSourceLike(primaryDs) ? (
         <DataSourceComponent
           key={primaryDs?.dataSourceId}
           // Deep-mutable copy (toPlainArray); jimu only reads its fields.
-          useDataSource={primaryDs as unknown as IMUseDataSource}
+          useDataSource={primaryDs}
           onDataSourceCreated={
             props.onDataSourceCreated
               ? (ds: DataSource) => {

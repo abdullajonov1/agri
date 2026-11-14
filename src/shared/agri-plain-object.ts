@@ -75,11 +75,15 @@ export const errorName = (error: unknown): string => {
  * runtime value; only `"linear"` is in both unions.
  */
 type ArcgisGoToEasing = (__esri.GoToOptions2D & __esri.GoToOptions3D)["easing"];
-export const arcgisEaseInOut: ArcgisGoToEasing =
-  "ease-in-out" as unknown as ArcgisGoToEasing;
+const isGoToEasing = (value: unknown): value is ArcgisGoToEasing =>
+  value === "linear" || value === "ease-in-out";
+const EASE_IN_OUT: string = "ease-in-out";
+export const arcgisEaseInOut: ArcgisGoToEasing = isGoToEasing(EASE_IN_OUT)
+  ? EASE_IN_OUT
+  : "linear";
 
 /** Query `outStatistics` accepts property bags; the class type does not. */
 export const asStatisticDefinitions = (
   stats: __esri.StatisticDefinitionProperties[],
 ): __esri.StatisticDefinition[] =>
-  stats as unknown as __esri.StatisticDefinition[];
+  stats as __esri.StatisticDefinition[];

@@ -1,5 +1,6 @@
-import { loadArcGISJSAPIModules } from "jimu-arcgis";
+import { queryRestJson } from "../../data/agri-rest-query";
 import { rememberAsync } from "../../data/agri-persistent-cache";
+import { buildCropClause } from "./veg-sql";
 import { escapeArcGIS, isExactArcGisYmd } from "../../data/agri-sql";
 import { getAccessWhere } from "../../shared/agri-access-config";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../shared/agri-http";
@@ -70,18 +71,6 @@ export function translateAccessWhereForSummary(access: string): string | null {
   return result + text.slice(cursor);
 }
 
-function buildCropClause(params: VegetationRegionalTimeseriesParams): string | null {
-  const ids = Array.from(
-    new Set(
-      [...(params.cropIds ?? []), params.cropId]
-        .map((id) => String(id ?? "").trim())
-        .filter(Boolean),
-    ),
-  ).map((id) => `'${escapeArcGIS(id)}'`);
-  if (ids.length === 0) return null;
-  return ids.length === 1 ? `crop_id=${ids[0]}` : `crop_id IN (${ids.join(",")})`;
-}
-
 export function buildSummaryWhere(
   params: VegetationRegionalTimeseriesParams,
 ): string | null {
@@ -95,7 +84,7 @@ export function buildSummaryWhere(
   if (params.district != null) {
     clauses.push(`district_id='${escapeArcGIS(String(params.district))}'`);
   }
-  const crop = buildCropClause(params);
+  const crop = buildCropClause([...(params.cropIds ?? []), params.cropId]);
   if (crop) clauses.push(crop);
   clauses.push(
     `raster_date >= DATE '${startDate}' AND raster_date <= DATE '${endDate}'`,
@@ -173,9 +162,9 @@ export const vegetationSummaryTimeseriesCache = new Map<
 >();
 
 async function fetchSummaryRows(where: string): Promise<VegetationSeriesRow[]> {
-  const [esriRequest] = await loadArcGISJSAPIModules(["esri/request"]);
-  const res = await esriRequest(`${getAgriServiceUrls().indexDailySummaryUrl}/query`, {
-    query: {
+  const data = await queryRestJson(
+    `${getAgriServiceUrls().indexDailySummaryUrl}/query`,
+    {
       f: "json",
       where,
       groupByFieldsForStatistics: "raster_date",
@@ -183,13 +172,9 @@ async function fetchSummaryRows(where: string): Promise<VegetationSeriesRow[]> {
       outStatistics: JSON.stringify(buildSummaryOutStatistics()),
       returnGeometry: false,
     },
-    responseType: "json",
-    timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
-  });
-  if (res?.data?.error) {
-    throw new Error(String(res.data.error.message || "query error"));
-  }
-  const features: Array<{ attributes?: AgriAttributes }> = res?.data?.features ?? [];
+    { timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS },
+  );
+  const features: Array<{ attributes?: AgriAttributes }> = data.features ?? [];
   if (features.length === 0) throw new Error("no summary rows");
   return mapSummaryRows(features.map((f) => f.attributes ?? {}));
 }
@@ -237,9 +222,9 @@ function buildSummaryDatesWhere(params: { region?: number; district?: number }):
 }
 
 async function fetchSummaryDates(where: string): Promise<string[]> {
-  const [esriRequest] = await loadArcGISJSAPIModules(["esri/request"]);
-  const res = await esriRequest(`${getAgriServiceUrls().indexDailySummaryUrl}/query`, {
-    query: {
+  const data = await queryRestJson(
+    `${getAgriServiceUrls().indexDailySummaryUrl}/query`,
+    {
       f: "json",
       where,
       groupByFieldsForStatistics: "raster_date",
@@ -253,13 +238,9 @@ async function fetchSummaryDates(where: string): Promise<string[]> {
       ]),
       returnGeometry: false,
     },
-    responseType: "json",
-    timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
-  });
-  if (res?.data?.error) {
-    throw new Error(String(res.data.error.message || "query error"));
-  }
-  const features: Array<{ attributes?: AgriAttributes }> = res?.data?.features ?? [];
+    { timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS },
+  );
+  const features: Array<{ attributes?: AgriAttributes }> = data.features ?? [];
   const dates = new Set<string>();
   for (const f of features) {
     const ymd = formatArcgisDateToYmd(f.attributes?.raster_date);

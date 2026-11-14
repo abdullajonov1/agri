@@ -14,7 +14,7 @@ import { getAgriReserveLandUrl } from "./agri-reserve-land-data-source";
 import { getAgriUnusedLandUrl } from "./agri-unused-land-data-source";
 import type { AgriLandOverlay } from "../store/agri-land-overlay-store";
 import { collectRegionYearLeafLayers } from "./feature-layer/lookup/lookup-region-year";
-import type { AgriMapLike } from "./agri-layer-types";
+import { hasChangeEmitter } from "../shared/agri-type-guards";
 
 export interface AgriLandScope {
   yil: string;
@@ -225,9 +225,8 @@ export function holdInactiveLandLayersHidden(
   if (!map) return () => undefined;
   const hide = (): void => { hideInactiveLandLayers(map, getActive()); };
   hide();
-  const handle = (map.allLayers as unknown as {
-    on?: (name: "change", cb: () => void) => { remove: () => void };
-  })?.on?.("change", hide);
+  const layers: unknown = map.allLayers;
+  const handle = hasChangeEmitter(layers) ? layers.on("change", hide) : undefined;
   return () => { handle?.remove(); };
 }
 
@@ -259,7 +258,7 @@ export async function syncAgriLandLayers(
 
   // Only the land polygons stay on the map. Localization brings the field
   // layers back (repaint on overlay change) once the overlay is switched off.
-  for (const leaf of collectRegionYearLeafLayers(map as unknown as AgriMapLike)) {
+  for (const leaf of collectRegionYearLeafLayers(map)) {
     try {
       leaf.visible = false;
     } catch {

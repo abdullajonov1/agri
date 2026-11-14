@@ -13,12 +13,16 @@ interface BuilderStateLike {
   appConfig?: { dataSources?: DataSourceTypeMap };
 }
 
+const isBuilderState = (value: unknown): value is BuilderStateLike =>
+  value != null && typeof value === "object";
+
 /** Type of a data source of the edited app ("WEB_MAP", …), undefined if unknown. */
 export function readSettingDataSourceType(dataSourceId: string): string | undefined {
   const id = String(dataSourceId || "");
   if (!id) return undefined;
   try {
-    const state = getAppStore().getState() as unknown as BuilderStateLike;
+    const state: unknown = getAppStore().getState();
+    if (!isBuilderState(state)) return readCreatedType(id);
     const fromApp =
       state?.appStateInBuilder?.appConfig?.dataSources?.[id]?.type ??
       state?.appConfig?.dataSources?.[id]?.type;
@@ -26,6 +30,10 @@ export function readSettingDataSourceType(dataSourceId: string): string | undefi
   } catch {
     /* no store (tests) — fall through to the created data source */
   }
+  return readCreatedType(id);
+}
+
+function readCreatedType(id: string): string | undefined {
   const created = DataSourceManager.getInstance().getDataSource(id)?.type;
   return created ? String(created) : undefined;
 }
@@ -43,6 +51,9 @@ interface WebMapInstanceLike {
   getChildDataSources?: () => unknown[];
 }
 
+const toWebMapInstance = (value: unknown): WebMapInstanceLike | undefined =>
+  value != null && typeof value === "object" ? value : undefined;
+
 /**
  * WebMaps of the edited app that failed: the data source was not created, or
  * it was created but loading its layers failed (children done, none exist).
@@ -50,7 +61,7 @@ interface WebMapInstanceLike {
 export function listFailedWebMapSourceIds(
   state: unknown,
   getInstance: (id: string) => WebMapInstanceLike | null | undefined = (id) =>
-    DataSourceManager.getInstance().getDataSource(id) as unknown as WebMapInstanceLike,
+    toWebMapInstance(DataSourceManager.getInstance().getDataSource(id)),
 ): string[] {
   const s = (state || {}) as BuilderInfoStateLike;
   const dataSources = s.appStateInBuilder?.appConfig?.dataSources ?? s.appConfig?.dataSources ?? {};

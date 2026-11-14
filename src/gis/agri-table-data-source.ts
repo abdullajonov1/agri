@@ -8,7 +8,7 @@
  * queries it for its own fields (viloyat, tuman, maydon, turi, yil, f_name,
  * f_inn, f_cad, region, district, yld, crop_id, year1, year2, year3).
  */
-import { escapeAgriValue } from "../data/agri-sql";
+import { escapeArcGIS } from "../data/agri-sql";
 import { combineAccessWhere, onAccessWhereChange } from "../shared/agri-access-config";
 import { getAgriServiceUrls } from "../shared/agri-service-urls";
 import {
@@ -25,8 +25,6 @@ type AgriTableQuery = __esri.Query & {
   resultRecordCount?: number;
   resultOffset?: number;
 };
-
-export { escapeAgriValue };
 
 /** Logger disabled — keep call sites without console noise. */
 export function agriTableLog(
@@ -71,7 +69,7 @@ export async function queryAgriRecordByUniqueId(
 
   const { layer } = await getAgriTableDataLayer();
   const query = layer.createQuery();
-  query.where = `${AGRI_TABLE_JOIN_FIELD}='${escapeAgriValue(raw)}'`;
+  query.where = `${AGRI_TABLE_JOIN_FIELD}='${escapeArcGIS(raw)}'`;
   query.outFields = ["*"];
   query.returnGeometry = false;
   query.num = 1;
@@ -125,7 +123,7 @@ export async function queryAgriUniqueIdsForFarmerInn(
 ): Promise<string[]> {
   const cleanInn = String(inn || "").trim();
   if (!cleanInn) return [];
-  const innClause = `UPPER(f_inn)=UPPER('${escapeAgriValue(cleanInn)}')`;
+  const innClause = `UPPER(f_inn)=UPPER('${escapeArcGIS(cleanInn)}')`;
   const scope = String(scopeWhere || "").trim();
   const where =
     scope && scope !== "1=1" && scope !== "1=0"
@@ -295,7 +293,7 @@ export function buildSpatialJoinWhere(uniqueIds: string[]): string {
   }
   if (!expanded.size) return "1=0";
   const values = Array.from(expanded)
-    .map((id) => `'${escapeAgriValue(id)}'`)
+    .map((id) => `'${escapeArcGIS(id)}'`)
     .join(",");
   return `${AGRI_TABLE_JOIN_FIELD} IN (${values})`;
 }
@@ -471,8 +469,8 @@ export async function queryAgriTableAreaByUniqueId(
   const year = String(scope.year || "").match(/^(18|19|20)\d{2}$/)?.[0];
   if (!year) return new Map();
   const clauses = [`yil LIKE '${year}%'`, `${AGRI_TABLE_JOIN_FIELD} IS NOT NULL`];
-  if (scope.region != null) clauses.push(`region='${escapeAgriValue(String(scope.region))}'`);
-  if (scope.district != null) clauses.push(`district='${escapeAgriValue(String(scope.district))}'`);
+  if (scope.region != null) clauses.push(`region='${escapeArcGIS(String(scope.region))}'`);
+  if (scope.district != null) clauses.push(`district='${escapeArcGIS(String(scope.district))}'`);
   const where = combineAccessWhere(clauses.join(" AND "));
 
   const cached = agriTableAreaCache.get(where);

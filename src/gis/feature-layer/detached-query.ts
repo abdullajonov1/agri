@@ -12,6 +12,7 @@ import { getAgriServiceUrls, getAgriPortalSharingRestUrl } from "../../shared/ag
 import { readAgriAuthToken } from "../agri-auth-token";
 import { errorMessage } from "../agri-layer-types";
 import { flLog } from "./query-cache";
+import { agroV5Log } from "../agri-debug-log";
 
 type FeatureLayerConstructor = typeof FeatureLayer;
 type ExtentConstructor = typeof Extent;
@@ -116,7 +117,8 @@ export async function ensureAgriServerIdentityToken(): Promise<boolean> {
     ]) {
       try {
         identityManager.registerToken({ server, token });
-      } catch {
+      } catch (err: unknown) {
+        agroV5Log("detachedQuery.registerToken", { error: err instanceof Error ? err.message : String(err) });
         /* best effort — one bad server prefix must not block the others */
       }
     }
@@ -128,7 +130,8 @@ export async function ensureAgriServerIdentityToken(): Promise<boolean> {
       detachedQueryLayerCache.delete(url);
     }
     return true;
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("detachedQuery.identityModule", { error: err instanceof Error ? err.message : String(err) });
     // IdentityManager module failed to load — keep the previous state.
     return agriIdentityTokenRegistered;
   }

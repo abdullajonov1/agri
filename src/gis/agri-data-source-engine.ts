@@ -21,6 +21,7 @@ import {
   type AgriMapViewHostLike,
   layerFieldNameList,
 } from "./agri-layer-types";
+import { agroV5Log } from "./agri-debug-log";
 
 /** Immutable (asMutable) or Collection (toArray) wrappers around a list. */
 interface PlainArraySource {
@@ -165,7 +166,8 @@ export class AgriDataSourceEngine {
       if (!layer) return;
       try {
         await safeLoadMapLayer(layer);
-      } catch {
+      } catch (err: unknown) {
+        agroV5Log("dataSourceEngine.probeLayerLoad", { error: err instanceof Error ? err.message : String(err) });
         /* ignore */
       }
       const fields: string[] = layerFieldNameList(layer);
@@ -260,7 +262,8 @@ export class AgriDataSourceEngine {
 
     try {
       await safeLoadMapLayer(layer);
-    } catch {
+    } catch (err: unknown) {
+      agroV5Log("dataSourceEngine.bestLayerLoad", { error: err instanceof Error ? err.message : String(err) });
       /* layer may already be loaded */
     }
     disableLayerPbf(layer);

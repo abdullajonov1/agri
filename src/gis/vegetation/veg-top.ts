@@ -2,6 +2,7 @@ import { vegAccessCacheTag, type VegetationAvgNdviUniqueRow, agriVhLog, type Veg
 import type { AgriQueryableLayer } from "../../types/agri-layer";
 import { queryVegetationAvgNdviByUniqueIdOnce, queryVegetationAvgNdviByUniqueIdPaged } from "./veg-series";
 import { queryVegetationStatusCountsByStatus, listRegionsForProcessedDay, countDistinctUniqueIdsByRegionParallel, countDistinctViaOidCursor, fetchLastProcessedAtCalendarWindow } from "./veg-status";
+import { buildCropClause } from "./veg-sql";
 import { dateEqualsClause, escapeArcGIS } from "../../data/agri-sql";
 import { rememberAsync } from "../../data/agri-persistent-cache";
 import { asStatisticDefinitions } from "../../shared/agri-plain-object";
@@ -129,16 +130,8 @@ async function queryVegetationStatusCountsForRegionsOnDate(params: {
     dateEqualsClause("raster_date", date),
     `region IN (${regions.map((r) => `'${escapeArcGIS(String(r))}'`).join(",")})`,
   ];
-  const cropFilter = Array.from(
-    new Set((params.cropIds || []).map((v) => String(v).trim()).filter(Boolean)),
-  );
-  if (cropFilter.length === 1) {
-    clauses.push(`crop_id='${escapeArcGIS(cropFilter[0])}'`);
-  } else if (cropFilter.length > 1) {
-    clauses.push(
-      `crop_id IN (${cropFilter.map((v) => `'${escapeArcGIS(v)}'`).join(",")})`,
-    );
-  }
+  const cropClause = buildCropClause(params.cropIds || []);
+  if (cropClause) clauses.push(cropClause);
   const where = clauses.join(" AND ");
   const cacheKey = `status-stats-multi|${where}${vegAccessCacheTag()}`;
   return rememberAsync({

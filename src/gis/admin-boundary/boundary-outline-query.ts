@@ -356,7 +356,8 @@ export async function queryLayerExtentOnly(
     query.returnGeometry = true;
     const extent = (await queryLayer.queryExtent(query))?.extent;
     if (isValidMapExtent(extent)) return extent;
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("boundaryOutline.queryExtent", { error: err instanceof Error ? err.message : String(err) });
     /* unreachable / bad WHERE — caller tries the next attempt or gives up */
   }
   return null;

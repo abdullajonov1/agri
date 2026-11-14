@@ -1,6 +1,7 @@
-import { loadArcGISJSAPIModules } from "jimu-arcgis";
+import { queryRestJson } from "../../../data/agri-rest-query";
 import { rememberAsync } from "../../../data/agri-persistent-cache";
 import { escapeArcGIS } from "../../../data/agri-sql";
+import { buildCropClause } from "../veg-sql";
 import { getAccessWhere } from "../../../shared/agri-access-config";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../../shared/agri-http";
 import { getAgriServiceUrls } from "../../../shared/agri-service-urls";
@@ -35,14 +36,6 @@ export interface StatusCountsSummaryParams {
   cropIds?: string[];
 }
 
-function buildCropClause(cropIds: string[] | undefined): string | null {
-  const ids = Array.from(
-    new Set((cropIds ?? []).map((id) => String(id ?? "").trim()).filter(Boolean)),
-  ).map((id) => `'${escapeArcGIS(id)}'`);
-  if (ids.length === 0) return null;
-  return ids.length === 1 ? `crop_id=${ids[0]}` : `crop_id IN (${ids.join(",")})`;
-}
-
 export function buildStatusCountsWhere(
   params: StatusCountsSummaryParams,
 ): string | null {
@@ -55,7 +48,7 @@ export function buildStatusCountsWhere(
   if (params.district != null) {
     clauses.push(`district_id='${escapeArcGIS(String(params.district))}'`);
   }
-  const crop = buildCropClause(params.cropIds);
+  const crop = buildCropClause(params.cropIds ?? []);
   if (crop) clauses.push(crop);
   const main = clauses.join(" AND ");
   const access = translateAccessWhereForSummary(getAccessWhere());
@@ -102,22 +95,18 @@ const OUT_STATISTICS = JSON.stringify([
 ]);
 
 async function fetchStatusCounts(where: string): Promise<VegetationLatestStatusCounts> {
-  const [esriRequest] = await loadArcGISJSAPIModules(["esri/request"]);
-  const res = await esriRequest(`${getAgriServiceUrls().statusCountsYearUrl}/query`, {
-    query: {
+  const data = await queryRestJson(
+    `${getAgriServiceUrls().statusCountsYearUrl}/query`,
+    {
       f: "json",
       where,
       groupByFieldsForStatistics: "status_code",
       outStatistics: OUT_STATISTICS,
       returnGeometry: false,
     },
-    responseType: "json",
-    timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
-  });
-  if (res?.data?.error) {
-    throw new Error(String(res.data.error.message || "query error"));
-  }
-  const features: Array<{ attributes?: AgriAttributes }> = res?.data?.features ?? [];
+    { timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS },
+  );
+  const features: Array<{ attributes?: AgriAttributes }> = data.features ?? [];
   if (features.length === 0) throw new Error("no status rows");
   const rows = mapStatusCountRows(features.map((f) => f.attributes ?? {}));
   if (rows.length === 0) throw new Error("no mapped status rows");

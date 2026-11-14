@@ -246,7 +246,7 @@ export async function createAgriMap(
 
   if (webMap && typeof webMap.load === "function") {
     await webMap.load();
-    map.basemap = ctx.automaticBasemapRef.current as unknown as __esri.Basemap;
+    map.basemap = ctx.automaticBasemapRef.current;
     ctx.setActiveBasemapId(ctx.automaticBasemapRef.current);
     hideRegionYearLayers(map);
   }

@@ -1,4 +1,5 @@
 import { vegAccessCacheTag, type VegetationStatusCountsParams, getAgriVegetationIndicesLayer, queryVegFeatures, dateRangeInclusiveClause, formatArcgisDateToYmd, shiftYmd, agriVhLog, type VegQuery } from "../veg-base";
+import { buildCropClause } from "../veg-sql";
 import { escapeArcGIS } from "../../../data/agri-sql";
 import { buildSpatialJoinWhere } from "../../agri-table-data-source";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
@@ -96,12 +97,6 @@ export const normalizeCropIds = (params: VegetationStatusCountsParams): string[]
         .filter(Boolean),
     ),
   ).sort();
-
-export function buildCropClause(cropIds: string[]): string | null {
-  if (cropIds.length === 1) return `crop_id='${escapeArcGIS(cropIds[0])}'`;
-  if (cropIds.length > 1) return `crop_id IN (${quoteList(cropIds)})`;
-  return null;
-}
 
 /** region / district / crop / STIR clauses; null when STIR has no parcels. */
 export function buildScopeClauses(params: VegetationStatusCountsParams): string[] | null {

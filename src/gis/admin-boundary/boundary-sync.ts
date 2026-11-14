@@ -59,7 +59,8 @@ async function queryDistrictExtentOnly(
         const extent = await queryLayerExtentOnly(districtQueryLayer, attempt.where);
         if (isValidMapExtent(extent)) return extent;
       }
-    } catch {
+    } catch (err: unknown) {
+      agroV5Log("boundarySync.districtCandidate", { error: err instanceof Error ? err.message : String(err) });
       // Service unreachable or failed to load — try the next candidate.
       continue;
     }
@@ -111,7 +112,8 @@ export async function queryAgriAdminBoundaryExtentOnly(
     }
 
     return { extent: null, level: "none" };
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("boundarySync.adminExtent", { error: err instanceof Error ? err.message : String(err) });
     // Modules or Hosted/regions unavailable — no admin extent, caller zooms otherwise.
     return { extent: null, level: "none" };
   }

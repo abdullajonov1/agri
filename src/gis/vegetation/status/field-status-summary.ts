@@ -1,6 +1,7 @@
-import { loadArcGISJSAPIModules } from "jimu-arcgis";
+import { queryRestJson } from "../../../data/agri-rest-query";
 import { rememberAsync } from "../../../data/agri-persistent-cache";
 import { escapeArcGIS } from "../../../data/agri-sql";
+import { buildCropClause } from "../veg-sql";
 import { AGRI_ESRI_REQUEST_TIMEOUT_MS } from "../../../shared/agri-http";
 import { getAgriServiceUrls } from "../../../shared/agri-service-urls";
 import { agroV5Log } from "../../agri-debug-log";
@@ -35,14 +36,6 @@ function statusToCode(ndviStatus: string): number | null {
   return null;
 }
 
-function buildCropClause(cropIds: string[] | undefined): string | null {
-  const ids = Array.from(
-    new Set((cropIds ?? []).map((id) => String(id ?? "").trim()).filter(Boolean)),
-  ).map((id) => `'${escapeArcGIS(id)}'`);
-  if (ids.length === 0) return null;
-  return ids.length === 1 ? `crop_id=${ids[0]}` : `crop_id IN (${ids.join(",")})`;
-}
-
 function buildFieldStatusWhere(params: FieldStatusUniqueIdsParams): string | null {
   const { year } = params;
   if (!Number.isInteger(year) || year < MIN_YEAR || year > MAX_YEAR) return null;
@@ -55,7 +48,7 @@ function buildFieldStatusWhere(params: FieldStatusUniqueIdsParams): string | nul
   if (params.district != null) {
     clauses.push(`district_id='${escapeArcGIS(String(params.district))}'`);
   }
-  const crop = buildCropClause(params.cropIds);
+  const crop = buildCropClause(params.cropIds ?? []);
   if (crop) clauses.push(crop);
   return combineWithSummaryAccess(clauses.join(" AND "));
 }
@@ -63,15 +56,15 @@ function buildFieldStatusWhere(params: FieldStatusUniqueIdsParams): string | nul
 const idKey = (value: string): string => value.replace(/[{}]/g, "").toLowerCase();
 
 async function fetchFieldStatusIds(where: string): Promise<string[]> {
-  const [esriRequest] = await loadArcGISJSAPIModules(["esri/request"]);
   const url = `${getAgriServiceUrls().fieldStatusYearUrl}/query`;
   const seen = new Map<string, string>();
   let lastObjectId = -1;
   let pages = 0;
   let isLastPage = false;
   while (!isLastPage && pages < MAX_PAGES) {
-    const res = await esriRequest(url, {
-      query: {
+    const data = await queryRestJson(
+      url,
+      {
         f: "json",
         where: `(${where}) AND objectid > ${lastObjectId}`,
         outFields: "uniqueid,objectid",
@@ -79,13 +72,9 @@ async function fetchFieldStatusIds(where: string): Promise<string[]> {
         resultRecordCount: PAGE_SIZE,
         returnGeometry: false,
       },
-      responseType: "json",
-      timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS,
-    });
-    if (res?.data?.error) {
-      throw new Error(String(res.data.error.message || "query error"));
-    }
-    const features: Array<{ attributes?: AgriAttributes }> = res?.data?.features ?? [];
+      { timeout: AGRI_ESRI_REQUEST_TIMEOUT_MS },
+    );
+    const features: Array<{ attributes?: AgriAttributes }> = data.features ?? [];
     pages += 1;
     for (const f of features) {
       const raw = String(f.attributes?.uniqueid ?? "").trim();
