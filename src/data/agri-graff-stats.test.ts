@@ -55,6 +55,23 @@ describe("mergeRegionalTimeseriesGroups", () => {
     expect(merged[0].polygon_count).toBe(4);
   });
 
+  test("merges ndre with polygon-weighted mean and min/max widening", () => {
+    const merged = mergeRegionalTimeseriesGroups([
+      [row({ ndre: 0.2, ndre_min: 0.1, ndre_max: 0.3, polygon_count: 1 })],
+      [row({ ndre: 0.4, ndre_min: 0.05, ndre_max: 0.5, polygon_count: 3 })],
+    ]);
+    expect(merged[0].ndre).toBeCloseTo((0.2 + 0.4 * 3) / 4);
+    expect(merged[0].ndre_min).toBeCloseTo(0.05);
+    expect(merged[0].ndre_max).toBeCloseTo(0.5);
+  });
+
+  test("rows without ndre give null ndre and no NaN", () => {
+    const merged = mergeRegionalTimeseriesGroups([[row({})], [row({})]]);
+    expect(merged[0].ndre).toBeNull();
+    expect(merged[0].ndre_min).toBe(0);
+    expect(merged[0].ndre_max).toBe(0);
+  });
+
   test("treats a zero polygon count as weight 1", () => {
     const merged = mergeRegionalTimeseriesGroups([
       [row({ savi: 0.4, polygon_count: 0 })],
@@ -134,19 +151,18 @@ describe("buildGraffRegionalScopeKey", () => {
     expect(a).toBe(b);
   });
 
-  test("maps the VH status into the key", () => {
-    const key = JSON.parse(
-      buildGraffRegionalScopeKey({
-        region: null,
-        district: null,
-        cropIds: [],
-        startDate: "",
-        endDate: "",
-        vh: "yaxshi",
-      }),
-    );
-    expect(key.vh).toBe("yaxshi");
-    expect(key.ndviStatus).toBe("good");
+  test("key carries no VH class (the regional series ignores it)", () => {
+    const base = {
+      region: 1,
+      district: null,
+      cropIds: ["1"],
+      startDate: "2025-01-01",
+      endDate: "2025-12-31",
+    };
+    const parsed = JSON.parse(buildGraffRegionalScopeKey(base)) as Record<string, unknown>;
+    expect(parsed).not.toHaveProperty("vh");
+    expect(parsed).not.toHaveProperty("ndviStatus");
+    const key = JSON.parse(buildGraffRegionalScopeKey({ ...base, startDate: "" }));
     expect(key.startDate).toBeNull();
   });
 });

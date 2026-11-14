@@ -9,14 +9,9 @@ import AgriChartLoader from "../../../../../shared/AgriChartLoader";
 import { setVegetationOverlayContext } from "../../../../../gis/agri-vegetation-overlay-prefetch";
 import { extractGraffYearToken } from "../../../../../data/agri-graff-date";
 
-export const INDEX_COLORS: Record<string, string> = {
-  ndvi: "#00d084",
-  savi: "#7aa5ff",
-  rvi: "#ffb347",
-  ci: "#c78bff",
-  evi: "#ff4d8d",
-  ndwi: "#2ec4f1",
-};
+export const INDEX_COLORS: Record<string, string> = Object.fromEntries(
+  GRAFF_INDEX_BUTTONS.map((item) => [item.key, item.color]),
+);
 /** Like Agrobank IndexDynamicsChart: keep previous series while refetching. */
 export const beginGraphFetch = (host: GraffWidgetHost): void => {
   const hadData = (host.state.vegetationData?.length || 0) > 0;
@@ -268,10 +263,27 @@ export const renderGraphHeader = (host: GraffWidgetHost) => {
           ? "Index Ko'rsatkichlari"
           : "Индекс Кўрсаткичлари";
 
+  const hasVhFilter =
+    String(host.state.regionalFilters?.vh || "").trim() !== "" &&
+    !host.state.selecteduniqueid;
+  const vhNote =
+    language === "en"
+      ? "VH filter not applied"
+      : language === "ru"
+        ? "Фильтр VH не применён"
+        : language === "uz_lat"
+          ? "VH filtri qo‘llanmagan"
+          : "VH фильтри қўлланмаган";
+
   return (
     <div className="graff-index-top">
       <div className="graff-index-top-label">
         <span>{indicatorLabel}</span>
+        {hasVhFilter ? (
+          <span className="graff-index-top-note" title={vhNote}>
+            {vhNote}
+          </span>
+        ) : null}
       </div>
       {host.renderGraphLegend()}
       <div className="graff-index-top-right">

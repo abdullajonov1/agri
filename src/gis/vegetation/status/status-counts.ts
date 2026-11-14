@@ -1,4 +1,4 @@
-import { type VegetationStatusCountsParams, type VegetationStatusCount, getAgriVegetationIndicesLayer, agriVegetationLog, vegetationStatusCountsCache, resolveVegetationUniqueIdPageSize, VEG_STATUS_ROW_MAX_PAGES, queryVegFeatures, vegetationAssignedUniqueIdsCache, VEG_PIXEL_AREA_HA, type VegQuery } from "../veg-base";
+import { vegAccessCacheTag, type VegetationStatusCountsParams, type VegetationStatusCount, getAgriVegetationIndicesLayer, agriVegetationLog, vegetationStatusCountsCache, resolveVegetationUniqueIdPageSize, VEG_STATUS_ROW_MAX_PAGES, queryVegFeatures, vegetationAssignedUniqueIdsCache, VEG_PIXEL_AREA_HA, type VegQuery } from "../veg-base";
 import { errorMessage } from "../../agri-layer-types";
 import { dateEqualsClause, escapeArcGIS } from "../../../data/agri-sql";
 import { buildSpatialJoinWhere } from "../../agri-table-data-source";
@@ -65,7 +65,7 @@ export async function queryVegetationStatusCounts(
     return [];
   }
 
-  const cacheKey = `${where}|id=${uniqueIdField}`;
+  const cacheKey = `${where}|id=${uniqueIdField}${vegAccessCacheTag()}`;
   const cached = vegetationStatusCountsCache.get(cacheKey);
   if (cached) return cached;
 

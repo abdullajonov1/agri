@@ -1,4 +1,4 @@
-import { type VegetationStatusCountsParams, getAgriVegetationIndicesLayer, queryVegFeatures, dateRangeInclusiveClause, formatArcgisDateToYmd, shiftYmd, agriVhLog, type VegQuery } from "../veg-base";
+import { vegAccessCacheTag, type VegetationStatusCountsParams, getAgriVegetationIndicesLayer, queryVegFeatures, dateRangeInclusiveClause, formatArcgisDateToYmd, shiftYmd, agriVhLog, type VegQuery } from "../veg-base";
 import { escapeArcGIS } from "../../../data/agri-sql";
 import { buildSpatialJoinWhere } from "../../agri-table-data-source";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
@@ -228,7 +228,7 @@ export async function resolveVhStatusWindows(params: VhWindowParams): Promise<Vh
   const windows = await rememberAsync({
     memory: vhWindowCache,
     namespace: "veg-vh-window",
-    key: `v2|${maxWhere}|g=${groupFields.join(",")}|d=${days}`,
+    key: `v2|${maxWhere}|g=${groupFields.join(",")}|d=${days}${vegAccessCacheTag()}`,
     // STIR lists are per-selection — keep them out of localStorage.
     ...(Array.isArray(params.uniqueIds) ? { ttlMs: 0 } : {}),
     factory: async (): Promise<VhCropWindow[]> => {

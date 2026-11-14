@@ -419,4 +419,40 @@ describe("fetchRegionalDataDeduped", () => {
     await fetchRegionalDataDeduped(h);
     expect(h.fetchRegionalData).toHaveBeenCalledTimes(2);
   });
+
+  it("refetches when viloyat changes in tuman view without drill or lock", async () => {
+    const base = makeStubHost().state.currentFilters;
+    const h = makeStubHost({ currentView: "tuman", currentFilters: { ...base, yil: "2024", viloyat: "A" } });
+    await fetchRegionalDataDeduped(h);
+    h.state = { ...h.state, currentFilters: { ...h.state.currentFilters, viloyat: "B" } };
+    await fetchRegionalDataDeduped(h);
+    expect(h.fetchRegionalData).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not block the next call after an early not-connected return", async () => {
+    const base = makeStubHost().state.currentFilters;
+    const h = makeStubHost(
+      { connectionStatus: "idle", currentFilters: { ...base, yil: "2024" } },
+      { fetchRegionalData: jest.fn(() => fetchRegionalData(h)) },
+    );
+    await fetchRegionalDataDeduped(h);
+    h.state = { ...h.state, connectionStatus: "connected" };
+    await fetchRegionalDataDeduped(h);
+    expect(h.fetchRegionalData).toHaveBeenCalledTimes(2);
+  });
+
+  it("refetches the same filters after a failed query", async () => {
+    const base = makeStubHost().state.currentFilters;
+    const h = makeStubHost(
+      { currentFilters: { ...base, yil: "2024" } },
+      {
+        buildWhereForAggregates: jest.fn(() => "W"),
+        queryAggregates: jest.fn().mockRejectedValue(new Error("boom")),
+        fetchRegionalData: jest.fn(() => fetchRegionalData(h)),
+      },
+    );
+    await fetchRegionalDataDeduped(h);
+    await fetchRegionalDataDeduped(h);
+    expect(h.fetchRegionalData).toHaveBeenCalledTimes(2);
+  });
 });

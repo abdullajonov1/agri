@@ -1,11 +1,11 @@
 {
   "name": "Agro_widgetV6",
-  "label": "Space Agro Monitoring V6.3.3",
+  "label": "Space Agro Monitoring V6.3.4",
   "type": "widget",
-  "version": "6.3.3",
+  "version": "6.3.4",
   "exbVersion": "1.16.0",
   "author": "abdullajonov1",
-  "description": "Agri portal package 6.3.3 (built 2026-11-03T15:05Z). Stable URL: https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.json. Source: https://github.com/abdullajonov1/agri",
+  "description": "Agri portal package 6.3.4 (built 2026-11-14T13:37Z). Stable URL: https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.json. Source: https://github.com/abdullajonov1/agri",
   "copyright": "",
   "license": "",
   "properties": {

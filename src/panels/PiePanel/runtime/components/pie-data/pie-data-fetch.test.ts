@@ -34,6 +34,7 @@ import type { PieWidgetHost } from "../../pie-host";
 import type { AgriPieState } from "../../widget";
 import {
   _doFetchCategoryData,
+  currentPieQueryKey,
   fetchCategoryData,
   fetchPieCategoriesViaVegetation,
   makeQueryKey,
@@ -124,6 +125,26 @@ describe("fetchCategoryData (debounce)", () => {
     expect(host._doFetchCategoryData).toHaveBeenCalledTimes(1);
   });
 
+  it("does nothing (no loader flash) when the pie already shows this exact query", () => {
+    const host = makeHost({ vh: "3-O'rta" });
+    host._hasCompletedFetch = true;
+    host._lastFetchKey = host.makeQueryKey("2025", "", "", "", null, null, false, "", "");
+    const spy = jest.spyOn(host, "setState");
+    fetchCategoryData(host);
+    jest.advanceTimersByTime(20);
+    expect(spy).not.toHaveBeenCalled();
+    expect(host._doFetchCategoryData).not.toHaveBeenCalled();
+  });
+
+  it("still refetches the same query after an error (Retry)", () => {
+    const host = makeHost({ error: "boom" });
+    host._hasCompletedFetch = true;
+    host._lastFetchKey = host.makeQueryKey("2025", "", "", "", null, null, false, "", "");
+    fetchCategoryData(host);
+    jest.advanceTimersByTime(20);
+    expect(host._doFetchCategoryData).toHaveBeenCalledTimes(1);
+  });
+
   it("does not re-set loading when already loading", () => {
     const host = makeHost({ loading: true });
     const spy = jest.spyOn(host, "setState");
@@ -135,6 +156,14 @@ describe("fetchCategoryData (debounce)", () => {
 describe("_doFetchCategoryData", () => {
   it("stops loader when the same key already completed", async () => {
     const host = makeHost({ loading: true });
+    host._lastFetchKey = host.makeQueryKey("2025", "", "", "", null, null, false, "", "");
+    await _doFetchCategoryData(host);
+    expect(host.state.loading).toBe(false);
+    expect(host.ensureCropIdMaps).not.toHaveBeenCalled();
+  });
+
+  it("ignores the VH class when the pie is not VH-scoped (no refetch on a VH click)", async () => {
+    const host = makeHost({ loading: true, vh: "3-O'rta", filterPieByVh: false });
     host._lastFetchKey = host.makeQueryKey("2025", "", "", "", null, null, false, "", "");
     await _doFetchCategoryData(host);
     expect(host.state.loading).toBe(false);
@@ -308,6 +337,61 @@ describe("_doFetchCategoryData", () => {
     await p;
     expect(host.state.categoryData).toBeUndefined();
     expect(host._hasCompletedFetch).toBe(false);
+  });
+});
+
+describe("pie fetch robustness (D1-04..06)", () => {
+  type Rows = Array<{ key: string; value: number }>;
+
+  it("A->B->A with B in flight: B's result is not applied and loader clears", async () => {
+    let resolveB: (v: Rows) => void = () => undefined;
+    const host = makeHost(
+      { viloyat: "B" },
+      {
+        queryCategoryStatsJSON: jest.fn(
+          () => new Promise<Rows>((r) => { resolveB = r; }),
+        ),
+      },
+    );
+    host._hasCompletedFetch = true;
+    host._lastFetchKey = host.makeQueryKey("2025", "", "", "", null, null, false, "", "");
+    const p = _doFetchCategoryData(host);
+    await new Promise((r) => setTimeout(r, 0));
+    host.setState({ viloyat: "" });
+    fetchCategoryData(host);
+    resolveB([{ key: "1", value: 5 }]);
+    await p;
+    expect(host.state.categoryData).toBeUndefined();
+    expect(host.state.loading).toBe(false);
+    expect(host._lastFetchKey).toBe("2025||||||||");
+  });
+
+  it("same-key completed branch invalidates an in-flight fetch", async () => {
+    const host = makeHost({ loading: true });
+    host._lastFetchKey = host.makeQueryKey("2025", "", "", "", null, null, false, "", "");
+    await _doFetchCategoryData(host);
+    expect(host._fetchCounter).toBe(1);
+  });
+
+  it("a lockedViloyat change with empty viloyat changes the key", () => {
+    const none = currentPieQueryKey(makeHost());
+    const locked = currentPieQueryKey(makeHost({ lockedViloyat: " L " }));
+    expect(locked).not.toBe(none);
+    expect(locked).toBe("2025|L|||||||");
+  });
+
+  it("fetches the same key again after an error", async () => {
+    const queryCategoryStatsJSON = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("net down"))
+      .mockResolvedValue([{ key: "1", value: 30 }]);
+    const host = makeHost({}, { queryCategoryStatsJSON });
+    await _doFetchCategoryData(host);
+    expect(host.state.error).toBe("net down");
+    expect(host._lastFetchKey).toBe("");
+    await _doFetchCategoryData(host);
+    expect(queryCategoryStatsJSON).toHaveBeenCalledTimes(2);
+    expect(host.state.error).toBeNull();
   });
 });
 

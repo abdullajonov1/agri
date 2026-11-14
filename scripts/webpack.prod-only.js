@@ -6,11 +6,17 @@
 //
 // Run from client/:
 //   NODE_ENV=production OUTPUT_FOLDER=./dist-prod npx webpack --mode production \
-//     --config your-extensions/widgets/Agri3/Agro_widgetV5/scripts/webpack.prod-only.js
+//     --config your-extensions/widgets/agri-main/scripts/webpack.prod-only.js
+const fs = require("fs");
 const path = require("path");
 
 const WIDGET = path.basename(path.resolve(__dirname, ".."));
-const CLIENT = path.resolve(__dirname, "../../../../..");
+const CLIENT = (() => {
+  for (let dir = __dirname; ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, "webpack/webpack-extensions.config.js"))) return dir;
+    if (path.dirname(dir) === dir) throw new Error(`Cannot find client/ (webpack/webpack-extensions.config.js) above ${__dirname}`);
+  }
+})();
 const configs = require(path.join(CLIENT, "webpack/webpack-extensions.config.js"));
 
 module.exports = configs

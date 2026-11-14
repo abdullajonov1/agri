@@ -11,6 +11,7 @@ import {
   onActiveViewChange,
   onDataSourceCreated,
   onDataSourceInfoChange,
+  removeViewReadyWatch,
   retryMapConnection,
 } from "./map-handlers";
 
@@ -34,6 +35,20 @@ const layerWithRows = (rows: Array<Record<string, unknown>>, fail = false): __es
       return { features: rows.map((attributes) => ({ attributes })) };
     }),
   }) as unknown as __esri.FeatureLayer;
+
+describe("Indicator onActiveViewChange ready watch handle", () => {
+  test("a second active-view change removes the first handle", () => {
+    const { host } = makeIndicatorHost();
+    const remove1 = jest.fn();
+    const remove2 = jest.fn();
+    const mk = (remove: jest.Mock): JimuMapView =>
+      ({ view: { ready: false, watch: () => ({ remove }) } }) as unknown as JimuMapView;
+    onActiveViewChange(host, mk(remove1));
+    onActiveViewChange(host, mk(remove2));
+    expect(remove1).toHaveBeenCalledTimes(1);
+    expect(remove2).not.toHaveBeenCalled();
+  });
+});
 
 describe("Indicator map-handlers routing", () => {
   test("makeViloyatKeyForRouting strips apostrophes, collapses spaces, lowercases", () => {
@@ -143,5 +158,16 @@ describe("Indicator map-handlers lifecycle", () => {
     const api = makeIndicatorHost({ connectionStatus: "connected" }, { useApiDataSource: true }, { throttledFetchData: fetch });
     onDataSourceInfoChange(api.host, { status: DataSourceStatus.Loaded });
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("removeViewReadyWatch", () => {
+  test("removes the stored handle and clears it (used on unmount)", () => {
+    const { host } = makeIndicatorHost();
+    const remove = jest.fn();
+    host._viewReadyWatchHandle = { remove };
+    removeViewReadyWatch(host);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(host._viewReadyWatchHandle).toBeNull();
   });
 });

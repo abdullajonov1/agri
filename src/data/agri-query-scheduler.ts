@@ -6,12 +6,25 @@
 const MAX_CONCURRENT_STATS_QUERIES = 2;
 
 let activeSlots = 0;
-const waitQueue: Array<() => void> = [];
+/** Bumped on reset so releases from pre-reset tasks cannot touch the new state. */
+let generation = 0;
 
-function releaseSlot(): void {
+interface Waiter {
+  grant: () => void;
+  reject: (error: Error) => void;
+}
+
+const waitQueue: Waiter[] = [];
+
+function createResetError(): Error {
+  return new Error("Query scheduler reset");
+}
+
+function releaseSlot(taskGeneration: number): void {
+  if (taskGeneration !== generation) return;
   activeSlots = Math.max(0, activeSlots - 1);
   const next = waitQueue.shift();
-  if (next) next();
+  if (next) next.grant();
 }
 
 function acquireSlot(): Promise<void> {
@@ -19,10 +32,13 @@ function acquireSlot(): Promise<void> {
     activeSlots += 1;
     return Promise.resolve();
   }
-  return new Promise<void>((resolve) => {
-    waitQueue.push(() => {
-      activeSlots += 1;
-      resolve();
+  return new Promise<void>((resolve, reject) => {
+    waitQueue.push({
+      grant: () => {
+        activeSlots += 1;
+        resolve();
+      },
+      reject,
     });
   });
 }
@@ -31,18 +47,24 @@ function acquireSlot(): Promise<void> {
 export async function withStatsQuerySlot<T>(
   task: () => Promise<T>,
 ): Promise<T> {
+  const taskGeneration = generation;
   await acquireSlot();
   try {
     return await task();
   } finally {
-    releaseSlot();
+    releaseSlot(taskGeneration);
   }
 }
 
-/** Test / hot-reload helper */
+/** Test / hot-reload helper. Queued waiters are rejected, not dropped. */
 export function resetStatsQueryScheduler(): void {
+  generation += 1;
   activeSlots = 0;
-  waitQueue.length = 0;
+  const error = createResetError();
+  waitQueue.splice(0).forEach((waiter) => { waiter.reject(error); });
+  heavyLanes.forEach((lane) => {
+    lane.queue.splice(0).forEach((waiter) => { waiter.reject(error); });
+  });
   heavyLanes.clear();
 }
 
@@ -58,7 +80,7 @@ export const MAX_HEAVY_QUERIES_PER_SERVICE = 4;
 
 interface HeavyLane {
   active: number;
-  queue: Array<() => void>;
+  queue: Waiter[];
 }
 
 const heavyLanes = new Map<string, HeavyLane>();
@@ -83,8 +105,8 @@ export async function withHeavyQuerySlot<T>(
   if (current.active < Math.max(1, limit)) {
     current.active += 1;
   } else {
-    await new Promise<void>((resolve) => {
-      current.queue.push(resolve);
+    await new Promise<void>((resolve, reject) => {
+      current.queue.push({ grant: resolve, reject });
     });
   }
   try {
@@ -92,7 +114,7 @@ export async function withHeavyQuerySlot<T>(
   } finally {
     const next = current.queue.shift();
     // Hand the slot straight to the next waiter; free it only when none wait.
-    if (next) next();
+    if (next) next.grant();
     else current.active = Math.max(0, current.active - 1);
   }
 }

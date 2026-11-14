@@ -145,7 +145,7 @@ async function openViloyat(h: FakeHost): Promise<void> {
   await expect(settled()).resolves.toEqual({ pieFilteredByVh: false, barFilteredByCrop: false, barTotal: ALL });
 }
 
-describe("Ekin turi first → filters VH; VH then does not filter Pie", () => {
+describe("Ekin turi first → filters VH; VH never filters Pie", () => {
   test("crop → VH → VH off → crop off", async () => {
     const { h, computeCalls } = makeDashboard();
     await openViloyat(h);
@@ -183,7 +183,7 @@ describe("Ekin turi first → filters VH; VH then does not filter Pie", () => {
     expect(await settled()).toEqual({ pieFilteredByVh: false, barFilteredByCrop: true, barTotal: 50 });
   });
 
-  test("crop cleared while VH stays → VH becomes first: Pie filtered, bar all crops", async () => {
+  test("crop cleared while VH stays → VH becomes first: Pie still unfiltered, bar all crops", async () => {
     const { h } = makeDashboard();
     await openViloyat(h);
     await pickCrop(h, ["Paxta"]);
@@ -191,30 +191,30 @@ describe("Ekin turi first → filters VH; VH then does not filter Pie", () => {
     await settled();
 
     await pickCrop(h, []);
-    expect(await settled()).toEqual({ pieFilteredByVh: true, barFilteredByCrop: false, barTotal: ALL });
+    expect(await settled()).toEqual({ pieFilteredByVh: false, barFilteredByCrop: false, barTotal: ALL });
 
     // Crop picked again now comes second → bar stays all-crop.
     await pickCrop(h, ["Paxta"]);
-    expect(await settled()).toEqual({ pieFilteredByVh: true, barFilteredByCrop: false, barTotal: ALL });
+    expect(await settled()).toEqual({ pieFilteredByVh: false, barFilteredByCrop: false, barTotal: ALL });
   });
 });
 
-describe("VH first → filters Pie; Ekin turi then does not filter VH", () => {
+describe("VH first → Pie stays unfiltered; Ekin turi then does not filter VH", () => {
   test("VH → crop → VH change → crop change", async () => {
     const { h, computeCalls } = makeDashboard();
     await openViloyat(h);
 
     await pickVh(h, "2-Yaxshi");
-    expect(await settled()).toEqual({ pieFilteredByVh: true, barFilteredByCrop: false, barTotal: ALL });
+    expect(await settled()).toEqual({ pieFilteredByVh: false, barFilteredByCrop: false, barTotal: ALL });
 
     await pickCrop(h, ["Paxta"]);
-    expect(await settled()).toEqual({ pieFilteredByVh: true, barFilteredByCrop: false, barTotal: ALL });
+    expect(await settled()).toEqual({ pieFilteredByVh: false, barFilteredByCrop: false, barTotal: ALL });
 
     await pickVh(h, "3-O'rta");
-    expect(await settled()).toEqual({ pieFilteredByVh: true, barFilteredByCrop: false, barTotal: ALL });
+    expect(await settled()).toEqual({ pieFilteredByVh: false, barFilteredByCrop: false, barTotal: ALL });
 
     await pickCrop(h, ["Bug'doy"]);
-    expect(await settled()).toEqual({ pieFilteredByVh: true, barFilteredByCrop: false, barTotal: ALL });
+    expect(await settled()).toEqual({ pieFilteredByVh: false, barFilteredByCrop: false, barTotal: ALL });
 
     // The bar was never computed crop-scoped in this flow.
     expect(computeCalls()).toEqual([[]]);
@@ -228,7 +228,7 @@ describe("VH first → filters Pie; Ekin turi then does not filter VH", () => {
     await settled();
 
     await pickCrop(h, []);
-    expect(await settled()).toEqual({ pieFilteredByVh: true, barFilteredByCrop: false, barTotal: ALL });
+    expect(await settled()).toEqual({ pieFilteredByVh: false, barFilteredByCrop: false, barTotal: ALL });
     expect(computeCalls()).toEqual([[]]);
   });
 

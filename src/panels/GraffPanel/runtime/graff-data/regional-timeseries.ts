@@ -9,7 +9,6 @@ import { snapshotGraffRegionalFilters, isGraffRegionalFilterSnapshotStale, extra
 import { getTuriCropLookupKey } from "../../../../shared/agri-crop-labels";
 import { buildGraffRegionalScopeKey, queryGraffRegionalTimeseriesMerged } from "../../../../data/agri-graff-stats";
 import { type RepublicTimeseriesIndexField, isRepublicTimeseriesIndexField, REPUBLIC_TIMESERIES_INDEX_FIELDS } from "../graff-graph-constants";
-import { VH_TO_NDVI_STATUS } from "../../../../filter/localization/vh-constants";
 import { type RegionalTimeseriesRow, mergeRegionalTimeseriesFieldsIntoChart } from "../graff-timeseries-helpers";
 import { canConsumeGraffDashboardPack } from "../../../../data/agri-dashboard-pack-apply";
 import { waitForDashboardPackReady, getDashboardPack } from "../../../../store/agri-dashboard-store";
@@ -30,6 +29,10 @@ export interface GraffDataServiceHost {
   _polygonAvailableDatesUniqueid: string;
   _latestRasterDateByUniqueid: Map<string, string>;
   _pendingOverlayWalk: GraffPendingOverlayWalk | null;
+  _vegetationImageRequestId: number;
+  _vegetationOverlayPendingKey: string;
+  _vegetationOverlayAppliedKey: string;
+  clearVegetationImageSurfaceLoading: (requestId: number) => void;
   beginGraphFetch: () => void;
   ensureRegionDistrictForSelection: () => Promise<void>;
   normalizeApos: (s: string) => string;
@@ -284,7 +287,6 @@ export const fetchGraffRegionalTimeseries = async (host: GraffDataServiceHost) =
       cropIds,
       startDate,
       endDate,
-      vh: filterSnapshot.vh || "",
     });
     if (requestKey !== host._regionalTimeseriesAppliedKey) {
       // New geography/year/crop/VH — drop partial index cache for the old scope.
@@ -368,7 +370,7 @@ export const fetchGraffRegionalTimeseries = async (host: GraffDataServiceHost) =
       canAugmentExisting,
       requestId,
     });
-    const ndviStatus = VH_TO_NDVI_STATUS[filterSnapshot.vh] || undefined;
+    // No ndviStatus: the summary table has no status column; VH filter is intentionally not applied (option B).
 
     // Shared DashboardPack hit — skip duplicate vegetation groupBy.
     // Republic pack is NDVI-only; use it only when no other index is needed.
@@ -414,7 +416,6 @@ export const fetchGraffRegionalTimeseries = async (host: GraffDataServiceHost) =
         cropIds,
         startDate,
         endDate,
-        ndviStatus,
         avgFields,
       })) as RegionalTimeseriesRow[];
     }

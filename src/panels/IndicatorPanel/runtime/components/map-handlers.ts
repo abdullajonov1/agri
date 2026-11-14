@@ -54,7 +54,13 @@ export function retryMapConnection(host: IndicatorWidgetHost) {
   });
 }
 
+export const removeViewReadyWatch = (host: IndicatorWidgetHost) => {
+  host._viewReadyWatchHandle?.remove();
+  host._viewReadyWatchHandle = null;
+};
+
 export const onActiveViewChange = (host: IndicatorWidgetHost, jimuMapView: JimuMapView) => {
+  removeViewReadyWatch(host);
   if (!jimuMapView) {
     host.setState({ activeMapView: null, featureLayer: null });
     return;
@@ -67,9 +73,11 @@ export const onActiveViewChange = (host: IndicatorWidgetHost, jimuMapView: JimuM
       const readyWatch = jimuMapView.view.watch("ready", (isReady) => {
         if (isReady) {
           readyWatch.remove();
+          if (host._viewReadyWatchHandle === readyWatch) host._viewReadyWatchHandle = null;
           host.initializeMapConnection(jimuMapView);
         }
       });
+      host._viewReadyWatchHandle = readyWatch;
     }
   });
 };

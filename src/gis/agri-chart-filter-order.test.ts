@@ -15,15 +15,22 @@ describe("pie VH uniqueid bridge", () => {
   test("stores ids and a compact signature", () => {
     setPieVhFilterUniqueIds(["a", "b", "c"]);
     expect(getPieVhFilterUniqueIds()).toEqual(["a", "b", "c"]);
-    expect(getPieVhFilterUniqueIdsSig()).toBe("3:a:c");
+    expect(getPieVhFilterUniqueIdsSig()).toMatch(/^v\d+:3$/);
   });
 
   test("empty array has a signature that differs from null", () => {
     setPieVhFilterUniqueIds([]);
-    expect(getPieVhFilterUniqueIdsSig()).toBe("0::");
+    expect(getPieVhFilterUniqueIdsSig()).toMatch(/^v\d+:0$/);
     setPieVhFilterUniqueIds(null);
     expect(getPieVhFilterUniqueIds()).toBeNull();
     expect(getPieVhFilterUniqueIdsSig()).toBe("");
+  });
+
+  test("different id sets with equal length, first and last give different signatures", () => {
+    setPieVhFilterUniqueIds(["a", "b", "c"]);
+    const first = getPieVhFilterUniqueIdsSig();
+    setPieVhFilterUniqueIds(["a", "x", "c"]);
+    expect(getPieVhFilterUniqueIdsSig()).not.toBe(first);
   });
 
   test("clear resets ids and signature", () => {
@@ -42,9 +49,9 @@ describe("deriveChartFilterFlags", () => {
     });
   });
 
-  test("only vh active -> pie scoped by vh", () => {
+  test("only vh active -> pie is never scoped by vh", () => {
     expect(deriveChartFilterFlags(["vh"], true, false)).toEqual({
-      filterPieByVh: true,
+      filterPieByVh: false,
       filterVhBarByCrop: false,
     });
   });
@@ -56,9 +63,9 @@ describe("deriveChartFilterFlags", () => {
     });
   });
 
-  test("both active: first selected dimension wins", () => {
+  test("both active: vh never scopes the pie; crop scopes the bar only when picked first", () => {
     expect(deriveChartFilterFlags(["vh", "turi"], true, true)).toEqual({
-      filterPieByVh: true,
+      filterPieByVh: false,
       filterVhBarByCrop: false,
     });
     expect(deriveChartFilterFlags(["turi", "vh"], true, true)).toEqual({
@@ -68,7 +75,7 @@ describe("deriveChartFilterFlags", () => {
   });
 
   test("both active with only one in order: the ordered one wins", () => {
-    expect(deriveChartFilterFlags(["vh"], true, true).filterPieByVh).toBe(true);
+    expect(deriveChartFilterFlags(["vh"], true, true).filterPieByVh).toBe(false);
     expect(deriveChartFilterFlags(["turi"], true, true).filterVhBarByCrop).toBe(true);
   });
 

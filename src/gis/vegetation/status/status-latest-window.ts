@@ -6,7 +6,7 @@
  * AgriRegion bars, VH-first Pie) uses the same assignment.
  */
 
-import { type VegetationStatusCount, type VegetationCropBreakdownRow, getAgriVegetationIndicesLayer, resolveVegetationUniqueIdPageSize, VEG_STATUS_ROW_MAX_PAGES, VEG_PIXEL_AREA_HA, queryVegFeatures, agriVhLog, dateRangeInclusiveClause, shiftYmd, type VegQuery } from "../veg-base";
+import { vegAccessCacheTag, type VegetationStatusCount, type VegetationCropBreakdownRow, getAgriVegetationIndicesLayer, resolveVegetationUniqueIdPageSize, VEG_STATUS_ROW_MAX_PAGES, VEG_PIXEL_AREA_HA, queryVegFeatures, agriVhLog, dateRangeInclusiveClause, shiftYmd, type VegQuery } from "../veg-base";
 import { errorMessage } from "../../agri-layer-types";
 import { escapeArcGIS } from "../../../data/agri-sql";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
@@ -207,7 +207,7 @@ async function loadLatestStatus(
   const cropField = fieldByLower.get("crop_id") || fieldByLower.get("cropid") || "";
   const oidField = String(layer.objectIdField || "objectid");
 
-  const cacheKey = `${where}|id=${uniqueIdField}|crop=${cropField}`;
+  const cacheKey = `${where}|id=${uniqueIdField}|crop=${cropField}${vegAccessCacheTag()}`;
   const cached = vegetationLatestStatusCache.get(cacheKey);
   if (cached) return cached;
 
@@ -576,7 +576,7 @@ export async function queryVegetationLatestStatusSummary(
   const resolved = await resolveVhStatusWindows(params);
   if (!resolved.where) return EMPTY_SUMMARY(resolved.startDate, resolved.endDate);
   const where = resolved.where;
-  const key = `${where}|r=${params.region ?? ""}|d=${params.district ?? ""}|y=${String(params.date || "").slice(0, 4)}`;
+  const key = `${where}|r=${params.region ?? ""}|d=${params.district ?? ""}|y=${String(params.date || "").slice(0, 4)}${vegAccessCacheTag()}`;
   const cached = vegetationVhSummaryCache.get(key);
   if (cached) return cached;
 
@@ -745,6 +745,7 @@ export async function queryVegetationLatestStatusCounts(
     region: params.region ?? null,
     district: params.district ?? null,
     cropIds: normalizeCropIds(params),
+    access: vegAccessCacheTag(),
   });
   const promise = rememberAsync({
     memory: vegetationLatestStatusCountsCache,

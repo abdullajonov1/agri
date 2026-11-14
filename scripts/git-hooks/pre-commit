@@ -34,7 +34,8 @@ fi
 echo "[pre-commit] eslint"
 npx eslint "$W/src" --ext .ts,.tsx
 echo "[pre-commit] jest"
-if ! npx jest --runInBand "$W/src" --silent > "$LOG" 2>&1; then
+# The client's root jest config fails every suite (TS5103); use the widget's own.
+if ! npx jest -c "$W/jest.config.js" --runInBand "$W/src" --silent > "$LOG" 2>&1; then
   grep -E "^FAIL|●|^Tests:|^Test Suites:" "$LOG" || cat "$LOG"
   exit 1
 fi

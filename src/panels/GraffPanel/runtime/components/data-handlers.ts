@@ -166,6 +166,8 @@ export const getUniqueValues = async (host: GraffWidgetHost, fieldName: string):
 
 export const fetchData = async (host: GraffWidgetHost, opts?: { preservePage?: boolean }) => {
   if (!host._isMounted) return;
+  // Bump before any early return so an older in-flight request is invalidated.
+  const requestId = ++host._tableDataRequestId;
   if (host.state.connectionStatus !== "connected") {
     host._hasCompletedTableFetch = true;
     if (host.state.loading) host.setState({ loading: false });
@@ -178,7 +180,6 @@ export const fetchData = async (host: GraffWidgetHost, opts?: { preservePage?: b
   }
 
   const preservePage = !!opts?.preservePage;
-  const requestId = ++host._tableDataRequestId;
   const isStale = () =>
     !host._isMounted ||
     requestId !== host._tableDataRequestId ||

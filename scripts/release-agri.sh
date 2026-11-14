@@ -14,7 +14,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CLIENT="$(cd "$ROOT/../../../.." && pwd)"
+CLIENT="$(cd "$ROOT/../../.." && pwd)"
 BUMP="${1:-}"
 
 if [ -n "$BUMP" ]; then
@@ -44,6 +44,6 @@ fi
 
 echo "Building production bundle..."
 (cd "$CLIENT" && NODE_ENV=production OUTPUT_FOLDER=./dist-prod npx webpack --mode production \
-  --config "your-extensions/widgets/$(basename "$(dirname "$ROOT")")/$(basename "$ROOT")/scripts/webpack.prod-only.js")
+  --config "your-extensions/widgets/$(basename "$ROOT")/scripts/webpack.prod-only.js")
 
 bash "$ROOT/scripts/publish-agri.sh"

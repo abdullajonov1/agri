@@ -1,6 +1,8 @@
 import type { GraffWidgetHost } from "../../graff-host";
 import { type VegetationIndiceType, fetchPolygonAvailableDates, getExportImageSeasonMonths, pickExportRasterDate } from "../../../../../gis/agri-polygon-api-source";
+import { GRAFF_INDEX_ORDER, type GraffIndexKey } from "../../graff-graph-constants";
 import { graffLog } from "../../graff-log";
+import { releaseIdleSurfaceLoading } from "../../graff-raster-overlay";
 import { stripUniqueidBraces } from "../../../../../data/agri-uniqueid-sql";
 import type { VegetationIndex } from "../../widget";
 
@@ -14,7 +16,10 @@ export const retryOverlayWithUsableDate = async (host: GraffWidgetHost, cleanId:
   // Regional scenes are sparse (several consecutive dates can be missing),
   // but the region+date gaps are cached, so later clicks skip them upfront.
   const attempts = host._inSeasonRetryAttempts.get(attemptKey) || 0;
-  if (attempts >= 6) return;
+  if (attempts >= 6) {
+    releaseIdleSurfaceLoading(host);
+    return;
+  }
   host._inSeasonRetryAttempts.set(attemptKey, attempts + 1);
 
   const year = host.resolveCurrentYear();
@@ -51,8 +56,12 @@ export const retryOverlayWithUsableDate = async (host: GraffWidgetHost, cleanId:
     dateCount: dates.length,
     nextDate: nextDate || null,
   });
-  if (!nextDate || nextDate === refusedDate) return;
   if (stripUniqueidBraces(host.state.selecteduniqueid) !== cleanId) return;
+  if (!nextDate || nextDate === refusedDate) {
+    // Nothing left to try — don't leave the map spinner up.
+    releaseIdleSurfaceLoading(host);
+    return;
+  }
   void host.applyVegetationImageOverlay(cleanId, nextDate, indiceType);
 };
 /**
@@ -146,7 +155,7 @@ export const preparePolygonGraphSeries = (host: GraffWidgetHost, rows: Vegetatio
 
   return { sorted, nextDate, nextIndexKey, fingerprint };
 };
-export const handleIndexChange = (host: GraffWidgetHost, index: "ndvi" | "savi" | "rvi" | "ci" | "evi" | "ndwi") => {
+export const handleIndexChange = (host: GraffWidgetHost, index: GraffIndexKey) => {
   if (!host.isRegionalInteractionEnabled()) return;
 
   host.setState(
@@ -192,14 +201,7 @@ export const handleIndexChange = (host: GraffWidgetHost, index: "ndvi" | "savi" 
 };
 export const handleToggleAllIndices = (host: GraffWidgetHost) => {
   if (!host.isRegionalInteractionEnabled()) return;
-  const allKeys: Array<"ndvi" | "savi" | "rvi" | "ci" | "evi" | "ndwi"> = [
-    "ndvi",
-    "savi",
-    "rvi",
-    "ci",
-    "evi",
-    "ndwi",
-  ];
+  const allKeys: GraffIndexKey[] = [...GRAFF_INDEX_ORDER];
   host.setState(
     (prev) => {
       const isAll = allKeys.every((k) => prev.selectedIndices.includes(k));

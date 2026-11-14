@@ -98,6 +98,38 @@ export interface GraffRasterOverlayHost {
   markOverlayDateVerified: (cleanId: string, date: string) => void;
 }
 
+/** Host fields needed to decide who owns the map-surface loader. */
+export type GraffSurfaceLoadingOwner = Pick<
+  GraffRasterOverlayHost,
+  | "_vegetationImageRequestId"
+  | "_vegetationOverlayPendingKey"
+  | "_vegetationOverlayAppliedKey"
+  | "clearVegetationImageSurfaceLoading"
+>;
+
+/**
+ * Drop the map loader unless an export-image fetch is in flight (that fetch
+ * clears it itself). Use on every path that ends without fetching — a date
+ * walk with no hit, a retry that gives up, a skipped date — otherwise the
+ * loader stays up until the dashboard's 25 s safety timer.
+ */
+export const releaseIdleSurfaceLoading = (
+  host: GraffSurfaceLoadingOwner,
+): void => {
+  if (host._vegetationOverlayPendingKey) return;
+  host.clearVegetationImageSurfaceLoading(host._vegetationImageRequestId);
+};
+
+/**
+ * True when an overlay is already drawn or loading for the current
+ * selection. A late date-walk result must not replace it — that is a date
+ * the user (or an earlier path) already chose.
+ */
+export const hasActiveVegetationOverlay = (
+  host: GraffSurfaceLoadingOwner,
+): boolean =>
+  Boolean(host._vegetationOverlayAppliedKey || host._vegetationOverlayPendingKey);
+
 export const applyGraffVegetationImageOverlay = async (
   host: GraffRasterOverlayHost,
   uniqueid: string,
@@ -194,9 +226,13 @@ export const applyGraffVegetationImageOverlay = async (
   // An unverified date while the dates→TIFF walk is still probing this
   // polygon: wait for the walk instead of racing a parallel export-image
   // that the series date (04-30 in the index table, no regional scene)
-  // would turn into a 400. Skip when caller already handed us the walk TIFF.
+  // would turn into a 400. Skip when caller already handed us the walk TIFF,
+  // or when the date is in the polygon's own list (a day the user picked) —
+  // waiting there stalled date switches by up to 8 s and then swapped the
+  // chosen day for the walk's date.
   if (
     !prefetched &&
+    !listedForPolygon &&
     !host._verifiedOverlayDates.has(`${cleanId}|${normalizedDate}`) &&
     !isRegionDateWithImagery(regionId, normalizedDate)
   ) {
@@ -283,12 +319,7 @@ export const applyGraffVegetationImageOverlay = async (
         ),
       },
     );
-    if (
-      !host._vegetationOverlayAppliedKey &&
-      !host._vegetationOverlayPendingKey
-    ) {
-      host.clearVegetationImageSurfaceLoading(host._vegetationImageRequestId);
-    }
+    releaseIdleSurfaceLoading(host);
     return;
   }
 
@@ -301,12 +332,7 @@ export const applyGraffVegetationImageOverlay = async (
         indiceType,
       },
     );
-    if (
-      !host._vegetationOverlayAppliedKey &&
-      !host._vegetationOverlayPendingKey
-    ) {
-      host.clearVegetationImageSurfaceLoading(host._vegetationImageRequestId);
-    }
+    releaseIdleSurfaceLoading(host);
     return;
   }
 
@@ -608,6 +634,14 @@ export const applyGraffVegetationImageOverlay = async (
         : thrownMessage(err) || "Расм юклана олмади",
     });
   } finally {
+    // A failed/stale fetch used to leave its pending key behind, which made
+    // later skip paths think a fetch was still running and keep the loader.
+    if (
+      requestId === host._vegetationImageRequestId &&
+      host._vegetationOverlayPendingKey === rasterKey
+    ) {
+      host._vegetationOverlayPendingKey = "";
+    }
     // Clears orphaned loaders from early skips that bumped requestId, and
     // always releases the surface loader for the active request.
     host.clearVegetationImageSurfaceLoading(requestId);

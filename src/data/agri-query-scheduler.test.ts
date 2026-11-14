@@ -95,3 +95,73 @@ describe("withHeavyQuerySlot", () => {
     await expect(withHeavyQuerySlot("veg", () => Promise.resolve("again"), 1)).resolves.toBe("again");
   });
 });
+
+describe("resetStatsQueryScheduler", () => {
+  test("rejects queued stats waiters instead of leaving them hanging", async () => {
+    const running = [deferred(), deferred()];
+    const inFlight = running.map((d) => withStatsQuerySlot(() => d.promise));
+    const task = jest.fn(() => Promise.resolve("x"));
+    const queued = withStatsQuerySlot(task);
+    await flush();
+    resetStatsQueryScheduler();
+    await expect(queued).rejects.toThrow("scheduler reset");
+    expect(task).not.toHaveBeenCalled();
+    running.forEach((d) => { d.resolve("done"); });
+    await Promise.all(inFlight);
+  });
+
+  test("a pre-reset stats task finishing does not free a slot of the new generation", async () => {
+    const old = deferred();
+    const oldRun = withStatsQuerySlot(() => old.promise);
+    await flush();
+    resetStatsQueryScheduler();
+    const fresh = [deferred(), deferred()];
+    const freshRuns = fresh.map((d) => withStatsQuerySlot(() => d.promise));
+    const third = jest.fn(() => Promise.resolve("third"));
+    const thirdRun = withStatsQuerySlot(third);
+    await flush();
+    old.resolve("old");
+    await oldRun;
+    await flush();
+    expect(third).not.toHaveBeenCalled();
+    fresh[0].resolve("a");
+    await expect(thirdRun).resolves.toBe("third");
+    fresh[1].resolve("b");
+    await Promise.all(freshRuns);
+  });
+
+  test("stats limit still holds after reset", async () => {
+    resetStatsQueryScheduler();
+    const ds = [deferred(), deferred(), deferred()];
+    const started: number[] = [];
+    const runs = ds.map((d, i) => withStatsQuerySlot(() => { started.push(i); return d.promise; }));
+    await flush();
+    expect(started).toEqual([0, 1]);
+    ds.forEach((d) => { d.resolve("v"); });
+    await Promise.all(runs);
+  });
+
+  test("rejects queued heavy waiters and ignores pre-reset heavy releases", async () => {
+    const old = deferred();
+    const oldRun = withHeavyQuerySlot("veg", () => old.promise, 1);
+    const queuedTask = jest.fn(() => Promise.resolve("q"));
+    const queued = withHeavyQuerySlot("veg", queuedTask, 1);
+    await flush();
+    resetStatsQueryScheduler();
+    await expect(queued).rejects.toThrow("scheduler reset");
+    expect(queuedTask).not.toHaveBeenCalled();
+
+    const fresh = deferred();
+    const freshRun = withHeavyQuerySlot("veg", () => fresh.promise, 1);
+    const next = jest.fn(() => Promise.resolve("next"));
+    const nextRun = withHeavyQuerySlot("veg", next, 1);
+    await flush();
+    old.resolve("old");
+    await oldRun;
+    await flush();
+    expect(next).not.toHaveBeenCalled();
+    fresh.resolve("f");
+    await freshRun;
+    await expect(nextRun).resolves.toBe("next");
+  });
+});

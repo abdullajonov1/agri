@@ -1,4 +1,4 @@
-import { type VegetationStatusCountsParams, type VegetationStatusCount, buildVegetationStatusWhere, vegetationStatusStatsCache, getAgriVegetationIndicesLayer, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, type VegQuery } from "../veg-base";
+import { vegAccessCacheTag, type VegetationStatusCountsParams, type VegetationStatusCount, buildVegetationStatusWhere, vegetationStatusStatsCache, getAgriVegetationIndicesLayer, queryVegFeatures, VEG_PIXEL_AREA_HA, agriVegetationLog, type VegQuery } from "../veg-base";
 import { rememberAsync } from "../../../data/agri-persistent-cache";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
 
@@ -19,7 +19,7 @@ export async function queryVegetationStatusCountsByStatus(
 
   const where = buildVegetationStatusWhere(params);
   // oid field is stable on this service; keep key small for persist.
-  const cacheKey = `status-stats|${where}`;
+  const cacheKey = `status-stats|${where}${vegAccessCacheTag()}`;
   const promise = rememberAsync({
     memory: vegetationStatusStatsCache,
     namespace: "veg-status-stats",

@@ -206,7 +206,11 @@ export const queryAggregates = async (host: RegionWidgetHost, groupField: string
   return regionAccumulatorToSortedRows(acc) as RegionalDataItem[];
 };
 export const fetchRegionalData = async (host: RegionWidgetHost) => {
-  if (!host._isMounted || host.state.connectionStatus !== "connected") return;
+  if (!host._isMounted || host.state.connectionStatus !== "connected") {
+    // No fetch started: do not let the dedupe key swallow the next real call.
+    host._lastRegionalFetchKey = "";
+    return;
+  }
 
   const requestId = ++host._regionalRequestId;
   const isCurrent = () =>
@@ -314,6 +318,7 @@ export const fetchRegionalData = async (host: RegionWidgetHost) => {
     }
   } catch (e) {
     if (!isCurrent()) return;
+    host._lastRegionalFetchKey = "";
     host.setState({
       regionalError: `Failed to load data: ${messageOf(e) || e}`,
       regionalLoading: false,
@@ -332,6 +337,7 @@ export const fetchRegionalDataDeduped = async (host: RegionWidgetHost) => {
   const key = JSON.stringify({
     reserveMode: !!reserveMode,
     yil: currentFilters.yil || "",
+    viloyat: currentFilters.viloyat || "",
     view: currentView,
     drillViloyat: selectedViloyatForDrillDown || "",
     lockedViloyat: lockedViloyat || "",

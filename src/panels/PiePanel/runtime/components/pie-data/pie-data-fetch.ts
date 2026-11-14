@@ -181,7 +181,54 @@ export function makeQueryKey(host: PieWidgetHost, yil: string, viloyat: string, 
   ].join("|");
 }
 // ✅ Debounced fetch with de-duplication
+/**
+ * Drop any in-flight fetch for a different key (and a pending debounce) and
+ * clear a leftover loader, so a result for the old key can never be applied.
+ */
+function invalidateInFlightFetch(host: PieWidgetHost): void {
+  host._fetchCounter++;
+  if (host._fetchDebounceTimer) {
+    clearTimeout(host._fetchDebounceTimer);
+    host._fetchDebounceTimer = null;
+  }
+  if (host.state.loading) {
+    host.setState({ loading: false });
+  }
+}
+
+/**
+ * Query key of what the pie would fetch now. Effective viloyat
+ * (viloyat || lockedViloyat, same as the query scope); the VH
+ * class and its date only count when they scope the pie (never, by default).
+ */
+export function currentPieQueryKey(host: PieWidgetHost): string {
+  const scopedByVh = Boolean(host.state.filterPieByVh);
+  return host.makeQueryKey(
+    host.state.yil,
+    String(host.state.viloyat || host.state.lockedViloyat || "").trim(),
+    host.state.tuman,
+    scopedByVh ? host.state.vh : "",
+    host.state.barCategoryField,
+    host.state.barCategoryValue,
+    host.state.filterPieByVh,
+    host.state.pieVhUniqueIdsSig,
+    scopedByVh ? host.state.ndviDate : "",
+  );
+}
+
 export const fetchCategoryData = (host: PieWidgetHost): void => {
+  // Nothing that changes the pie changed (e.g. a VH click re-filtered the
+  // map layers and the data source fired): keep the chart, no loader flash.
+  if (
+    host._hasCompletedFetch &&
+    !host.state.error &&
+    !host._pendingVhPieFetchKey &&
+    currentPieQueryKey(host) === host._lastFetchKey
+  ) {
+    invalidateInFlightFetch(host);
+    return;
+  }
+
   // Clear any pending fetch
   if (host._fetchDebounceTimer) {
     clearTimeout(host._fetchDebounceTimer);
@@ -198,26 +245,12 @@ export const fetchCategoryData = (host: PieWidgetHost): void => {
   }, 16);
 };
 export async function _doFetchCategoryData(host: PieWidgetHost): Promise<void> {
-  // Match Agro_widgetV1 query key / routing: selected viloyat only
-  // (lockedViloyat stays in state for UI/access, not in the stats key).
-  const selectedViloyat = (host.state.viloyat || "").trim();
-  const key = host.makeQueryKey(
-    host.state.yil,
-    selectedViloyat,
-    host.state.tuman,
-    host.state.vh,
-    host.state.barCategoryField,
-    host.state.barCategoryValue,
-    host.state.filterPieByVh,
-    host.state.pieVhUniqueIdsSig,
-    host.state.ndviDate,
-  );
+  const key = currentPieQueryKey(host);
 
   if (key === host._lastFetchKey) {
-    // Completed fetch for this key — drop a leftover spinner only.
-    if (host.state.loading) {
-      host.setState({ loading: false });
-    }
+    // Completed fetch for this key — drop a leftover spinner and any
+    // in-flight fetch for a different key.
+    invalidateInFlightFetch(host);
     return;
   }
   // Same VH scope still waiting on uniqueid bridge — keep loader, do not
@@ -359,12 +392,12 @@ export async function _doFetchCategoryData(host: PieWidgetHost): Promise<void> {
     });
 
     // Shared DashboardPack hit (no VH) — skip duplicate ArcGIS groupBy.
-    if (!host.state.filterPieByVh && !String(host.state.vh || "").trim()) {
+    if (!host.state.filterPieByVh) {
       await waitForDashboardPackReady(2500);
       if (!host._isMounted || fetchId !== host._fetchCounter) return;
       const piePack = matchPieDashboardPack(getDashboardPack(), {
         where: whereClause,
-        hasVh: Boolean(String(host.state.vh || "").trim()),
+        hasVh: false,
       });
       if (piePack) {
         const { categories, totalValue } = buildPieCategoriesFromPackRows(
@@ -511,8 +544,8 @@ export async function _doFetchCategoryData(host: PieWidgetHost): Promise<void> {
   } catch (error: unknown) {
     if (!host._isMounted || fetchId !== host._fetchCounter) return;
 
+    // Do not store _lastFetchKey: the same key must retry after an error.
     host._hasCompletedFetch = true;
-    host._lastFetchKey = key;
     host._pendingVhPieFetchKey = "";
     host.setState({
       loading: false,

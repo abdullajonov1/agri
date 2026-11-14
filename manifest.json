@@ -1,8 +1,8 @@
 {
-  "name": "Agro_widgetV5",
-  "label": "Space Agro Monitoring V6.3.3",
+  "name": "agri-main",
+  "label": "Space Agro Monitoring V6.3.4",
   "type": "widget",
-  "version": "6.3.3",
+  "version": "6.3.4",
   "exbVersion": "1.16.0",
   "author": "abdullajonov1",
   "description": "Space Agro Monitoring. Portal package: https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.json — Reserve / unused land layers, reserve crop chart with map filter. 6.3.3: Jadval no longer slides up / gets clipped when a selected row is centred (scrolls only the table; Graff/Zaxira swap slot is overflow:clip).",

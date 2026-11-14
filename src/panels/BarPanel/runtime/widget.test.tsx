@@ -211,6 +211,28 @@ describe("AgriBar", () => {
     expect(screen.getAllByRole("listitem")[1].getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("cancels a pending VH broadcast when resetAllFilters fires", () => {
+    // Arrange
+    mount();
+    send(full());
+    const received: Array<Record<string, unknown>> = [];
+    const listener = (e: Event): void => {
+      received.push((e as CustomEvent<Record<string, unknown>>).detail);
+    };
+    document.addEventListener("widgetSelectionChanged", listener);
+    // Act
+    fireEvent.click(screen.getAllByRole("listitem")[0]);
+    act(() => {
+      document.dispatchEvent(new Event("resetAllFilters"));
+    });
+    act(() => {
+      jest.advanceTimersByTime(60);
+    });
+    document.removeEventListener("widgetSelectionChanged", listener);
+    // Assert
+    expect(received).toHaveLength(0);
+  });
+
   it("resets everything on resetAllFilters", () => {
     mount();
     send(full());

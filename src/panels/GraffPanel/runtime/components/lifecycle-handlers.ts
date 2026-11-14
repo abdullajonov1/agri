@@ -245,6 +245,8 @@ export function componentDidUpdate(host: GraffWidgetHost, prevProps: GraffWidget
 
 export function componentWillUnmount(host: GraffWidgetHost) {
   host._isMounted = false;
+  host._viewReadyWatchHandle?.remove();
+  host._viewReadyWatchHandle = null;
 
   host.cancelVegetationImageOverlay();
   // Clear the bottom-left date/index indicator so it doesn't keep

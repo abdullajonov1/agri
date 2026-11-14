@@ -36,6 +36,20 @@ const VEG_LAYER_ACCESS_FIELDS = [
 function withVegAccessWhere(mainWhere: string): string {
   return combineAccessWhereIfFieldsExist(mainWhere, VEG_LAYER_ACCESS_FIELDS);
 }
+/**
+ * Cache-key suffix for the access WHERE queryVegFeatures applies. Empty when
+ * access adds nothing (keys stay as before); otherwise a compact FNV-1a hash
+ * so persisted entries are never shared between access scopes.
+ */
+export function vegAccessCacheTag(): string {
+  const access = withVegAccessWhere("1=1");
+  if (access === "1=1") return "";
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < access.length; i += 1) {
+    hash = Math.imul(hash ^ access.charCodeAt(i), 0x01000193) >>> 0;
+  }
+  return `|acc=${hash.toString(36)}`;
+}
 /** agri_vegetation_indices px_all comes from a 3m x 3m raster: 9 m² / 10,000. */
 export const VEG_PIXEL_AREA_HA = 0.0009;
 /** VH / crop-window diagnostics — opt-in via `window.__AGRO_V5_VH_DEBUG = true`. */
@@ -458,6 +472,8 @@ export interface VegetationUniqueIdsForStatusParams
   extends VegetationStatusCountsParams {
   /** ndvi_status value, e.g. "past" | "orta" | "yaxshi" | "juda_yaxshi" */
   ndviStatus: string;
+  /** Read ids from agri_field_status_year (same scope rule as the VH bar summary). */
+  useYearSummary?: boolean;
 }
 const VEG_UNIQUEID_PAGE_SIZE = 2000;
 export const VEG_UNIQUEID_MAX_PAGES = 50;
@@ -698,7 +714,7 @@ export async function queryDistinctFieldCount(
 export function vegetationRecentDaysCacheKey(dayCount: number): string {
   const n = Math.max(1, Math.min(14, Math.floor(Number(dayCount)) || 5));
   // v8: fixed calendar window (no skip-empty backfill) + Tashkent day bounds
-  return `v8-processed_at-calendar-window|${n}`;
+  return `v8-processed_at-calendar-window|${n}${vegAccessCacheTag()}`;
 }
 /** Saved feed only. Does not open a layer or send a statistics request. */
 export function peekVegetationRecentDayRegionCounts(

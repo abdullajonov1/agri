@@ -461,9 +461,16 @@ export const clearFarmerSearchAndRestoreGeo = (host: LocalizationHost): void => 
             : ({ mode: "selection", reason: "region" } as const);
 
       host.broadcastFilterState();
-      void host.applyMapFiltersOptimized(zoomRequest).finally(() => {
-        host._farmerSearchApplying = false;
-      });
+      void host
+        .applyMapFiltersOptimized(zoomRequest)
+        .catch((error: unknown) => {
+          agriLog("graffSearch:apply-map-filters:FAILED", {
+            error: errorMessage(error),
+          });
+        })
+        .finally(() => {
+          host._farmerSearchApplying = false;
+        });
       void host.fetchDataWithCurrentState();
     },
   );

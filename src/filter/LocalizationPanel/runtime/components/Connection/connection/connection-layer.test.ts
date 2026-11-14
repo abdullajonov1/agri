@@ -397,6 +397,16 @@ describe("getUniqueValues / flDistinctFromLayer / fetchFilterOptions", () => {
     expect(h.state.loadingFilters).toBe(false);
   });
 
+  it("fetchFilterOptions collapses year spellings from different layers into one option", async () => {
+    const h = makeFakeHost({
+      getUniqueValues: jest.fn(() => Promise.resolve(["2026-yil", "2024", "2026 yil", "2025", "2026"])),
+      state: { connectionStatus: "connected", yil: "2026-yil" },
+    });
+    await fetchFilterOptions(h);
+    expect(h.state.yilOptions).toEqual(["2024", "2025", "2026"]);
+    expect(h.state.yil).toBe("2026");
+  });
+
   it("fetchFilterOptions keeps a still-valid year, and falls back to string compare for non-numeric", async () => {
     const h = makeFakeHost({
       getUniqueValues: jest.fn(() => Promise.resolve(["b", "a"])),

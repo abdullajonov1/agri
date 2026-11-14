@@ -362,6 +362,10 @@ export default class AgriBar extends React.PureComponent<
 
   private readonly _onReset = (): void => {
     if (!this._isMounted) return;
+    if (this._vhDispatchTimer) {
+      clearTimeout(this._vhDispatchTimer);
+      this._vhDispatchTimer = null;
+    }
     this._hasCompletedFetch = false;
     this.setState({
       selectedYear: "",

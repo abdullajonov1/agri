@@ -22,6 +22,7 @@ import {
   getGeoScopedVhBarUsedDate,
   getLatestNdviDateForBar,
   isVhMapUniqueIdCacheWarm,
+  isVhYearSummaryScope,
   makeVhBarComputeKey,
   prefetchVhStatusUniqueIds,
   publishVhBarPartial,
@@ -313,5 +314,20 @@ describe("vh-bar-prep", () => {
       await flush();
       expect(jest.mocked(host.setVhUniqueIdCacheEntry)).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("isVhYearSummaryScope", () => {
+  const hostWith = (state: Record<string, unknown>) =>
+    ({ state }) as unknown as Parameters<typeof isVhYearSummaryScope>[0];
+
+  it("is true when unlocked and no farmer", () => {
+    expect(isVhYearSummaryScope(hostWith({}))).toBe(true);
+  });
+  it("is false when a calendar day is locked", () => {
+    expect(isVhYearSummaryScope(hostWith({ ndviDateLocked: true, ndviDate: "2025-06-01" }))).toBe(false);
+  });
+  it("is false when a farmer is selected", () => {
+    expect(isVhYearSummaryScope(hostWith({ selectedFarmerInn: "123" }))).toBe(false);
   });
 });

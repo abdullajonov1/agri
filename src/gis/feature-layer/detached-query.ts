@@ -28,6 +28,52 @@ export type EsriRequest = typeof esriRequestFn;
 export const detachedQueryLayerCache = new Map<string, FeatureLayer>();
 /** URLs that FeatureLayer#load() rejected (Group Layer / bad endpoint). */
 export const detachedQueryLayerFailedUrls = new Set<string>();
+/** URLs that failed transiently (timeout/5xx/network): url -> failure time (ms). */
+const detachedQueryLayerTransientFailures = new Map<string, number>();
+
+/** How long a transiently failed URL is skipped before it may be retried. */
+export const TRANSIENT_FAILURE_RETRY_MS = 60_000;
+
+const DEFINITIVE_FAILURE_MESSAGE =
+  /not found|not supported|invalid service|does not exist|group layer/i;
+
+/** True when retrying can never succeed (HTTP 400/404, missing or unsupported service). */
+export function isDefinitiveLoadFailure(err: unknown): boolean {
+  const e = (err && typeof err === "object" ? err : {}) as {
+    message?: string;
+    code?: number | string;
+    httpStatus?: number;
+    details?: { httpStatus?: number; message?: string };
+  };
+  const status = Number(e.details?.httpStatus ?? e.httpStatus ?? e.code ?? 0);
+  if (status === 400 || status === 404) return true;
+  return DEFINITIVE_FAILURE_MESSAGE.test(String(e.message || e.details?.message || err || ""));
+}
+
+/** Permanent blacklist for definitive failures, timestamp (retry after TTL) otherwise. */
+export function recordUrlFailure(
+  permanent: Set<string>,
+  transient: Map<string, number>,
+  key: string,
+  err: unknown,
+): void {
+  if (isDefinitiveLoadFailure(err)) permanent.add(key);
+  else transient.set(key, Date.now());
+}
+
+/** True while the key is blacklisted; expired transient entries are dropped. */
+export function isUrlFailureActive(
+  permanent: Set<string>,
+  transient: Map<string, number>,
+  key: string,
+): boolean {
+  if (permanent.has(key)) return true;
+  const failedAt = transient.get(key);
+  if (failedAt === undefined) return false;
+  if (Date.now() - failedAt < TRANSIENT_FAILURE_RETRY_MS) return true;
+  transient.delete(key);
+  return false;
+}
 /** Auth failures — cleared after IdentityManager token registration so we retry. */
 export const detachedQueryLayerAuthFailedUrls = new Set<string>();
 export let agriIdentityTokenRegistered = false;
@@ -127,9 +173,12 @@ void installPbfJsonWorkaround();
 let esriRequestPromise: Promise<EsriRequest> | null = null;
 export async function getEsriRequest(): Promise<EsriRequest> {
   if (!esriRequestPromise) {
-    esriRequestPromise = loadArcGISJSAPIModules(["esri/request"]).then(
-      ([esriRequest]) => esriRequest as EsriRequest,
-    );
+    esriRequestPromise = loadArcGISJSAPIModules(["esri/request"])
+      .then(([esriRequest]) => esriRequest as EsriRequest)
+      .catch((err: unknown) => {
+        esriRequestPromise = null;
+        throw err;
+      });
   }
   return esriRequestPromise;
 }
@@ -139,7 +188,12 @@ export async function getExtentClass(): Promise<ExtentConstructor> {
   if (!extentClassPromise) {
     extentClassPromise = loadArcGISJSAPIModules([
       "esri/geometry/Extent",
-    ]).then(([ExtentClass]) => ExtentClass as ExtentConstructor);
+    ])
+      .then(([ExtentClass]) => ExtentClass as ExtentConstructor)
+      .catch((err: unknown) => {
+        extentClassPromise = null;
+        throw err;
+      });
   }
   return extentClassPromise;
 }
@@ -150,7 +204,7 @@ function rememberLoadFailure(cleanUrl: string, err: unknown): void {
     detachedQueryLayerAuthFailedUrls.add(cleanUrl);
   } else {
     // Group Layer endpoints and other unsupported sources — never retry.
-    detachedQueryLayerFailedUrls.add(cleanUrl);
+    recordUrlFailure(detachedQueryLayerFailedUrls, detachedQueryLayerTransientFailures, cleanUrl, err);
   }
 }
 
@@ -158,7 +212,7 @@ export async function getDetachedQueryLayerForUrl(url: string): Promise<FeatureL
   const cleanUrl = String(url || "").trim().replace(/\/+$/, "");
   if (!cleanUrl) return null;
   await ensureAgriServerIdentityToken();
-  if (detachedQueryLayerFailedUrls.has(cleanUrl)) return null;
+  if (isUrlFailureActive(detachedQueryLayerFailedUrls, detachedQueryLayerTransientFailures, cleanUrl)) return null;
   // FeatureLayer requires a layer endpoint (.../MapServer/0 or FeatureServer/N).
   // MapServer roots fail #load() and only spam the console.
   if (

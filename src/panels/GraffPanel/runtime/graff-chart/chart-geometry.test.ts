@@ -135,6 +135,7 @@ describe("paths", () => {
       ci: "",
       evi: "",
       ndwi: "",
+      ndre: "",
     });
     expect(line.color).toBe("#0f0");
     expect(line.points.map((p) => [p.x, p.y])).toEqual([[1, 10], [2, 20]]);
@@ -202,5 +203,19 @@ describe("guide helpers", () => {
     expect(toChartTooltipPoint({ date, value: 1, sourceIndex: -1 })).not.toHaveProperty("sourceIndex");
     expect(toChartTooltipPoint({ date, value: 1 })).not.toHaveProperty("sourceIndex");
     expect(toChartTooltipPoint({ date, value: 1, min: 0, sourceIndex: 0 })).toEqual({ date, value: 1, min: 0, max: undefined, sourceIndex: 0 });
+  });
+});
+
+describe("ndre series without data", () => {
+  test("all-null ndre values yield no points and no path", () => {
+    const rows = [
+      { raster_date: "2024-01-01", ndvi: 0.5, ndre: null as number | null },
+      { raster_date: "2024-01-02", ndvi: 0.6 },
+    ];
+    const series = buildSeriesByIndex(rows, ["ndvi", "ndre"]);
+    const lines = buildLineSeries(["ndre"], series, identityScales, 100, { ndre: "#a39400" } as never);
+    expect(lines[0].points).toHaveLength(0);
+    expect(lines[0].path).toBe("");
+    expect(lines[0].areaPath).toBe("");
   });
 });

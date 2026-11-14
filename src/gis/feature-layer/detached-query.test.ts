@@ -46,6 +46,7 @@ import {
   getEsriRequest,
   getExtentClass,
   isAuthFailureMessage,
+  TRANSIENT_FAILURE_RETRY_MS,
 } from "./detached-query";
 
 const LAYER_URL = "https://h/arcgis/rest/services/agri/MapServer/3";
@@ -166,9 +167,47 @@ describe("getDetachedQueryLayerForUrl", () => {
     await expect(getDetachedQueryLayerForUrl(LAYER_URL)).resolves.toBeInstanceOf(MockFeatureLayer);
   });
 
-  test("module load failure returns null and blacklists the URL", async () => {
+  test("module load failure returns null without a permanent blacklist", async () => {
     mockFailModules = true;
-    await expect(getDetachedQueryLayerForUrl(LAYER_URL)).resolves.toBeNull();
-    expect(detachedQueryLayerFailedUrls.has(LAYER_URL)).toBe(true);
+    await expect(getDetachedQueryLayerForUrl(`${LAYER_URL}9`)).resolves.toBeNull();
+    expect(detachedQueryLayerFailedUrls.has(`${LAYER_URL}9`)).toBe(false);
+  });
+
+  describe("transient failures", () => {
+    const LAYER_URL_503 = `${LAYER_URL}1`;
+    const LAYER_URL_404 = `${LAYER_URL}2`;
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    test("a transient failure is retried only after the TTL", async () => {
+      mockLayerLoad.mockRejectedValueOnce({ details: { httpStatus: 503 } });
+      await expect(getDetachedQueryLayerForUrl(LAYER_URL_503)).resolves.toBeNull();
+      jest.advanceTimersByTime(TRANSIENT_FAILURE_RETRY_MS - 1);
+      await expect(getDetachedQueryLayerForUrl(LAYER_URL_503)).resolves.toBeNull();
+      expect(mockLayerLoad).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(2);
+      await expect(getDetachedQueryLayerForUrl(LAYER_URL_503)).resolves.toBeInstanceOf(MockFeatureLayer);
+      expect(mockLayerLoad).toHaveBeenCalledTimes(2);
+    });
+
+    test("a 404 stays blacklisted after the TTL", async () => {
+      mockLayerLoad.mockRejectedValueOnce({ details: { httpStatus: 404 } });
+      await expect(getDetachedQueryLayerForUrl(LAYER_URL_404)).resolves.toBeNull();
+      expect(detachedQueryLayerFailedUrls.has(LAYER_URL_404)).toBe(true);
+      jest.advanceTimersByTime(TRANSIENT_FAILURE_RETRY_MS * 10);
+      await expect(getDetachedQueryLayerForUrl(LAYER_URL_404)).resolves.toBeNull();
+      expect(mockLayerLoad).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test("a rejected module promise is not cached", async () => {
+    jest.resetModules();
+    mockFailModules = true;
+    const fresh = require("./detached-query") as typeof import("./detached-query");
+    await expect(fresh.getEsriRequest()).rejects.toThrow("module load failed");
+    await expect(fresh.getExtentClass()).rejects.toThrow("module load failed");
+    mockFailModules = false;
+    await expect(fresh.getEsriRequest()).resolves.toBeDefined();
+    await expect(fresh.getExtentClass()).resolves.toBeDefined();
   });
 });

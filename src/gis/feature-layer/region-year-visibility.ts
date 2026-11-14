@@ -3,6 +3,7 @@
  * the filters (narrowed by tuman / crop / vegetation status), hide the rest,
  * and warm MapImage metadata ahead of the first export.
  */
+import { recordUrlFailure, isUrlFailureActive } from "./detached-query";
 import { type AgriFilters, type ShownRegionYearLayer, regionYearLog, haystackMatchesYear, getRegionYearOpacityTarget, clearScaleLimitsOnRegionYearTree, collectLiveSublayers, getMapImageParentLayer, regionYearPreloadFailedUrls, clearFieldLayerScaleLimits, guardSublayerDefinitionExpression, summarizeDefinitionExpression } from "./primitives";
 import { collectRegionYearLeafLayers, buildSublayerDefinitionExpression, forceSublayersVisible } from "./layer-lookup";
 import { haystackMatchesRegion } from "./haystack-scoring";
@@ -216,6 +217,8 @@ export function syncRegionYearLayerVisibility(
  * reveals that region — cold `load()` no longer shares the critical path
  * with the heavy `export` request.
  */
+const regionYearPreloadTransientFailures = new Map<string, number>();
+
 export async function preloadRegionYearMapImages(
   map: AgriMapLike | null | undefined,
   yil: string,
@@ -238,16 +241,16 @@ export async function preloadRegionYearMapImages(
   await Promise.all(
     Array.from(parents).map(async (layer) => {
       const key = String(layer?.url || layer?.id || "");
-      if (key && regionYearPreloadFailedUrls.has(key)) return;
+      if (key && isUrlFailureActive(regionYearPreloadFailedUrls, regionYearPreloadTransientFailures, key)) return;
       try {
         if (typeof layer?.load === "function" && !layer.loaded) {
           await layer.load();
           loaded += 1;
         }
-      } catch {
+      } catch (err) {
         // Dead/renamed service on the server side — stop retrying it every
         // year-change or widget mount.
-        if (key) regionYearPreloadFailedUrls.add(key);
+        if (key) recordUrlFailure(regionYearPreloadFailedUrls, regionYearPreloadTransientFailures, key, err);
       }
     }),
   );

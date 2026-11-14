@@ -3,6 +3,7 @@ import { clearPieVhFilterUniqueIds, setPieVhFilterUniqueIds } from "../../../../
 import { VH_TO_NDVI_STATUS } from "../../../../../localization/vh-constants";
 import { resolveRegionNumberFromMaps, resolveDistrictNumberFromMaps, buildVhUniqueIdCacheKey } from "../../../../../localization/resolve-geo-codes";
 import { queryVegetationAvailableDates, queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-vegetation-data-source";
+import { isVhYearSummaryScope } from "./vh-bar-prep";
 import { agriLog } from "../../localization-log";
 import { errorMessage } from "../../../../../../shared/agri-plain-object";
 
@@ -167,6 +168,7 @@ export const resolveVhMapUniqueIds = async (
       date: forDate,
       ndviStatus: status,
       cropIds: forCropIds.length ? forCropIds : undefined,
+      useYearSummary: isVhYearSummaryScope(host),
     });
     host.setVhUniqueIdCacheEntry(cacheKey, ids);
     return ids;

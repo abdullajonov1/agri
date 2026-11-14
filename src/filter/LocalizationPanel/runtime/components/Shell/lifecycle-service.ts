@@ -124,6 +124,14 @@ export function componentWillUnmount(host: LocalizationHost) {
     clearTimeout(host._dataSourceInfoDebounceTimer);
     host._dataSourceInfoDebounceTimer = null;
   }
+  if (host._viewReadyWatchHandle) {
+    try {
+      host._viewReadyWatchHandle.remove();
+    } catch {
+      /* ignore */
+    }
+    host._viewReadyWatchHandle = null;
+  }
   if (host._mapClickHandle) {
     try {
       host._mapClickHandle.remove();

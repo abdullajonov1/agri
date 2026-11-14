@@ -30,6 +30,12 @@ export const warmYearRegionMapImages = (host: LocalizationHost): void => {
       viloyat,
       loaded: count,
     });
+  }).catch((error: unknown) => {
+    agriLog("map:warm-year-region-layers:FAILED", {
+      yil,
+      viloyat,
+      error: errorMessage(error),
+    });
   });
 };
 

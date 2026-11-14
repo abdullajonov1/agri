@@ -219,6 +219,21 @@ describe("fetchData", () => {
     expect(host.state.loading).toBe(true);
     expect(layer.queryFeatures).not.toHaveBeenCalled();
   });
+  test("early-return call invalidates an in-flight table request", async () => {
+    let resolveQuery: (v: { features: unknown[] }) => void = () => undefined;
+    const layer = makeLayer({
+      queryFeatures: jest.fn(() => new Promise<{ features: unknown[] }>((r) => { resolveQuery = r; })),
+    });
+    const host = wired(connectedTable({ featureLayer: asLayer(layer) }));
+    const inFlight = dh.fetchData(host);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(layer.queryFeatures).toHaveBeenCalled();
+    host.setState({ connectionStatus: "idle" });
+    await dh.fetchData(host);
+    resolveQuery({ features: [{ attributes: { OID: 1, uniqueid: "old" } }] });
+    await inFlight;
+    expect(host.state.records).toEqual([]);
+  });
   test("missing layer reports an error", async () => {
     const host = wired(connectedTable());
     await dh.fetchData(host);

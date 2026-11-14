@@ -70,7 +70,10 @@ export async function loadBoundaryModules(): Promise<BoundaryModules> {
         Graphic: GraphicClass as typeof Graphic,
         IdentityManager: identityManager as typeof IdentityManager,
       }),
-    );
+    ).catch((err: unknown) => {
+      modulesPromise = null;
+      throw err;
+    });
   }
   return modulesPromise;
 }

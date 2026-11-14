@@ -9,7 +9,7 @@
  * f_inn, f_cad, region, district, yld, crop_id, year1, year2, year3).
  */
 import { escapeAgriValue } from "../data/agri-sql";
-import { combineAccessWhere } from "../shared/agri-access-config";
+import { combineAccessWhere, onAccessWhereChange } from "../shared/agri-access-config";
 import { getAgriServiceUrls } from "../shared/agri-service-urls";
 import {
   createSingletonLayerLoader,
@@ -319,6 +319,17 @@ let agriRegionDistrictMappingsPromise: Promise<
 > | null = null;
 let agriTuriCropMappingsPromise: Promise<AgriTuriCropMappingRow[]> | null =
   null;
+
+/** Drop cached mapping promises (they bake in the access WHERE). */
+export function resetAgriTableMappingCaches(): void {
+  agriRegionDistrictMappingsPromise = null;
+  agriTuriCropMappingsPromise = null;
+}
+
+// Guarded: tests may mock the access module without the listener registry.
+if (typeof onAccessWhereChange === "function") {
+  onAccessWhereChange(resetAgriTableMappingCaches);
+}
 
 /**
  * Distinct viloyat/region/tuman/district combinations from the full

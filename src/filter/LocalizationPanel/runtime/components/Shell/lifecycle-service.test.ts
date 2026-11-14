@@ -71,6 +71,15 @@ describe("componentDidMount", () => {
     componentWillUnmount(h);
   });
 
+  it("removes the pending view ready watch on unmount", () => {
+    const h = mk();
+    const remove = jest.fn();
+    h._viewReadyWatchHandle = { remove };
+    componentWillUnmount(h);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(h._viewReadyWatchHandle).toBeNull();
+  });
+
   it("resetAllFilters clears the selection and refreshes when connected", async () => {
     const h = mk({ state: { connectionStatus: "connected", yil: "2024", viloyat: "A", polygonMode: true } });
     componentDidMount(h);

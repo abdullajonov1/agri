@@ -188,6 +188,13 @@ describe("componentDidUpdate", () => {
 });
 
 describe("componentWillUnmount", () => {
+  it("removes the pending view ready watch handle", () => {
+    const remove = jest.fn();
+    const host = wired({}, { _viewReadyWatchHandle: { remove } });
+    lh.componentWillUnmount(host);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(host._viewReadyWatchHandle).toBeNull();
+  });
   test("tears down listeners, timers, observers and clears indicator", () => {
     const events: CustomEvent[] = [];
     const listener = (e: Event): void => {

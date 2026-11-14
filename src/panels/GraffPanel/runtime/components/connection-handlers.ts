@@ -95,7 +95,13 @@ export function retryMapConnection(host: GraffWidgetHost) {
   });
 }
 
+export const removeViewReadyWatch = (host: GraffWidgetHost): void => {
+  host._viewReadyWatchHandle?.remove();
+  host._viewReadyWatchHandle = null;
+};
+
 export const onActiveViewChange = (host: GraffWidgetHost, jimuMapView: JimuMapView) => {
+  removeViewReadyWatch(host);
   if (!jimuMapView) {
     host.detachMapHoverPrefetch();
     host.setState({
@@ -116,9 +122,11 @@ export const onActiveViewChange = (host: GraffWidgetHost, jimuMapView: JimuMapVi
         const readyWatch = jimuMapView.view.watch("ready", (isReady) => {
           if (isReady) {
             readyWatch.remove();
+            if (host._viewReadyWatchHandle === readyWatch) host._viewReadyWatchHandle = null;
             host.initializeMapConnection(jimuMapView);
           }
         });
+        host._viewReadyWatchHandle = readyWatch;
       }
     },
   );

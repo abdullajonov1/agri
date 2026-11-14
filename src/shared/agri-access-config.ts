@@ -452,10 +452,36 @@ const updateComputedAccess = (): void => {
     parseLockedRegionFromAccess(accessWhere);
 };
 
+const accessWhereListeners = new Set<() => void>();
+
+/** Subscribe to computed access WHERE changes (cache invalidation). */
+export const onAccessWhereChange = (listener: () => void): (() => void) => {
+  accessWhereListeners.add(listener);
+  return () => {
+    accessWhereListeners.delete(listener);
+  };
+};
+
+/** Short deterministic (djb2) hash of a string, base-36. */
+export const hashAccessString = (value: string): string => {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash * 33) ^ value.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(36);
+};
+
+/** Stable short hash of the current access WHERE. */
+export const getAccessWhereHash = (): string => hashAccessString(accessWhere);
+
 export const setAccessConfig = (config?: unknown): void => {
+  const previousWhere = accessWhere;
   accessConfigProvided = config != null;
   activeAccessConfig = normalizeAccessConfig(config);
   updateComputedAccess();
+  if (accessWhere !== previousWhere) {
+    accessWhereListeners.forEach((listener) => { listener(); });
+  }
 };
 
 export const getAccessWhere = (): string => accessWhere;

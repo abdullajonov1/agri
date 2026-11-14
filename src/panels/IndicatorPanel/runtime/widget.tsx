@@ -53,6 +53,7 @@ import {
   initializeMapConnectionOnce,
   onDataSourceCreated,
   onDataSourceInfoChange,
+  removeViewReadyWatch,
 } from "./components/map-handlers";
 import {
   buildWhereClause,
@@ -194,6 +195,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   refreshTimer: ReturnType<typeof setInterval> | null = null;
   _abortController: AbortController | null = null;
   _isMounted = false;
+  _viewReadyWatchHandle: { remove(): void } | null = null;
   _requestId = 0;
   _unbindMasterFilter: (() => void) | null = null;
   /** Timestamp of the last masterFilterChanged event — used to skip auto-refresh
@@ -390,6 +392,7 @@ export default class VegetationStatsWidget extends React.PureComponent<
   };
 
   componentWillUnmount() {
+    removeViewReadyWatch(this);
     componentWillUnmount(this);
   }
 

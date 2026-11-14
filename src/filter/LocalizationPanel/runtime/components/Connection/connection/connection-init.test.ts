@@ -37,6 +37,7 @@ import {
   initializeMapConnection,
   initializeMapConnectionOnce,
   onActiveViewChange,
+  removeViewReadyWatch,
   reassertPolygonGeographyFilter,
 } from "./connection-init";
 
@@ -141,6 +142,20 @@ describe("attachMapClickDispatcher", () => {
 });
 
 describe("onActiveViewChange", () => {
+  it("removes the previous ready watch when the active view changes again", () => {
+    const h = makeFakeHost({ attachMapClickDispatcher: jest.fn(), initializeMapConnection: jest.fn() });
+    const remove1 = jest.fn();
+    const remove2 = jest.fn();
+    const mk = (remove: jest.Mock): JimuMapView =>
+      asView({ view: { ready: false, watch: () => ({ remove }) } });
+    onActiveViewChange(h, mk(remove1));
+    expect(remove1).not.toHaveBeenCalled();
+    onActiveViewChange(h, mk(remove2));
+    expect(remove1).toHaveBeenCalledTimes(1);
+    expect(remove2).not.toHaveBeenCalled();
+    expect(h._viewReadyWatchHandle).toBeTruthy();
+  });
+
   it("clears map state when the view disappears", () => {
     const h = makeFakeHost();
     onActiveViewChange(h, null as unknown as JimuMapView);
@@ -177,8 +192,20 @@ describe("onActiveViewChange", () => {
     const cb = watch.mock.calls[0][1] as (r: boolean) => void;
     cb(false);
     expect(h.initializeMapConnection).not.toHaveBeenCalled();
+    expect(h._viewReadyWatchHandle).toBe(handle);
     cb(true);
     expect(h.initializeMapConnection).toHaveBeenCalledTimes(1);
+    expect(handle.remove).toHaveBeenCalled();
+    expect(h._viewReadyWatchHandle).toBeNull();
+  });
+
+  it("removeViewReadyWatch removes and clears the stored handle", () => {
+    const remove = jest.fn();
+    const h = makeFakeHost({ _viewReadyWatchHandle: { remove } });
+    removeViewReadyWatch(h);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(h._viewReadyWatchHandle).toBeNull();
+    expect(() => removeViewReadyWatch(h)).not.toThrow();
   });
 });
 

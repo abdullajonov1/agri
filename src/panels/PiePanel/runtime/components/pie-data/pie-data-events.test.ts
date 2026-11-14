@@ -203,6 +203,26 @@ describe("handleMasterFilterChange", () => {
     expect(host.state.turi).toBe("");
   });
 
+  it("a VH class change alone does not reload an unscoped pie (state still records it)", () => {
+    const host = makeHost();
+    handleMasterFilterChange(host, filterEvent({ filters: { vh: "3-O'rta", filterPieByVh: false, barCategoryValue: null } }));
+    expect(host.state.vh).toBe("3-O'rta");
+    expect(host.fetchCategoryData).not.toHaveBeenCalled();
+  });
+
+  it("an ndviDate change alone does not reload an unscoped pie", () => {
+    const host = makeHost();
+    handleMasterFilterChange(host, filterEvent({ filters: { ndviDate: "2026-06-01", filterPieByVh: false } }));
+    expect(host.state.ndviDate).toBe("2026-06-01");
+    expect(host.fetchCategoryData).not.toHaveBeenCalled();
+  });
+
+  it("a VH change still reloads a VH-scoped pie", () => {
+    const host = makeHost({ filterPieByVh: true, pieVhUniqueIdsSig: "SIG" });
+    handleMasterFilterChange(host, filterEvent({ filters: { vh: "2-Yaxshi", filterPieByVh: true, barCategoryValue: null } }));
+    expect(host.fetchCategoryData).toHaveBeenCalledTimes(1);
+  });
+
   it("bar/vh/language/filterPieByVh fields update state", () => {
     const host = makeHost({ barCategoryValue: "old" });
     handleMasterFilterChange(

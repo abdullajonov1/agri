@@ -9,6 +9,7 @@ import { matchGraffPolygonDashboardPack } from "../../../../data/agri-dashboard-
 import { getDashboardPack, patchDashboardPack } from "../../../../store/agri-dashboard-store";
 import type { VegetationIndex } from "../widget";
 import { getGraffPolygonSeriesCached } from "../../../../data/agri-stats-store";
+import { hasActiveVegetationOverlay, releaseIdleSurfaceLoading } from "../graff-raster-overlay";
 
 export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
   const { selecteduniqueid } = host.state;
@@ -148,7 +149,13 @@ export const fetchGraffVegetationData = async (host: GraffDataServiceHost) => {
           });
       host._pendingOverlayWalk = { uniqueid: cleanId, promise: walkPromise };
       void walkPromise.then((hit) => {
-        if (isStale() || !hit || !host.state.selecteduniqueid) return;
+        if (isStale() || !host.state.selecteduniqueid) return;
+        if (!hit) {
+          releaseIdleSurfaceLoading(host);
+          return;
+        }
+        // A day picked (or drawn) while the walk ran wins over the walk date.
+        if (hasActiveVegetationOverlay(host)) return;
         void host.applyVegetationImageOverlay(
           host.state.selecteduniqueid,
           hit.date,

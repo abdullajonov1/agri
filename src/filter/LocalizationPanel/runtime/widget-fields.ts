@@ -37,6 +37,7 @@ export abstract class LocalizationWidgetFields extends React.PureComponent<
   _dataSourceInfoDebounceTimer: TimerHandle | null = null;
   _isMounted = false;
   _mapClickHandle: __esri.Handle | null = null;
+  _viewReadyWatchHandle: { remove(): void } | null = null;
   _mapInteractionHandle: __esri.Handle | null = null;
   /** Re-checks MapImage visibility/DE after popup identify + goTo settle. */
   _polygonFilterGuardTimers: ReturnType<typeof setTimeout>[] = [];

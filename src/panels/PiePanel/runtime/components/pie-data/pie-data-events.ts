@@ -97,13 +97,19 @@ export const handleMasterFilterChange = (host: PieWidgetHost, event: Event) => {
     nextLockedViloyat !== host.state.lockedViloyat ||
     nextFarmerInn !== host.state.farmerInn;
 
+  // The VH class and its calendar date only change the pie when the pie is
+  // VH-scoped (never by default): otherwise a VH click must not reload it.
+  const vhScoped = nextFilterPieByVh || host.state.filterPieByVh;
+  const vhScopeChanged =
+    vhScoped &&
+    (nextVh !== host.state.vh ||
+      nextNdviDate !== host.state.ndviDate ||
+      nextPieVhUniqueIdsSig !== host.state.pieVhUniqueIdsSig);
   const barSelectionChanged =
     nextBarField !== host.state.barCategoryField ||
     nextBarValue !== host.state.barCategoryValue ||
-    nextVh !== host.state.vh ||
-    nextNdviDate !== host.state.ndviDate ||
     nextFilterPieByVh !== host.state.filterPieByVh ||
-    nextPieVhUniqueIdsSig !== host.state.pieVhUniqueIdsSig;
+    vhScopeChanged;
 
   const languageChanged = nextLanguage !== host.state.language;
   const cropSelectionChanged =
@@ -115,6 +121,10 @@ export const handleMasterFilterChange = (host: PieWidgetHost, event: Event) => {
     !languageChanged &&
     !cropSelectionChanged
   ) {
+    // Keep vh / ndviDate in sync for later scoped fetches, without reloading.
+    if (nextVh !== host.state.vh || nextNdviDate !== host.state.ndviDate) {
+      host.setState({ vh: nextVh, ndviDate: nextNdviDate });
+    }
     return;
   }
 

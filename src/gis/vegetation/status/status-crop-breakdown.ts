@@ -1,5 +1,5 @@
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
-import { type VegetationCropBreakdownParams, type VegetationCropBreakdownRow, buildVegetationCropScopeWhere, vegetationCropBreakdownCache, getAgriVegetationIndicesLayer, VEG_STATUS_ROW_MAX_PAGES, VEG_STATUS_ROW_PAGE_SIZE, queryVegFeatures, agriVegetationLog, VEG_PIXEL_AREA_HA, type VegQuery } from "../veg-base";
+import { vegAccessCacheTag, type VegetationCropBreakdownParams, type VegetationCropBreakdownRow, buildVegetationCropScopeWhere, vegetationCropBreakdownCache, getAgriVegetationIndicesLayer, VEG_STATUS_ROW_MAX_PAGES, VEG_STATUS_ROW_PAGE_SIZE, queryVegFeatures, agriVegetationLog, VEG_PIXEL_AREA_HA, type VegQuery } from "../veg-base";
 
 /**
  * Crop mix (by crop_id) for one VH status + date + region/district — same
@@ -15,7 +15,7 @@ export async function queryVegetationCropBreakdownForStatus(
   if (!status || !params.date) return [];
 
   const where = buildVegetationCropScopeWhere(params, status);
-  const cacheKey = where;
+  const cacheKey = `${where}${vegAccessCacheTag()}`;
   const cached = vegetationCropBreakdownCache.get(cacheKey);
   if (cached) return cached;
 

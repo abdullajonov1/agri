@@ -1,3 +1,4 @@
+import type { GraffIndexKey } from "./graff-graph-constants";
 import type { JimuMapView } from "jimu-arcgis";
 import type { AllWidgetProps, QueriableDataSource } from "jimu-core";
 import type { RegionalTimeseriesRow } from "./graff-timeseries-helpers";
@@ -129,7 +130,7 @@ export interface AgriGraffWidgetState {
     chartAnimKey: number;
     selectedIndices: VegetationIndiceType[];
     chartTooltip: {
-        indexKey: "ndvi" | "savi" | "rvi" | "ci" | "evi" | "ndwi";
+        indexKey: GraffIndexKey;
         point: {
             date: Date;
             value: number;

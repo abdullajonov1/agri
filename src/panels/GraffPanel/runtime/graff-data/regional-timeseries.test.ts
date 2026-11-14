@@ -126,6 +126,14 @@ describe("fetchGraffRegionalTimeseries guards", () => {
 });
 
 describe("fetchGraffRegionalTimeseries data", () => {
+  test("does not send ndviStatus to the regional query when vh is set", async () => {
+    mockQueryMerged.mockResolvedValue([row("2024-01-01", 0.3)]);
+    const host = makeHost({ regionalFilters: { ...baseFilters, vh: "3-O'rta" } });
+    await fetchGraffRegionalTimeseries(host);
+    expect(mockQueryMerged).toHaveBeenCalledTimes(1);
+    expect(mockQueryMerged.mock.calls[0][0]).not.toHaveProperty("ndviStatus");
+  });
+
   test("republic scope queries selected avg fields and applies sorted rows", async () => {
     mockQueryMerged.mockResolvedValue([row("2024-03-01", 0.5), row("2024-01-01", 0.3)]);
     const host = makeHost({ selectedIndices: ["ndvi", "savi"] });
@@ -148,7 +156,7 @@ describe("fetchGraffRegionalTimeseries data", () => {
     expect(args.region).toBe(1724);
     expect(args.avgFields).toBeUndefined();
     expect(args.cropIds).toEqual(["7"]);
-    expect(host._regionalTimeseriesLoadedAvgFields.size).toBe(6);
+    expect(host._regionalTimeseriesLoadedAvgFields.size).toBe(7);
   });
 
   test("numeric viloyat and stored district code are used", async () => {
@@ -171,6 +179,19 @@ describe("fetchGraffRegionalTimeseries data", () => {
     await fetchGraffRegionalTimeseries(host);
     expect(mockQueryMerged).toHaveBeenCalledTimes(1);
     expect(host.state.loadingVegetation).toBe(false);
+  });
+
+  test("a present-but-null ndre column counts as loaded and does not refetch", async () => {
+    mockQueryMerged.mockResolvedValue([{ date: "2024-01-01", ndvi: 0.3, ndre: null, polygon_count: 2 }]);
+    const host = makeHost({ selectedIndices: ["ndvi", "ndre"] });
+    await fetchGraffRegionalTimeseries(host);
+    expect(host._regionalTimeseriesLoadedAvgFields.has("ndre")).toBe(true);
+    host.state = {
+      ...host.state,
+      vegetationData: [{ raster_date: "2024-01-01", ndre: null }] as unknown as AgriGraffWidgetState["vegetationData"],
+    };
+    await fetchGraffRegionalTimeseries(host);
+    expect(mockQueryMerged).toHaveBeenCalledTimes(1);
   });
 
   test("augments existing republic series with missing index", async () => {
@@ -199,7 +220,24 @@ describe("fetchGraffRegionalTimeseries data", () => {
       cropIds: [],
       startDate: "2024-01-01",
       endDate: "2024-12-31",
-      vh: "",
+    });
+    mockGetDashboardPack.mockReturnValue({
+      phase: "ready",
+      graff: { scopeKey, rows: [row("2024-05-01", 0.6)] },
+    });
+    await fetchGraffRegionalTimeseries(host);
+    expect(mockQueryMerged).not.toHaveBeenCalled();
+    expect((host.applyGraphData as jest.Mock).mock.calls[0][0]).toHaveLength(1);
+  });
+
+  test("uses dashboard pack rows when vh is set", async () => {
+    const host = makeHost({ regionalFilters: { ...baseFilters, vh: "3-O'rta" } });
+    const scopeKey = JSON.stringify({
+      region: null,
+      district: null,
+      cropIds: [],
+      startDate: "2024-01-01",
+      endDate: "2024-12-31",
     });
     mockGetDashboardPack.mockReturnValue({
       phase: "ready",

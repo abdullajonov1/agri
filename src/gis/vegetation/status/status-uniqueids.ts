@@ -1,4 +1,5 @@
 import type { VegetationUniqueIdsForStatusParams } from "../veg-base";
+import { queryFieldStatusUniqueIds } from "./field-status-summary";
 import { queryVegetationLatestStatusSummary } from "./status-latest-window";
 
 /**
@@ -14,6 +15,25 @@ export async function queryVegetationUniqueIdsForStatus(
     .trim()
     .toLowerCase();
   if (!status || !params.date) return [];
+
+  if (params.useYearSummary && !(params.uniqueIds && params.uniqueIds.length)) {
+    const year = Number(String(params.date).slice(0, 4));
+    const cropIds = Array.from(
+      new Set(
+        [...(params.cropIds || []), params.cropId]
+          .map((c) => String(c ?? "").trim())
+          .filter(Boolean),
+      ),
+    );
+    const ids = await queryFieldStatusUniqueIds({
+      year,
+      region: params.region,
+      district: params.district,
+      cropIds,
+      ndviStatus: status,
+    });
+    if (ids) return ids;
+  }
 
   const summary = await queryVegetationLatestStatusSummary(params);
   const row = summary.rows.find((r) => r.ndvi_status === status);

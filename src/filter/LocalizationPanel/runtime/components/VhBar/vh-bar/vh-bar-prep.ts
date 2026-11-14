@@ -7,6 +7,11 @@ import { syncMasterFilterSnapshot } from "../../../../../../data/agri-filter-sto
 import { resolveRegionNumberFromMaps, resolveDistrictNumberFromMaps, buildVhUniqueIdCacheKey } from "../../../../../localization/resolve-geo-codes";
 import { queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-vegetation-data-source";
 
+/** True when the VH bar reads the year summary (no locked day, no STIR farmer). */
+export const isVhYearSummaryScope = (host: LocalizationHost): boolean =>
+  !(host.state.ndviDateLocked && String(host.state.ndviDate || "").trim()) &&
+  !String(host.state.selectedFarmerInn || "").trim();
+
 /** Max entries kept in `_vhUniqueIdCache` (oldest inserted dropped first). */
 export const VH_UNIQUEID_CACHE_MAX = 96;
 /**
@@ -339,6 +344,7 @@ export const prefetchVhStatusUniqueIds = (host: LocalizationHost, ndviDate: stri
         date,
         ndviStatus: status,
         cropIds: cropIds.length ? cropIds : undefined,
+        useYearSummary: isVhYearSummaryScope(host),
       })
         .then((ids) => {
           if (!host._isMounted) return;

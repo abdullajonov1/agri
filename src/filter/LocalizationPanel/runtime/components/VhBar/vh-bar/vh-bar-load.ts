@@ -2,6 +2,7 @@ import type { LocalizationConfig, LocalizationHost } from "../../host";
 import { featureAttributes } from "../../../../../localization/agri-map-layer";
 import { buildVhUniqueIdCacheKey } from "../../../../../localization/resolve-geo-codes";
 import { queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-vegetation-data-source";
+import { isVhYearSummaryScope } from "./vh-bar-prep";
 import { agriLog } from "../../localization-log";
 import { VH_TO_NDVI_STATUS } from "../../../../../localization/vh-constants";
 import { escapeArcGIS } from "../../../../../../data/agri-sql";
@@ -47,6 +48,7 @@ export const resolveVhRegionChartUniqueIdsBackground = async (
         date: params.ndviDate,
         ndviStatus: params.status,
         cropIds: params.cropIds.length ? params.cropIds : undefined,
+        useYearSummary: isVhYearSummaryScope(host),
       });
       if (!stillOk()) return;
       host.setVhUniqueIdCacheEntry(cacheKey, ids);

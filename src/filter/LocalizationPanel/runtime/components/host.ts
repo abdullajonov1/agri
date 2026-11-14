@@ -211,6 +211,7 @@ export interface LocalizationHost {
   _initialDataLoadPromise: Promise<void> | null;
   _layerToViloyatKeys: Record<string, string[]>;
   _mapClickHandle: __esri.Handle | null;
+  _viewReadyWatchHandle?: { remove(): void } | null;
   _mapConnectionPromise: Promise<void> | null;
   _mapInteractionHandle: __esri.Handle | null;
   _primaryDataSourceId: string | null;

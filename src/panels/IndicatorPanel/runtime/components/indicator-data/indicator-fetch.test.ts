@@ -183,7 +183,52 @@ describe("fetchData routing", () => {
     const { host } = setup({ selectedVegetationStatus: "Alo", vhUniqueids: null });
     await fetchData(host);
     expect(host.state.loading).toBe(true);
-    expect(host._requestId).toBe(0);
+    expect(host._requestId).toBe(1);
+  });
+
+  describe("invalidates in-flight request on early-return states", () => {
+    const startInFlight = (extra: Partial<IndicatorWidgetHost> = {}) => {
+      let resolve: (v: unknown) => void = () => undefined;
+      const layer = makeLayer({ agg: 9 });
+      layer.queryFeatures.mockImplementation(() => new Promise((r) => { resolve = r; }));
+      const ctx = setup({}, {}, { _canonicalFeatureLayer: asLayer(layer), ...extra });
+      const p = fetchData(ctx.host);
+      return { ...ctx, p, resolve: () => resolve({ features: [{ attributes: { agg: 9 } }] }) };
+    };
+
+    it("year not published: stale result is ignored and controller aborted", async () => {
+      const { host, p, resolve } = startInFlight();
+      await Promise.resolve();
+      const ctrl = host._abortController as AbortController;
+      host.shouldFetchForViloyat = () => false;
+      await fetchData(host);
+      resolve();
+      await p;
+      expect(ctrl.signal.aborted).toBe(true);
+      expect(host.state.vegetationArea).toBeNull();
+      expect(host.state.loading).toBe(true);
+    });
+
+    it("VH ids pending: stale result is ignored", async () => {
+      const { host, p, resolve } = startInFlight();
+      await Promise.resolve();
+      host.state = { ...host.state, selectedVegetationStatus: "Alo", vhUniqueids: null };
+      await fetchData(host);
+      resolve();
+      await p;
+      expect(host.state.vegetationArea).toBeNull();
+      expect(host.state.loading).toBe(true);
+    });
+
+    it("groupByField: stale result is ignored", async () => {
+      const { host, p, resolve } = startInFlight();
+      await Promise.resolve();
+      (host.props as unknown as { config: IndicatorConfig }).config = { groupByField: "turi" };
+      await fetchData(host);
+      resolve();
+      await p;
+      expect(host.state.vegetationArea).toBeNull();
+    });
   });
 
   it("uses grouped stats when groupByField is configured", async () => {

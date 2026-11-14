@@ -35,6 +35,7 @@ const INDEX_COLORS: Record<string, string> = {
   ci: "#c78bff",
   evi: "#ff4d8d",
   ndwi: "#2ec4f1",
+  ndre: "#a39400",
 };
 
 interface State {

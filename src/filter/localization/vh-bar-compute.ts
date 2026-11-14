@@ -8,6 +8,7 @@
 import type { ChartFilterFlags } from "../../gis/agri-chart-filter-order";
 import { queryVegetationAvailableDates } from "../../gis/agri-vegetation-data-source";
 import { getVhBarLatestStatusCountsCached } from "../../data/agri-stats-store";
+import { queryStatusCountsSummary } from "../../gis/vegetation/status/status-counts-summary";
 import { aggregateVhServiceRows, buildEmptyVhBarData } from "./vh-bar-aggregate";
 import type { VHBarData } from "./vh-constants";
 import { errorMessage } from "../../shared/agri-plain-object";
@@ -45,6 +46,76 @@ export type VhBarComputeDeps = {
   /** Header STIR selection — uniqueids of that farmer's parcels. */
   farmerUniqueIds?: string[] | null;
 };
+
+type VhBarCountsArgs = {
+  year: number;
+  region: number | undefined;
+  district: number | undefined;
+  date: string;
+  cropIds: string[] | undefined;
+  uniqueIds: string[] | undefined;
+};
+
+/** Status-counts summary first (null / failure → the per-crop window scan). */
+function loadVhBarCounts(useSummary: boolean, args: VhBarCountsArgs) {
+  const summaryPromise = useSummary
+    ? queryStatusCountsSummary({
+        year: args.year,
+        region: args.region,
+        district: args.district,
+        cropIds: args.cropIds,
+      }).catch(() => null)
+    : Promise.resolve(null);
+  return summaryPromise.then((summary) =>
+    summary
+      ? { counts: summary, fromSummary: true }
+      : getVhBarLatestStatusCountsCached({
+          region: args.region,
+          district: args.district,
+          date: args.date,
+          cropIds: args.cropIds,
+          uniqueIds: args.uniqueIds,
+        }).then((counts) => ({ counts, fromSummary: false })),
+  );
+}
+
+type DatesScope = { selectedYear: string; republic: boolean; locked: boolean };
+
+function filterYearDates(
+  raw: readonly string[] | null | undefined,
+  selectedYear: string,
+): string[] {
+  return (raw || []).filter((date) => String(date).startsWith(`${selectedYear}-`));
+}
+
+function publishUsedDate(
+  deps: VhBarComputeDeps,
+  usedDate: string | null,
+  scope: { republic: boolean; locked: boolean },
+): void {
+  deps.setVhBarUsedDate(usedDate);
+  if (!usedDate || scope.republic) return;
+  deps.prefetchVhStatusUniqueIds(usedDate);
+  if (!scope.locked && deps.state.ndviDate !== usedDate) {
+    deps.setState({ ndviDate: usedDate });
+  }
+}
+
+/** Background continuation of the summary path once the calendar dates arrive. */
+function applySummaryDates(
+  deps: VhBarComputeDeps,
+  raw: readonly string[] | null | undefined,
+  scope: DatesScope,
+): void {
+  if (!deps.isMounted()) return;
+  const knownDates = filterYearDates(raw, scope.selectedYear);
+  if (knownDates.length) deps.setState({ ndviDateOptions: knownDates });
+  const usedDate = knownDates.reduce<string | null>(
+    (max, date) => (max === null || String(date) > max ? String(date) : max),
+    null,
+  );
+  publishUsedDate(deps, usedDate, scope);
+}
 
 export async function executeVhBarCompute(
   deps: VhBarComputeDeps,
@@ -158,36 +229,43 @@ export async function executeVhBarCompute(
           district: districtNum,
         }).catch(() => [] as string[]);
 
-    const [counts, knownDatesRaw] = await Promise.all([
-      getVhBarLatestStatusCountsCached({
-        region: republic ? undefined : regionNum,
-        district: republic ? undefined : districtNum,
-        date: endBound,
-        cropIds: cropFilter,
-        uniqueIds: farmerFilter,
-      }),
-      datesPromise,
-    ]);
+    const useSummary = !locked && !farmerFilter;
+    const { counts, fromSummary } = await loadVhBarCounts(useSummary, {
+      year: Number(selectedYear),
+      region: republic ? undefined : regionNum,
+      district: republic ? undefined : districtNum,
+      date: endBound,
+      cropIds: cropFilter,
+      uniqueIds: farmerFilter,
+    });
+    // Old scan path keeps waiting for the calendar; the summary path never does.
+    const knownDatesRaw = fromSummary ? null : await datesPromise;
     if (!deps.isMounted()) return null;
 
-    const knownDates = (knownDatesRaw || []).filter((date) =>
-      String(date).startsWith(`${selectedYear}-`),
-    );
-    if (knownDates.length) deps.setState({ ndviDateOptions: knownDates });
-
     const result = aggregateVhServiceRows(counts.rows);
+    if (fromSummary) {
+      void datesPromise
+        .then((raw) =>
+          { applySummaryDates(deps, raw, { selectedYear, republic, locked }); },
+        )
+        .catch((error) =>
+          { deps.log("computeVhBarData:summary-dates-failed", {
+            error: errorMessage(error),
+          }); },
+        );
+    }
+    if (!fromSummary) {
+      const knownDates = filterYearDates(knownDatesRaw, selectedYear);
+      if (knownDates.length) deps.setState({ ndviDateOptions: knownDates });
+    }
     if (result.totalCount <= 0) {
       deps.setVhBarUsedDate(null);
       return zeroResult;
     }
 
-    const usedDate = counts.endDate || null;
-    deps.setVhBarUsedDate(usedDate);
-    if (usedDate && !republic) {
-      deps.prefetchVhStatusUniqueIds(usedDate);
-      if (!locked && deps.state.ndviDate !== usedDate) {
-        deps.setState({ ndviDate: usedDate });
-      }
+    const usedDate = fromSummary ? null : counts.endDate || null;
+    if (!fromSummary) {
+      publishUsedDate(deps, usedDate, { republic, locked });
     }
 
     deps.log(republic ? "computeVhBarData:republic-result" : "computeVhBarData:region-result", {
@@ -197,6 +275,7 @@ export async function executeVhBarCompute(
       district: republic ? null : districtNum ?? null,
       cropIds: cropFilter || null,
       lockedDate: locked ? forcedNdvi : null,
+      fromSummary,
       windowStart: counts.startDate || null,
       windowEnd: usedDate,
       totalAreaHa: result.totalCount,

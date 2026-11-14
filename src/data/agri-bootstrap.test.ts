@@ -6,7 +6,12 @@ jest.mock("../gis/agri-table-data-source", () => ({
   queryAgriTuriCropMappings: (): Promise<unknown> => turiMappingsMock(),
 }));
 
-import { clearAgriDashboardBootstrapCache, getAgriDashboardBootstrap } from "./agri-bootstrap";
+import { setAccessConfig } from "../shared/agri-access-config";
+import {
+  clearAgriDashboardBootstrapCache,
+  getAgriBootstrapKey,
+  getAgriDashboardBootstrap,
+} from "./agri-bootstrap";
 
 const REGION_ROWS = [{ viloyat: "A", region: 1, tuman: "B", district: 2, count: 1 }];
 const TURI_ROWS = [{ turi: "Paxta", cropId: "7" }];
@@ -57,6 +62,36 @@ describe("getAgriDashboardBootstrap", () => {
     turiMappingsMock.mockResolvedValue(TURI_ROWS);
     await getAgriDashboardBootstrap();
     clearAgriDashboardBootstrapCache();
+    await getAgriDashboardBootstrap();
+    expect(regionMappingsMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("access-aware bootstrap", () => {
+  const restricted = {
+    fullAccessGroups: [],
+    rules: [{ field: "viloyat", rules: [{ groups: ["g1"], include: ["Andijon"] }] }],
+  };
+
+  test("different access WHERE gives a different key with the v3 prefix", () => {
+    setAccessConfig({ fullAccessGroups: [], rules: [] });
+    const open = getAgriBootstrapKey();
+    setAccessConfig(restricted);
+    const locked = getAgriBootstrapKey();
+    expect(open).toMatch(/^mappings-v3-/);
+    expect(locked).toMatch(/^mappings-v3-/);
+    expect(locked).not.toBe(open);
+  });
+
+  test("changing access re-queries; same access does not", async () => {
+    setAccessConfig({ fullAccessGroups: [], rules: [] });
+    regionMappingsMock.mockResolvedValue(REGION_ROWS);
+    turiMappingsMock.mockResolvedValue(TURI_ROWS);
+    await getAgriDashboardBootstrap();
+    setAccessConfig({ fullAccessGroups: [], rules: [] });
+    await getAgriDashboardBootstrap();
+    expect(regionMappingsMock).toHaveBeenCalledTimes(1);
+    setAccessConfig(restricted);
     await getAgriDashboardBootstrap();
     expect(regionMappingsMock).toHaveBeenCalledTimes(2);
   });

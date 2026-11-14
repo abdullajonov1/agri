@@ -1,3 +1,4 @@
+import type { GraffIndexKey } from "./graff-graph-constants";
 // Enhanced Kadastr Status Widget - Fixed Regional Filtering + Graph View
 import { type JimuMapView } from "jimu-arcgis";
 import { type DataSource, React, type ImmutableObject, type UseDataSource } from "jimu-core";
@@ -40,6 +41,7 @@ _onReset: () => void;
 initializationTimer: TimerHandle | null = null;
 _retryTimeout: TimerHandle | null = null;
 _isMounted: boolean = false;
+_viewReadyWatchHandle: { remove(): void } | null = null;
 _unbindMasterFilter: (() => void) | null = null;
     /** MapView and fallback startup share one filter-options request batch. */
 _filterOptionsPromise: Promise<void> | null = null;
@@ -688,7 +690,7 @@ preparePolygonGraphSeries = (rows: VegetationIndex[], availableDates: string[]):
         return preparePolygonGraphSeries(this, rows, availableDates);
     };
 fetchVegetationData = () => fetchGraffVegetationData(this);
-handleIndexChange = (index: "ndvi" | "savi" | "rvi" | "ci" | "evi" | "ndwi") => {
+handleIndexChange = (index: GraffIndexKey) => {
         handleIndexChange(this, index);
     };
 handleToggleAllIndices = () => {

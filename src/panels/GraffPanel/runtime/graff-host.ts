@@ -1,3 +1,4 @@
+import type { GraffIndexKey } from "./graff-graph-constants";
 import type { JimuMapView } from "jimu-arcgis";
 import type Extent from "esri/geometry/Extent";
 import type FeatureLayer from "esri/layers/FeatureLayer";
@@ -37,6 +38,7 @@ export interface GraffWidgetHost {
   scheduleGraphViewportRefresh: () => void;
   monthPickerRef: React.RefObject<HTMLDivElement>;
   _isMounted: boolean;
+  _viewReadyWatchHandle?: { remove(): void } | null;
   syncExternalPolygonSelection: (uniqueid: string, polygonMode: boolean, regionIdHint?: number | null, clickedAt?: number) => void;
   _lastSuccessfulOverlayDate: string;
   _lastSuccessfulOverlayRegionId: number;
@@ -44,11 +46,12 @@ export interface GraffWidgetHost {
   resolveCurrentRegionId: () => number | undefined;
   resolveCurrentYear: () => number | undefined;
   getCarriedOverlayDate: (regionId: number | undefined, year: number | undefined) => string | null;
-  _lastSuccessfulOverlayIndex: "ndvi" | "savi" | "evi" | "rvi" | "ci" | "ndwi" | "ndre";
+  _lastSuccessfulOverlayIndex: GraffIndexKey;
   _optimisticDateBeforeClear: string;
   _latestRasterDateByUniqueid: Map<string, string>;
   _verifiedOverlayDates: Set<string>;
   beginVegetationImageSurfaceLoading: () => void;
+  clearVegetationImageSurfaceLoading: (requestId: number) => void;
   markOverlayDateVerified: (cleanId: string, date: string) => void;
   applyVegetationImageOverlay: (uniqueid: string, rasterDate: string, indiceType?: VegetationIndiceType, prefetched?: PolygonExportImageResult | null) => Promise<void>;
   _pendingOverlayWalk: { uniqueid: string; promise: Promise<{ date: string; result?: PolygonExportImageResult; } | null>; };
@@ -155,7 +158,7 @@ export interface GraffWidgetHost {
   switchToGraph: () => void;
   isRegionalInteractionEnabled: () => boolean;
   handleToggleAllIndices: () => void;
-  handleIndexChange: (index: "ndvi" | "savi" | "rvi" | "ci" | "evi" | "ndwi") => void;
+  handleIndexChange: (index: GraffIndexKey) => void;
   renderGraphLegend: () => React.JSX.Element;
   renderViewModeToggle: (activeMode: "table" | "graph") => React.JSX.Element;
   renderGraphHeader: () => React.JSX.Element;

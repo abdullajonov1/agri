@@ -18,6 +18,12 @@ jest.mock("../../data/agri-stats-store", () => ({
   getVhBarLatestStatusCountsCached: (a: Record<string, unknown>) => mockCounts(a),
 }));
 
+const mockSummary = jest.fn<Promise<CountsResult | null>, [Record<string, unknown>]>();
+
+jest.mock("../../gis/vegetation/status/status-counts-summary", () => ({
+  queryStatusCountsSummary: (a: Record<string, unknown>) => mockSummary(a),
+}));
+
 import { executeVhBarCompute, type VhBarComputeDeps } from "./vh-bar-compute";
 import { makeRegionDistrictKey, normalizeLocalizationApos } from "./geo-keys";
 
@@ -58,8 +64,122 @@ function makeDeps(overrides: Partial<VhBarComputeDeps> = {}): VhBarComputeDeps {
   };
 }
 
+const flush = async (): Promise<void> => {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+};
+
 beforeEach(() => {
   jest.resetAllMocks();
+  mockSummary.mockResolvedValue(null);
+});
+
+describe("executeVhBarCompute status-counts summary", () => {
+  const buxoro = { viloyat: "Buxoro", lockedViloyat: null, tuman: "", yil: "2025" };
+
+  test("unlocked viloyat builds the bar from summary rows", async () => {
+    mockQueryDates.mockResolvedValue(["2025-09-20", "2025-09-30", "2025-09-10"]);
+    mockSummary.mockResolvedValue(counts([row("yaxshi", 70, 7)]));
+    const deps = makeDeps({ state: buxoro });
+    const out = await executeVhBarCompute(deps);
+    expect(mockSummary).toHaveBeenCalledWith({
+      year: 2025,
+      region: 3,
+      district: undefined,
+      cropIds: undefined,
+    });
+    expect(mockCounts).not.toHaveBeenCalled();
+    expect(areaOf(out)["2-Yaxshi"]).toBe(70);
+    await flush();
+    expect(deps.setState).toHaveBeenCalledWith({ ndviDate: "2025-09-30" });
+    expect(deps.setVhBarUsedDate).toHaveBeenCalledWith("2025-09-30");
+  });
+
+  test("summary resolves the bar while calendar dates are still pending", async () => {
+    let resolveDates: (d: string[]) => void = () => undefined;
+    mockQueryDates.mockReturnValue(new Promise<string[]>((r) => (resolveDates = r)));
+    mockSummary.mockResolvedValue(counts([row("yaxshi", 70, 7)]));
+    const deps = makeDeps({ state: buxoro });
+    const out = await executeVhBarCompute(deps);
+    expect(areaOf(out)["2-Yaxshi"]).toBe(70);
+    expect(deps.setState).not.toHaveBeenCalled();
+    expect(deps.setVhBarUsedDate).not.toHaveBeenCalled();
+    resolveDates(["2025-09-20", "2025-09-30"]);
+    await flush();
+    expect(deps.setState).toHaveBeenCalledWith({ ndviDateOptions: ["2025-09-20", "2025-09-30"] });
+    expect(deps.setState).toHaveBeenCalledWith({ ndviDate: "2025-09-30" });
+    expect(deps.setVhBarUsedDate).toHaveBeenCalledWith("2025-09-30");
+    expect(deps.prefetchVhStatusUniqueIds).toHaveBeenCalledWith("2025-09-30");
+  });
+
+  test("unmounted before dates resolve makes no setState", async () => {
+    let resolveDates: (d: string[]) => void = () => undefined;
+    mockQueryDates.mockReturnValue(new Promise<string[]>((r) => (resolveDates = r)));
+    mockSummary.mockResolvedValue(counts([row("yaxshi", 70, 7)]));
+    let mounted = true;
+    const deps = makeDeps({ state: buxoro, isMounted: () => mounted });
+    await executeVhBarCompute(deps);
+    mounted = false;
+    resolveDates(["2025-09-30"]);
+    await flush();
+    expect(deps.setState).not.toHaveBeenCalled();
+    expect(deps.setVhBarUsedDate).not.toHaveBeenCalled();
+  });
+
+  test("old scan path still waits for the dates", async () => {
+    let resolveDates: (d: string[]) => void = () => undefined;
+    mockQueryDates.mockReturnValue(new Promise<string[]>((r) => (resolveDates = r)));
+    mockCounts.mockResolvedValue(counts([row("past", 5)]));
+    const deps = makeDeps({ state: buxoro });
+    let settled = false;
+    const pending = executeVhBarCompute(deps).then((o) => {
+      settled = true;
+      return o;
+    });
+    await flush();
+    expect(settled).toBe(false);
+    resolveDates(["2025-09-30"]);
+    const out = await pending;
+    expect(areaOf(out)["4-Past"]).toBe(5);
+    expect(deps.setState).toHaveBeenCalledWith({ ndviDate: "2025-09-30" });
+  });
+
+  test("null summary falls back to the old scan", async () => {
+    mockQueryDates.mockResolvedValue([]);
+    mockCounts.mockResolvedValue(counts([row("past", 5)]));
+    const out = await executeVhBarCompute(makeDeps({ state: buxoro }));
+    expect(mockCounts).toHaveBeenCalledTimes(1);
+    expect(areaOf(out)["4-Past"]).toBe(5);
+  });
+
+  test("locked calendar day skips the summary", async () => {
+    mockQueryDates.mockResolvedValue([]);
+    mockCounts.mockResolvedValue(counts([row("past", 5)], "2025-07-01"));
+    await executeVhBarCompute(
+      makeDeps({ state: { ...buxoro, ndviDate: "2025-07-01", ndviDateLocked: true } }),
+    );
+    expect(mockSummary).not.toHaveBeenCalled();
+    expect(mockCounts).toHaveBeenCalledTimes(1);
+  });
+
+  test("farmer filter skips the summary", async () => {
+    mockQueryDates.mockResolvedValue([]);
+    mockCounts.mockResolvedValue(counts([row("past", 5)]));
+    await executeVhBarCompute(makeDeps({ state: buxoro, farmerUniqueIds: ["u1"] }));
+    expect(mockSummary).not.toHaveBeenCalled();
+  });
+
+  test("republic unlocked calls the summary without region", async () => {
+    mockSummary.mockResolvedValue(counts([row("orta", 9)]));
+    const out = await executeVhBarCompute(makeDeps());
+    expect(mockSummary).toHaveBeenCalledWith({
+      year: 2025,
+      region: undefined,
+      district: undefined,
+      cropIds: undefined,
+    });
+    expect(mockCounts).not.toHaveBeenCalled();
+    expect(areaOf(out)["3-O'rta"]).toBe(9);
+  });
 });
 
 describe("executeVhBarCompute early exits", () => {

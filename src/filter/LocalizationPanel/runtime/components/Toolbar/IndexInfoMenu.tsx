@@ -143,6 +143,27 @@ export const INDEX_INFO: Array<{
       uz_cyr: "Иккита версияси мавжуд: сув сатҳларини тасвирларда ажратиб кўрсатиш учун яшил (Green) ва NIR канaлларига асосланган, ва ўсимлик тўқималаридаги намлик миқдорини баҳолаш учун NIR ва қисқа тўлқинли инфрақизил (SWIR) канaлларига асосланган. Қишлоқ хўжалигида кўпинча иккинчи версия қўлланилади — у баргларда сув танқислигини кўзга кўринадиган сўлиш белгиларидан олдинроқ аниқлай олади, бу эса уни суғоришни режалаштириш, қурғоқчиликни эрта аниқлаш ва аниқ далаларда ирригация тизимлари самарадорлигини баҳолаш учун фойдали қилади.",
     },
   },
+  {
+    key: "NDRE",
+    color: "#a39400",
+    en: "Red-edge index: tracks leaf chlorophyll and nitrogen, still sensitive when NDVI saturates in dense crops.",
+    ru: "Индекс красного края: отражает хлорофилл и азот в листьях, остаётся чувствительным, когда NDVI насыщается в густых посевах.",
+    uz_lat: "Qizil chekka indeksi: bargdagi xlorofill va azotni ko‘rsatadi, zich ekinlarda NDVI to‘yinganda ham sezgir qoladi.",
+    uz_cyr: "Қизил чекка индекси: баргдаги хлорофилл ва азотни кўрсатади, зич экинларда NDVI тўйинганда ҳам сезгир қолади.",
+    formula: "NDRE = (NIR − RedEdge) / (NIR + RedEdge)",
+    range: {
+      en: "From -1 to 1; crops usually 0.2–0.6, higher means more chlorophyll.",
+      ru: "От −1 до 1; посевы обычно 0.2–0.6, выше — больше хлорофилла.",
+      uz_lat: "−1 dan 1 gacha; ekinlarda odatda 0.2–0.6, yuqori qiymat ko‘proq xlorofillni bildiradi.",
+      uz_cyr: "−1 дан 1 гача; экинларда одатда 0.2–0.6, юқори қиймат кўпроқ хлорофиллни билдиради.",
+    },
+    details: {
+      en: "Red-edge index: tracks leaf chlorophyll and nitrogen, still sensitive when NDVI saturates in dense crops.",
+      ru: "Индекс красного края: отражает хлорофилл и азот в листьях, остаётся чувствительным, когда NDVI насыщается в густых посевах.",
+      uz_lat: "Qizil chekka indeksi: bargdagi xlorofill va azotni ko‘rsatadi, zich ekinlarda NDVI to‘yinganda ham sezgir qoladi.",
+      uz_cyr: "Қизил чекка индекси: баргдаги хлорофилл ва азотни кўрсатади, зич экинларда NDVI тўйинганда ҳам сезгир қолади.",
+    },
+  },
 ];
 
 export type IndexInfoDetailProps = Pick<
