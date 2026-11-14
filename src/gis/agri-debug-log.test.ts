@@ -63,22 +63,50 @@ describe("agroV5Log", () => {
     expect(logSpy).not.toHaveBeenCalled();
   });
 
-  test("tuman logs are on by default and can be turned off", () => {
+  test("agriTumanLog is silent by default", () => {
     agriTumanLog("t", { id: 1 });
-    expect(logSpy).toHaveBeenCalledWith("[AgroV5 tuman] t", { id: 1 });
-    logSpy.mockClear();
-    flags.__AGRO_V5_TUMAN_DEBUG = false;
-    agriTumanLog("t");
     expect(logSpy).not.toHaveBeenCalled();
   });
 
-  test("vhIndicator logs are on by default and can be turned off", () => {
-    agriVhIndicatorLog("i");
-    expect(logSpy).toHaveBeenCalledWith("[AgroV5 VH-indikator] i", {});
-    logSpy.mockClear();
-    flags.__AGRO_V5_VH_INDICATOR_DEBUG = false;
+  test("agriTumanLog logs when the tuman flag is true", () => {
+    flags.__AGRO_V5_TUMAN_DEBUG = true;
+    agriTumanLog("t", { id: 1 });
+    expect(logSpy).toHaveBeenCalledWith("[AgroV5 tuman] t", { id: 1 });
+  });
+
+  test("agriTumanLog logs when the tuman localStorage flag is true", () => {
+    localStorage.setItem("__AGRO_V5_TUMAN_DEBUG", "true");
+    agriTumanLog("t");
+    expect(logSpy).toHaveBeenCalledWith("[AgroV5 tuman] t", {});
+  });
+
+  test("agriTumanLog logs when the global debug flag is true", () => {
+    flags.__AGRO_V5_DEBUG = true;
+    agriTumanLog("t");
+    expect(logSpy).toHaveBeenCalledWith("[AgroV5 tuman] t", {});
+  });
+
+  test("agriVhIndicatorLog is silent by default", () => {
     agriVhIndicatorLog("i");
     expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  test("agriVhIndicatorLog logs when the vhIndicator flag is true", () => {
+    flags.__AGRO_V5_VH_INDICATOR_DEBUG = true;
+    agriVhIndicatorLog("i", { a: 1 });
+    expect(logSpy).toHaveBeenCalledWith("[AgroV5 VH-indikator] i", { a: 1 });
+  });
+
+  test("agriVhIndicatorLog logs when the vhIndicator localStorage flag is true", () => {
+    localStorage.setItem("__AGRO_V5_VH_INDICATOR_DEBUG", "true");
+    agriVhIndicatorLog("i");
+    expect(logSpy).toHaveBeenCalledWith("[AgroV5 VH-indikator] i", {});
+  });
+
+  test("agriVhIndicatorLog logs when the global debug flag is true", () => {
+    flags.__AGRO_V5_DEBUG = true;
+    agriVhIndicatorLog("i");
+    expect(logSpy).toHaveBeenCalledWith("[AgroV5 VH-indikator] i", {});
   });
 
   test("swallows console errors", () => {

@@ -4,9 +4,11 @@
  * Enable in browser console:
  *   window.__AGRO_V5_DEBUG = true         // all [AgroV5] logs
  *   window.__AGRO_V5_VH_DEBUG = true      // VH / Pie / Bar filter flow + [AgriVH] vegetation queries
- *   window.__AGRO_V5_TUMAN_DEBUG = true   // tuman select / Pie / Jadval (default ON)
- *   window.__AGRO_V5_TUMAN_DEBUG = false  // turn tuman logs off
- *   window.__AGRO_V5_VH_INDICATOR_DEBUG = false // turn [AgroV5 VH-indikator] logs off (default ON)
+ *   window.__AGRO_V5_TUMAN_DEBUG = true   // tuman select / Pie / Jadval
+ *   window.__AGRO_V5_VH_INDICATOR_DEBUG = true // [AgroV5 VH-indikator] logs
+ *
+ * Every topic is silent by default and logs only when its flag is `true`
+ * (window or localStorage), or when `__AGRO_V5_DEBUG` is `true`.
  */
 export type AgroV5LogTopic =
   | "all"
@@ -54,12 +56,10 @@ function isDebugEnabled(topic: AgroV5LogTopic = "all"): boolean {
     return true;
   }
   if (topic === "tuman") {
-    // Default ON so tuman select debugging is visible without setup.
-    const flag = readGlobalFlag("__AGRO_V5_TUMAN_DEBUG");
-    return flag !== false;
+    return readGlobalFlag("__AGRO_V5_TUMAN_DEBUG") === true;
   }
   if (topic === "vhIndicator") {
-    return readGlobalFlag("__AGRO_V5_VH_INDICATOR_DEBUG") !== false;
+    return readGlobalFlag("__AGRO_V5_VH_INDICATOR_DEBUG") === true;
   }
   return false;
 }
@@ -85,7 +85,7 @@ export function agroV5Log(
   }
 }
 
-/** Always-visible helper for tuman selection diagnosis. */
+/** Tuman selection diagnosis — `[AgroV5 tuman]` prefix, tuman flag. */
 export function agriTumanLog(
   phase: string,
   detail?: Record<string, unknown>,
@@ -93,7 +93,7 @@ export function agriTumanLog(
   agroV5Log(phase, detail, "tuman");
 }
 
-/** Always-visible trace of how a VH selection reaches the area indicator. */
+/** Trace of how a VH selection reaches the area indicator — VH-indicator flag. */
 export function agriVhIndicatorLog(
   phase: string,
   detail?: Record<string, unknown>,
