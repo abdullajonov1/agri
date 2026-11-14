@@ -680,7 +680,7 @@ retryOverlayWithUsableDate = async (cleanId: string, regionId: number, refusedDa
      * Pass `prefetched` when the date-walk already decoded the TIFF so we
      * skip a second network/decode round-trip before MediaLayer paint.
      */
-applyVegetationImageOverlay = (uniqueid: string, rasterDate: string, indiceType: VegetationIndiceType = "ndvi", prefetched?: PolygonExportImageResult | null): Promise<void> => applyGraffVegetationImageOverlay(this, uniqueid, rasterDate, indiceType, prefetched);
+applyVegetationImageOverlay = (uniqueid: string, rasterDate: string, indiceType: VegetationIndiceType = "ndvi", prefetched?: PolygonExportImageResult | null, options?: { interactive?: boolean }): Promise<void> => applyGraffVegetationImageOverlay(this, uniqueid, rasterDate, indiceType, prefetched, options);
 preparePolygonGraphSeries = (rows: VegetationIndex[], availableDates: string[]): {
         sorted: VegetationIndex[];
         nextDate: string | null;

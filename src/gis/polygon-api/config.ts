@@ -82,6 +82,11 @@ export interface ExportImageRequestParams {
   rasterDate: string;
   indiceType?: VegetationIndiceType;
   stretch?: "fixed" | "minmax";
+  /**
+   * Request lane priority: "high" (default) for anything the user is waiting
+   * on, "low" for hover prefetch. Not part of the cache key.
+   */
+  priority?: "high" | "low";
 }
 
 export interface IndexHeaderStats {

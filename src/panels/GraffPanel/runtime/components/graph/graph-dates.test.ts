@@ -96,7 +96,7 @@ describe("handleDateIndexNavigate", () => {
     gd.handleDateIndexNavigate(host, ev({ direction: 1 }));
     expect(host.state.selectedNdviDate).toBe("2024-03-01");
     expect(host.state.chartTooltip).toBeNull();
-    expect(asMock(host.applyVegetationImageOverlay)).toHaveBeenCalledWith("U", "2024-03-01", "ndvi");
+    expect(asMock(host.applyVegetationImageOverlay)).toHaveBeenCalledWith("U", "2024-03-01", "ndvi", null, { interactive: true });
     const back = nav();
     gd.handleDateIndexNavigate(back, ev({ direction: -1 }));
     expect(back.state.selectedNdviDate).toBe("2024-01-01");

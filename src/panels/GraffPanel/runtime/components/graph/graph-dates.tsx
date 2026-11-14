@@ -193,10 +193,13 @@ export const handleDateIndexNavigate = (host: GraffWidgetHost, event: Event): vo
     chartTooltip: null,
   });
 
+  // User stepped the day: skip waiting on the background date walk.
   host.applyVegetationImageOverlay(
     selecteduniqueid,
     nextDate,
     selectedChartIndexKey,
+    null,
+    { interactive: true },
   );
 };
 /** Drop map-surface + polygon-image loaders owned by a vegetation raster request. */

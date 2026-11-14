@@ -53,7 +53,12 @@ jest.mock("../../../data/agri-graff-stats", () => ({
     `${p.uniqueid}|${p.regionId}|${p.rasterDate}|${p.indiceType}`,
 }));
 const mockSetContext = jest.fn();
-jest.mock("../../../gis/agri-vegetation-overlay-prefetch", () => ({ setVegetationOverlayContext: (c: unknown): void => mockSetContext(c) }));
+jest.mock("../../../gis/agri-vegetation-overlay-prefetch", () => ({
+  setVegetationOverlayContext: (c: unknown): void => mockSetContext(c),
+  announceVegetationOverlayApplied: (d: unknown): void => {
+    document.dispatchEvent(new CustomEvent("agriVegetationOverlayApplied", { detail: d }));
+  },
+}));
 
 import { asMock, makeStubHost } from "./__test-utils__/stub-host";
 import type { AgriGraffWidgetState } from "./graff-state";
@@ -202,15 +207,35 @@ describe("applyGraffVegetationImageOverlay early exits", () => {
     await applyGraffVegetationImageOverlay(unmounted, "U", "2024-06-15");
     expect(mockFetchTiff).not.toHaveBeenCalled();
   });
-  test("a day listed for the polygon is fetched without waiting on the walk", async () => {
+  test("a listed day the user picked is fetched without waiting on the walk", async () => {
+    const walk = jest.fn(() => Promise.resolve("2024-06-01"));
+    const host = makeHost(
+      { polygonAvailableDates: ["2024-06-01", "2024-06-15"] },
+      { _polygonAvailableDatesUniqueid: "U", _verifiedOverlayDates: new Set<string>(), awaitPendingOverlayWalk: walk },
+    );
+    await applyGraffVegetationImageOverlay(host, "U", "2024-06-15", "ndvi", null, { interactive: true });
+    expect(walk).not.toHaveBeenCalled();
+    expect(mockFetchTiff).toHaveBeenCalledWith(expect.objectContaining({ rasterDate: "2024-06-15" }));
+  });
+  test("an automatic call for a listed day waits for the walk and reuses its date (one request)", async () => {
     const walk = jest.fn(() => Promise.resolve("2024-06-01"));
     const host = makeHost(
       { polygonAvailableDates: ["2024-06-01", "2024-06-15"] },
       { _polygonAvailableDatesUniqueid: "U", _verifiedOverlayDates: new Set<string>(), awaitPendingOverlayWalk: walk },
     );
     await applyGraffVegetationImageOverlay(host, "U", "2024-06-15");
-    expect(walk).not.toHaveBeenCalled();
-    expect(mockFetchTiff).toHaveBeenCalledWith(expect.objectContaining({ rasterDate: "2024-06-15" }));
+    expect(walk).toHaveBeenCalledTimes(1);
+    expect(mockFetchTiff).toHaveBeenCalledTimes(1);
+    expect(mockFetchTiff).toHaveBeenCalledWith(expect.objectContaining({ rasterDate: "2024-06-01" }));
+  });
+  test("a drawn overlay announces the date and index it used", async () => {
+    const seen: unknown[] = [];
+    const listener = (e: Event): void => { seen.push((e as CustomEvent).detail); };
+    document.addEventListener("agriVegetationOverlayApplied", listener);
+    const host = makeHost();
+    await applyGraffVegetationImageOverlay(host, "U", "2024-06-10", "savi");
+    document.removeEventListener("agriVegetationOverlayApplied", listener);
+    expect(seen).toEqual([{ uniqueid: "U", regionId: 5, date: "2024-06-10", indexKey: "savi" }]);
   });
   test("already applied, in-flight, unadvertised and known-missing keys skip the request", async () => {
     const key = "U|5|2024-06-10|ndvi";

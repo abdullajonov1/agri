@@ -75,6 +75,7 @@ export interface GraffDataServiceHost {
     rasterDate: string,
     indiceType?: VegetationIndiceType,
     prefetched?: PolygonExportImageResult | null,
+    options?: { interactive?: boolean },
   ) => Promise<void>;
   getCarriedOverlayDate: (
     regionId: number | undefined,

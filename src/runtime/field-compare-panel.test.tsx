@@ -16,7 +16,14 @@ jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 jest.mock("../gis/agri-vegetation-overlay-prefetch", () => ({
   getVegetationOverlayContext: () => ({ regionId: 4, year: 2026, lastIndex: "ndvi" }),
+  VEGETATION_OVERLAY_APPLIED_EVENT: "agriVegetationOverlayApplied",
 }));
+
+const overlayApplied = (date: string, indexKey = "ndvi", uniqueid = "abc"): void => {
+  document.dispatchEvent(new CustomEvent("agriVegetationOverlayApplied", {
+    detail: { uniqueid, regionId: 4, date, indexKey },
+  }));
+};
 
 const fetchTiff = fetchPolygonExportImageTiff as jest.Mock;
 const fetchDates = fetchPolygonAvailableDates as jest.Mock;
@@ -136,6 +143,37 @@ describe("FieldComparePanel", () => {
       document.dispatchEvent(new CustomEvent("agriIndicatorsDrawerToggled", { detail: { open: true } }));
     });
     expect(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }).getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("follows the date and index the map overlay drew, once per field", async () => {
+    render(<FieldComparePanel language="uz_lat" />);
+    act(() => { selectField(); });
+    await waitFor(() => expect(fetchTiff).toHaveBeenCalledWith(expect.objectContaining({ rasterDate: "2026-06-01" })));
+
+    act(() => { overlayApplied("2026-06-15", "savi"); });
+    await waitFor(() => expect(fetchTiff).toHaveBeenLastCalledWith(expect.objectContaining({
+      uniqueid: "abc", rasterDate: "2026-06-15", indiceType: "savi", stretch: "fixed",
+    })));
+
+    const calls = fetchTiff.mock.calls.length;
+    act(() => { overlayApplied("2026-06-01", "ndvi"); });
+    act(() => { overlayApplied("2026-06-20", "ndvi", "other-field"); });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fetchTiff.mock.calls.length).toBe(calls);
+  });
+
+  test("a day picked in the panel calendar is not replaced by the overlay date", async () => {
+    render(<FieldComparePanel language="uz_lat" />);
+    act(() => { selectField(); });
+    await waitFor(() => expect(fetchTiff).toHaveBeenCalled());
+    const day = document.querySelector('[data-date="2026-06-15"]') as HTMLButtonElement | null;
+    expect(day).not.toBeNull();
+    fireEvent.click(day as HTMLButtonElement);
+    await waitFor(() => expect(fetchTiff).toHaveBeenLastCalledWith(expect.objectContaining({ rasterDate: "2026-06-15" })));
+    const calls = fetchTiff.mock.calls.length;
+    act(() => { overlayApplied("2026-06-01", "ndvi"); });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fetchTiff.mock.calls.length).toBe(calls);
   });
 
   test("shows the shared loader and a translated empty state", async () => {

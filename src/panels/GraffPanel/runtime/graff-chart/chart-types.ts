@@ -89,6 +89,7 @@ export interface GraffGraphHost {
     rasterDate: string,
     indiceType?: VegetationIndiceType,
     prefetched?: PolygonExportImageResult | null,
+    options?: { interactive?: boolean },
   ) => Promise<void>;
   cancelVegetationImageOverlay: () => void;
   formatLocalDateYmd: (dt: Date) => string;

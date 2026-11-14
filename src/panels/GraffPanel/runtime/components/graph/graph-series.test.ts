@@ -157,7 +157,7 @@ describe("handleIndexChange", () => {
     const dropped = wired(base);
     gs.handleIndexChange(dropped, "savi");
     expect(dropped.state.selectedChartIndexKey).toBe("ndvi");
-    expect(asMock(dropped.applyVegetationImageOverlay)).toHaveBeenCalledWith("U", "2024-06-10", "ndvi");
+    expect(asMock(dropped.applyVegetationImageOverlay)).toHaveBeenCalledWith("U", "2024-06-10", "ndvi", null, { interactive: true });
     const kept = wired(base);
     gs.handleIndexChange(kept, "evi");
     expect(asMock(kept.applyVegetationImageOverlay)).not.toHaveBeenCalled();
@@ -166,7 +166,7 @@ describe("handleIndexChange", () => {
     expect(asMock(noDate.applyVegetationImageOverlay)).not.toHaveBeenCalled();
     const noKey = wired({ ...base, selectedChartIndexKey: null, selectedIndices: ["ndvi"] });
     gs.handleIndexChange(noKey, "savi");
-    expect(asMock(noKey.applyVegetationImageOverlay)).toHaveBeenCalledWith("U", "2024-06-10", "ndvi");
+    expect(asMock(noKey.applyVegetationImageOverlay)).toHaveBeenCalledWith("U", "2024-06-10", "ndvi", null, { interactive: true });
   });
 });
 

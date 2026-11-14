@@ -426,8 +426,10 @@ export const prefetchVegetationForMapPoint = async (host: GraffWidgetHost, view:
       rasterDate: date,
       indiceType: indexKey,
       stretch: "fixed",
+      // Never let hover prefetch delay the field the user clicks.
+      priority: "low",
     }).catch(() => {
-      /* hover prefetch is best-effort */
+      /* hover prefetch is best-effort (may be superseded by a newer hover) */
     });
   } catch {
     /* ignore */

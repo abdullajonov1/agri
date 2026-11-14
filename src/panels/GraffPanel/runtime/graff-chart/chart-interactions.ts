@@ -170,6 +170,8 @@ export function handleChartPointSelection(
     host.state.selecteduniqueid,
     selectedDateStr,
     indexKey,
+    null,
+    { interactive: true },
   );
 }
 

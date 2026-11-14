@@ -19,7 +19,10 @@ import {
   type VegetationIndiceType,
 } from "../../../gis/agri-polygon-api-source";
 import { stripUniqueidBraces } from "../../../data/agri-uniqueid-sql";
-import { setVegetationOverlayContext } from "../../../gis/agri-vegetation-overlay-prefetch";
+import {
+  announceVegetationOverlayApplied,
+  setVegetationOverlayContext,
+} from "../../../gis/agri-vegetation-overlay-prefetch";
 import { graffLog } from "./graff-log";
 import { asThrownObject, describeThrown, thrownMessage, thrownStatus } from "./graff-guards";
 import type {
@@ -62,6 +65,14 @@ export interface OverlayCallContext {
   advertisedDates: string[];
   indiceType: VegetationIndiceType;
   requestedDate: string;
+  /** The user picked this day (navigator, chart click, index switch). */
+  interactive: boolean;
+}
+
+/** Optional flags for applyGraffVegetationImageOverlay. */
+export interface OverlayCallOptions {
+  /** Set only for user-driven picks; automatic paths wait for the date walk. */
+  interactive?: boolean;
 }
 
 export interface OverlayExtentResult {
@@ -212,20 +223,21 @@ export const rewriteUnservableDate = (
 /**
  * An unverified date while the dates→TIFF walk is still probing this
  * polygon: wait for the walk instead of racing a parallel export-image.
- * Skipped when the caller handed us the walk TIFF, or when the requested
- * date (before any rewrite) was in the polygon's own list.
+ * Skipped when the caller handed us the walk TIFF, or when the USER picked a
+ * date that is in the polygon's own list (skipWait). Automatic paths always
+ * wait, so one selection sends one export-image request, not two or three.
  */
 export const waitForWalkDate = async (
   host: GraffRasterOverlayHost,
   ctx: OverlayCallContext,
   date: string,
   hasPrefetched: boolean,
-  listedForPolygon: boolean,
+  skipWait: boolean,
 ): Promise<DateStepResult> => {
   const { cleanId, regionId, indiceType } = ctx;
   const shouldWait =
     !hasPrefetched &&
-    !listedForPolygon &&
+    !skipWait &&
     !host._verifiedOverlayDates.has(`${cleanId}|${date}`) &&
     !isRegionDateWithImagery(regionId, date);
   if (!shouldWait) return { stop: false, date };
@@ -441,7 +453,7 @@ export const recordOverlaySuccess = (
     year: host.resolveCurrentYear(),
     lastDate: date,
     lastIndex: indiceType,
-  });
+  }); announceVegetationOverlayApplied({ uniqueid: cleanId, regionId, date, indexKey: indiceType });
 };
 
 // ---- failure --------------------------------------------------------------

@@ -36,6 +36,7 @@ import {
 } from "./export-image-knowledge";
 import { parseExportImageIndexHeaders } from "./index-color";
 import { decodeExportImageTiff } from "./tiff-decode";
+import { promoteExportImage, scheduleExportImage } from "./export-image-lane";
 
 /** Session cache: first click pays network+decode; repeats reuse the canvas. */
 const exportImageCache = new Map<string, Promise<PolygonExportImageResult>>();
@@ -91,9 +92,16 @@ export async function fetchPolygonExportImageTiff(
   params: ExportImageRequestParams,
 ): Promise<PolygonExportImageResult> {
   const cacheKey = exportImageCacheKey(params);
+  const priority = params.priority ?? "high";
   let pending = exportImageCache.get(cacheKey);
+  if (pending && priority === "high") {
+    // Someone now waits on a request that may still be a queued hover prefetch.
+    promoteExportImage(cacheKey);
+  }
   if (!pending) {
-    pending = fetchPolygonExportImageTiffUncached(params).catch((err: unknown) => {
+    pending = scheduleExportImage(cacheKey, priority, () =>
+      fetchPolygonExportImageTiffUncached(params),
+    ).catch((err: unknown) => {
       exportImageCache.delete(cacheKey);
       throw err;
     });

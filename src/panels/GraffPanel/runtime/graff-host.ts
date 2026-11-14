@@ -53,7 +53,7 @@ export interface GraffWidgetHost {
   beginVegetationImageSurfaceLoading: () => void;
   clearVegetationImageSurfaceLoading: (requestId: number) => void;
   markOverlayDateVerified: (cleanId: string, date: string) => void;
-  applyVegetationImageOverlay: (uniqueid: string, rasterDate: string, indiceType?: VegetationIndiceType, prefetched?: PolygonExportImageResult | null) => Promise<void>;
+  applyVegetationImageOverlay: (uniqueid: string, rasterDate: string, indiceType?: VegetationIndiceType, prefetched?: PolygonExportImageResult | null, options?: { interactive?: boolean }) => Promise<void>;
   _pendingOverlayWalk: { uniqueid: string; promise: Promise<{ date: string; result?: PolygonExportImageResult; } | null>; };
   _mapHoverPrefetchHandle: __esri.Handle;
   _hoverPrefetchTimer: number;

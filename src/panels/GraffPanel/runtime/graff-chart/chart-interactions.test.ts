@@ -83,7 +83,7 @@ describe("handleChartPointSelection", () => {
     handleChartPointSelection(host, "ndvi", points[1]);
     expect(host.state.selectedNdviDate).toBe("2024-01-11");
     expect(host.state.selectedChartIndexKey).toBe("ndvi");
-    expect(host.applyVegetationImageOverlay).toHaveBeenCalledWith("U1", "2024-01-11", "ndvi");
+    expect(host.applyVegetationImageOverlay).toHaveBeenCalledWith("U1", "2024-01-11", "ndvi", null, { interactive: true });
 
     handleChartPointSelection(host, "ndvi", points[1]);
     expect(host.state.selectedNdviDate).toBeNull();
@@ -93,7 +93,7 @@ describe("handleChartPointSelection", () => {
   test("same date different index re-requests overlay", () => {
     const host = makeHost({ selectedNdviDate: "2024-01-11", selectedChartIndexKey: "ndvi" });
     handleChartPointSelection(host, "evi", points[1]);
-    expect(host.applyVegetationImageOverlay).toHaveBeenCalledWith("U1", "2024-01-11", "evi");
+    expect(host.applyVegetationImageOverlay).toHaveBeenCalledWith("U1", "2024-01-11", "evi", null, { interactive: true });
   });
 });
 

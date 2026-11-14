@@ -6,7 +6,10 @@ import {
   type VegetationIndiceType,
 } from "../gis/agri-polygon-api-source";
 import { agroV5Log } from "../gis/agri-debug-log";
-import { getVegetationOverlayContext } from "../gis/agri-vegetation-overlay-prefetch";
+import {
+  getVegetationOverlayContext,
+  VEGETATION_OVERLAY_APPLIED_EVENT,
+} from "../gis/agri-vegetation-overlay-prefetch";
 
 export type CompareLanguage = "uz_lat" | "uz_cyr" | "ru" | "en";
 
@@ -157,6 +160,10 @@ export default function FieldComparePanel(props: Props): JSX.Element {
   const known = React.useMemo(() => new Set(knownDates), [knownDates]);
   const mapDateRef = React.useRef<string | null>(null);
   const seededRef = React.useRef(false);
+  /** True once the user picked a day in this panel's own calendar. */
+  const userPickedRef = React.useRef(false);
+  /** True once this polygon's map overlay told us which date/index it drew. */
+  const overlaySeededRef = React.useRef(false);
   const uniqueidRef = React.useRef("");
   const indexDatesRef = React.useRef(false);
   const onOpenChangeRef = React.useRef(props.onOpenChange);
@@ -168,6 +175,8 @@ export default function FieldComparePanel(props: Props): JSX.Element {
   React.useEffect(() => {
     const clearField = (): void => {
       seededRef.current = false;
+      userPickedRef.current = false;
+      overlaySeededRef.current = false;
       mapDateRef.current = null;
       indexDatesRef.current = false;
       uniqueidRef.current = "";
@@ -207,6 +216,8 @@ export default function FieldComparePanel(props: Props): JSX.Element {
         return;
       }
       seededRef.current = false;
+      userPickedRef.current = false;
+      overlaySeededRef.current = false;
       indexDatesRef.current = false;
       uniqueidRef.current = nextId;
       setKnownDates([]);
@@ -237,6 +248,22 @@ export default function FieldComparePanel(props: Props): JSX.Element {
         if (parts) setCursor(parts);
       }
     };
+    // The map overlay may draw a different date than the chart picked (the
+    // chart date can have no scene). Follow the overlay once per polygon so
+    // this panel shows the same image and reuses the same cached request.
+    const onOverlayApplied = (event: Event): void => {
+      const detail = readRecord(event);
+      const appliedId = String(detail.uniqueid || "").replace(/[{}]/g, "").trim();
+      const appliedDate = readYmd(detail.date);
+      if (!appliedId || appliedId !== uniqueidRef.current || !appliedDate) return;
+      if (userPickedRef.current || overlaySeededRef.current) return;
+      overlaySeededRef.current = true;
+      seededRef.current = true;
+      if (detail.indexKey) setIndexKey(readIndex(detail.indexKey));
+      setPinnedDate(appliedDate);
+      const parts = ymdParts(appliedDate);
+      if (parts) setCursor(parts);
+    };
     const onIndicators = (event: Event): void => {
       if (readRecord(event).open !== true) return;
       setOpen(false);
@@ -244,11 +271,13 @@ export default function FieldComparePanel(props: Props): JSX.Element {
     };
     document.addEventListener("widgetSelectionChanged", onSelection);
     document.addEventListener("graffDateIndexSelectionChanged", onDate);
+    document.addEventListener(VEGETATION_OVERLAY_APPLIED_EVENT, onOverlayApplied);
     document.addEventListener("agriIndicatorsDrawerToggled", onIndicators);
     document.addEventListener("agriLandLayersToggled", onIndicators);
     return () => {
       document.removeEventListener("widgetSelectionChanged", onSelection);
       document.removeEventListener("graffDateIndexSelectionChanged", onDate);
+      document.removeEventListener(VEGETATION_OVERLAY_APPLIED_EVENT, onOverlayApplied);
       document.removeEventListener("agriIndicatorsDrawerToggled", onIndicators);
       document.removeEventListener("agriLandLayersToggled", onIndicators);
     };
@@ -409,6 +438,7 @@ export default function FieldComparePanel(props: Props): JSX.Element {
                   onClick={() => {
                     if (!hasScene) return;
                     seededRef.current = true;
+                    userPickedRef.current = true;
                     setPinnedDate(ymd);
                   }}
                 >
@@ -426,6 +456,7 @@ export default function FieldComparePanel(props: Props): JSX.Element {
                 onClick={() => {
                   if (!mapDate) return;
                   seededRef.current = true;
+                  userPickedRef.current = true;
                   setPinnedDate(mapDate);
                   const parts = ymdParts(mapDate);
                   if (parts) setCursor(parts);

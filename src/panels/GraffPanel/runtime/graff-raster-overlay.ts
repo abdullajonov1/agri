@@ -22,6 +22,7 @@ import {
   releaseIdleSurfaceLoading,
   isDateStepContinue,
   type OverlayCallContext,
+  type OverlayCallOptions,
 } from "./graff-raster-overlay-steps";
 import type { AgriGraffWidgetState } from "./widget";
 import type { GraffWidgetProps } from "./graff-state";
@@ -213,7 +214,9 @@ const resolveOverlayDate = async (
   hasPrefetched: boolean,
 ): Promise<string | null> => {
   const initialDate = resolveInitialDate(host, ctx);
-  const listedForPolygon = ctx.advertisedDates.includes(initialDate);
+  // Only a user pick of a listed day may skip the walk; automatic paths must
+  // reuse the walk's result instead of racing their own export-image.
+  const skipWalkWait = ctx.interactive && ctx.advertisedDates.includes(initialDate);
   const rewritten = rewriteUnservableDate(host, ctx, initialDate);
   if (!isDateStepContinue(rewritten)) return null;
   const walked = await waitForWalkDate(
@@ -221,7 +224,7 @@ const resolveOverlayDate = async (
     ctx,
     rewritten.date,
     hasPrefetched,
-    listedForPolygon,
+    skipWalkWait,
   );
   return isDateStepContinue(walked) ? walked.date : null;
 };
@@ -232,6 +235,7 @@ export const applyGraffVegetationImageOverlay = async (
   rasterDate: string,
   indiceType: VegetationIndiceType = "ndvi",
   prefetched?: PolygonExportImageResult | null,
+  options: OverlayCallOptions = {},
 ): Promise<void> => {
   const { activeMapView } = host.state;
   if (!activeMapView?.view?.map) return;
@@ -262,6 +266,7 @@ export const applyGraffVegetationImageOverlay = async (
         : [],
     indiceType,
     requestedDate: rasterDate,
+    interactive: options.interactive === true,
   };
 
   const normalizedDate = await resolveOverlayDate(host, ctx, Boolean(prefetched));

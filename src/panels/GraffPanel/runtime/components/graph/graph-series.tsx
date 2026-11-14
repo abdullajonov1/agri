@@ -195,6 +195,8 @@ export const handleIndexChange = (host: GraffWidgetHost, index: GraffIndexKey) =
         selecteduniqueid,
         selectedNdviDate,
         nextKey,
+        null,
+        { interactive: true },
       );
     },
   );

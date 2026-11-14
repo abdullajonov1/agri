@@ -93,6 +93,30 @@ function writeSession(next: OverlayContext): void {
   }
 }
 
+/** Fired after the Graff map overlay draws a polygon index image. */
+export const VEGETATION_OVERLAY_APPLIED_EVENT = "agriVegetationOverlayApplied";
+
+export interface VegetationOverlayAppliedDetail {
+  uniqueid: string;
+  regionId: number;
+  /** YYYY-MM-DD the image was actually drawn for (may differ from the chart date). */
+  date: string;
+  indexKey: VegetationIndiceType;
+}
+
+/** Tell other panels which date/index the map overlay drew, so they can reuse it. */
+export function announceVegetationOverlayApplied(
+  detail: VegetationOverlayAppliedDetail,
+): void {
+  if (typeof document === "undefined") return;
+  document.dispatchEvent(
+    new CustomEvent<VegetationOverlayAppliedDetail>(
+      VEGETATION_OVERLAY_APPLIED_EVENT,
+      { detail },
+    ),
+  );
+}
+
 /** Merge live Graff/Localization context (region/year/last successful date). */
 export function setVegetationOverlayContext(
   patch: OverlayContext,
