@@ -17,6 +17,7 @@ import { bindMasterFilter } from "../../../data/agri-filter-bus";
 import { messageOf, panelEventDetail, readThemeIsDark } from "../../panel-filter-detail";
 import { queryReserveCropRows, type ReserveCropRow } from "./reserve-crop-data";
 import { setReserveCropFilter, useReserveCropFilter } from "../../../store/agri-land-overlay-store";
+import { areaUnitLabel } from "../../../shared/agri-area-unit";
 import "./ReserveCrop.css";
 
 const TITLE: Record<AgriLanguage, string> = {
@@ -258,7 +259,7 @@ export default function ReserveCropPanel(props: { active: boolean }): JSX.Elemen
       where: row.where || "",
     }));
   }, [rows, language]);
-  const unit = language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
+  const unit = areaUnitLabel(language);
 
   // Click a column → the map's reserve layer shows only that crop; again → all.
   const cropFilter = useReserveCropFilter();

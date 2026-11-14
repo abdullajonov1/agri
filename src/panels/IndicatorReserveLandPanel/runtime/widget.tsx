@@ -2,9 +2,6 @@
 // Shows sum(maydon) from the current reserve-land inventory.
 // All reserve-layer-compatible dashboard filters apply.
 
-import { type AllWidgetProps, React } from "jimu-core";
-import AgriDashboardSpinner from "../../../shared/AgriDashboardSpinner";
-import AgriAnimatedCount from "../../../shared/AgriAnimatedCount";
 import { getAgriReserveLandLayer } from "../../../gis/agri-reserve-land-data-source";
 import { withAgriAccessWhere } from "../../../gis/feature-layer-data";
 import {
@@ -13,148 +10,39 @@ import {
   eqAposSmart,
   normalizeApos,
 } from "../../../data/agri-sql";
-import { bindMasterFilter } from "../../../data/agri-filter-bus";
 import { getTuriCropLookupKey } from "../../../shared/agri-crop-labels";
 import { queryIndicatorOutStat } from "../../../data/agri-indicator-stats";
-import {
-  detectIsDarkTheme,
-  normalizeLanguage,
-  resolveInitialLanguage,
-  type AgriLanguage,
-} from "../../../shared/agri-language";
-import { isStaleMasterFilterEvent } from "../../../shared/agri-indicator-common";
-import {
-  finiteMetaNumber,
-  messageOf,
-  panelEventDetail,
-  type PanelFilterDetail,
-} from "../../panel-filter-detail";
-
-import "../../IndicatorPanel/runtime/KadastrIndicator.css";
 import { asStatisticDefinitions } from "../../../shared/agri-plain-object";
+import type { AgriLabel } from "../../../shared/agri-i18n";
+import { IndicatorStatBase } from "../../indicator-stat/IndicatorStatBase";
 
-/** Logger disabled — keep call sites without console noise. */
-function agriLog(_phase: string, _detail?: Record<string, unknown>): void {
-  /* no-op */
-}
+const LABEL: AgriLabel = {
+  en: "Reserve land",
+  ru: "Резервные земли",
+  uz_lat: "Zaxira maydonlari",
+  uz_cyr: "Захира майдонлари",
+};
+const UNIT: AgriLabel = { en: "ha", ru: "га", uz_lat: "ga", uz_cyr: "га" };
+const YEAR_PATTERN = /\b(18|19|20)\d{2}\b/;
 
-interface State {
-  value: number | null;
-  loading: boolean;
-  error: string | null;
+export default class AgriIndicatorReserveLand extends IndicatorStatBase {
+  protected readonly label = LABEL;
+  protected readonly unit = UNIT;
+  // Do not query until the master filter (incl. yil) has been received once;
+  // otherwise the unscoped sum flashes, then drops to 0 when an empty year arrives.
+  protected readonly requiresMasterFilter = true;
 
-  yil: string;
-  viloyat: string;
-  tuman: string;
-  turlar: string[];
-  uniqueid: string;
-  lockedViloyat: string | null;
-
-  layer: __esri.FeatureLayer | null;
-  connectionStatus: "idle" | "connecting" | "connected" | "failed";
-
-  isDarkTheme: boolean;
-  language: AgriLanguage;
-}
-
-export default class AgriIndicatorReserveLand extends React.PureComponent<
-  AllWidgetProps<Record<string, unknown>>,
-  State
-> {
-  private _isMounted = false;
-  private _unbindMasterFilter: (() => void) | null = null;
-  private _requestId = 0;
   private _cropIdMapPromise: Promise<Map<string, string[]>> | null = null;
-  private _lastMasterFilterTs = 0;
-  private _lastMasterFilterBroadcastGeneration = 0;
-  /** Do not query until master filter (incl. yil) has been received once. */
-  private _hasMasterFilter = false;
 
-  constructor(props: AllWidgetProps<Record<string, unknown>>) {
-    super(props);
-    this.state = {
-      value: null,
-      loading: true,
-      error: null,
-
-      yil: "",
-      viloyat: "",
-      tuman: "",
-      turlar: [],
-      uniqueid: "",
-      lockedViloyat: null,
-
-      layer: null,
-      connectionStatus: "idle",
-
-      isDarkTheme: detectIsDarkTheme(),
-      language: resolveInitialLanguage(),
-    };
+  protected loadLayer(): Promise<{ layer: unknown }> {
+    return getAgriReserveLandLayer();
   }
 
-  componentDidMount(): void {
-    this._isMounted = true;
-    this._unbindMasterFilter = bindMasterFilter(this.handleMasterFilterChanged);
-    document.addEventListener(
-      "agriV11ThemeToggled",
-      this.handleThemeChange as EventListener,
-    );
-    document.addEventListener(
-      "languageChanged",
-      this.handleLanguageChange as EventListener,
-    );
-
-    this.setState({ connectionStatus: "connecting" });
-    getAgriReserveLandLayer()
-      .then(({ layer }) => {
-        if (!this._isMounted) return;
-        this.setState({ layer: layer as __esri.FeatureLayer, connectionStatus: "connected" }, () => {
-          // Only query after year filter is known — otherwise the unscoped
-          // sum flashes briefly, then drops to 0 when an empty year arrives.
-          if (this._hasMasterFilter) this.fetchValue();
-        });
-      })
-      .catch((err) => {
-        if (!this._isMounted) return;
-        this.setState({
-          connectionStatus: "failed",
-          loading: false,
-          error: String(err?.message || err),
-        });
-      });
+  protected isYearKnown(): boolean {
+    return YEAR_PATTERN.test(String(this.state.yil || ""));
   }
 
-  componentWillUnmount(): void {
-    this._isMounted = false;
-    this._unbindMasterFilter?.();
-    this._unbindMasterFilter = null;
-    document.removeEventListener(
-      "agriV11ThemeToggled",
-      this.handleThemeChange as EventListener,
-    );
-    document.removeEventListener(
-      "languageChanged",
-      this.handleLanguageChange as EventListener,
-    );
-  }
-
-  private readonly handleThemeChange = (event: Event): void => {
-    const detail = (event as CustomEvent<PanelFilterDetail | null>)?.detail;
-    if (detail?.theme) {
-      this.setState({ isDarkTheme: detail.theme === "dark" });
-    } else {
-      this.setState({ isDarkTheme: detectIsDarkTheme() });
-    }
-  };
-
-  private readonly handleLanguageChange = (event: Event): void => {
-    if (!this._isMounted) return;
-    const d = panelEventDetail(event);
-    const next = normalizeLanguage(d.lang ?? d.language ?? d.code);
-    if (next !== this.state.language) this.setState({ language: next });
-  };
-
-  private readonly normalizeTurlar = (raw: unknown, fallback = ""): string[] => {
+  protected normalizeTurlar(raw: unknown, fallback = ""): string[] {
     const values = Array.isArray(raw) ? raw : fallback ? [fallback] : [];
     return Array.from(
       new Set(
@@ -163,7 +51,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
           .filter(Boolean),
       ),
     );
-  };
+  }
 
   private readonly buildStringInClause = (field: string, values: string[]): string => {
     const normalized = Array.from(
@@ -174,67 +62,6 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     return `${field} IN (${normalized
       .map((value) => `'${escapeArcGIS(value)}'`)
       .join(",")})`;
-  };
-
-  private readonly handleMasterFilterChanged = (event: Event): void => {
-    if (!this._isMounted) return;
-    const d = panelEventDetail(event);
-    if (!d?.filters) return;
-
-    const eventTs = finiteMetaNumber(d?.meta, "timestamp");
-    const eventGen = finiteMetaNumber(d?.meta, "broadcastGeneration");
-    if (
-      isStaleMasterFilterEvent(eventTs, eventGen, {
-        lastMasterFilterTs: this._lastMasterFilterTs,
-        lastMasterFilterBroadcastGeneration:
-          this._lastMasterFilterBroadcastGeneration,
-      })
-    ) {
-      return;
-    }
-    if (eventGen > 0) this._lastMasterFilterBroadcastGeneration = eventGen;
-    if (eventTs > 0) this._lastMasterFilterTs = eventTs;
-
-    const f = d.filters;
-    const nextYil = (f.yil ?? "").toString();
-    const nextViloyat = normalizeApos(f.viloyat || "");
-    const nextTuman = normalizeApos(f.tuman || "");
-    const nextTurlar = this.normalizeTurlar(
-      f.turlar,
-      f.turi || f.tur || "",
-    );
-    const nextUniqueid = f.polygonMode
-      ? String(f.uniqueid || "").trim()
-      : "";
-    const nextLocked = d?.scope?.lockedViloyat
-      ? normalizeApos(String(d.scope.lockedViloyat))
-      : null;
-
-    const firstFilter = !this._hasMasterFilter;
-    this._hasMasterFilter = true;
-
-    const changed =
-      firstFilter ||
-      nextYil !== this.state.yil ||
-      nextViloyat !== this.state.viloyat ||
-      nextTuman !== this.state.tuman ||
-      JSON.stringify(nextTurlar) !== JSON.stringify(this.state.turlar) ||
-      nextUniqueid !== this.state.uniqueid ||
-      nextLocked !== this.state.lockedViloyat;
-
-    if (!changed) return;
-
-    this.setState(
-      {
-        yil: nextYil,
-        viloyat: nextViloyat,
-        tuman: nextTuman,
-        turlar: nextTurlar,
-        uniqueid: nextUniqueid,
-        lockedViloyat: nextLocked,
-      },
-      () => this.fetchValue(),
-    );
   };
 
   private readonly extractYear = (raw: unknown): string =>
@@ -280,16 +107,8 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
           }
           const result = new Map<string, string[]>();
           idsByTuri.forEach((ids, key) => result.set(key, Array.from(ids)));
-          agriLog("crop-id-map:loaded", {
-            turiCount: result.size,
-            rowCount: rows.length,
-            mappings: Array.from(result.entries()),
-          });
           return result;
-        } catch (error) {
-          agriLog("crop-id-map:FAILED", {
-            error: String(messageOf(error) || error),
-          });
+        } catch {
           return new Map<string, string[]>();
         }
       })();
@@ -336,7 +155,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
     return withAgriAccessWhere(clauses.join(" AND "));
   }
 
-  private readonly fetchValue = async (): Promise<void> => {
+  protected async fetchValue(): Promise<void> {
     const { layer, connectionStatus, yil } = this.state;
     if (!layer || connectionStatus !== "connected") return;
     if (!this._hasMasterFilter) return;
@@ -355,26 +174,7 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
       if (!this._isMounted || requestId !== this._requestId) return;
       const cropIds = this.resolveCropIds(this.state.turlar, cropIdMap);
       const cropFilterRequested = this.state.turlar.length > 0;
-      if (cropFilterRequested) {
-        agriLog("crop-filter:resolved", {
-          selectedTurlar: this.state.turlar,
-          cropIds,
-          allMapped: cropIds.length > 0,
-        });
-      }
       const where = this.buildWhere(cropIds, cropFilterRequested);
-
-      agriLog("query:request", {
-        url: layer?.url,
-        where,
-        outStatistics: [
-          {
-            onStatisticField: "maydon",
-            statisticType: "sum",
-            outStatisticFieldName: "agg",
-          },
-        ],
-      });
 
       // Reserve card treats missing aggregate as 0 ha (not "-").
       const raw = await queryIndicatorOutStat({
@@ -385,12 +185,6 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
       });
       if (!this._isMounted || requestId !== this._requestId) return;
 
-      agriLog("query:response", {
-        where,
-        rawAgg: raw,
-        sumMaydon: raw,
-        matchedZeroRows: raw === 0,
-      });
       this.setState({
         value: Number.isFinite(raw) ? raw : 0,
         loading: false,
@@ -400,56 +194,5 @@ export default class AgriIndicatorReserveLand extends React.PureComponent<
       if (!this._isMounted || requestId !== this._requestId) return;
       this.setState({ loading: false, value: null, error: null });
     }
-  };
-
-  render() {
-    const { value, loading, error, isDarkTheme, language } = this.state;
-
-    const label =
-      language === "en"
-        ? "Reserve land"
-        : language === "ru"
-        ? "Резервные земли"
-        : language === "uz_lat"
-          ? "Zaxira maydonlari"
-          : "Захира майдонлари";
-
-    const unit = language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
-
-    const themeClass = isDarkTheme ? "dark-theme" : "light-theme";
-    const showBlockingLoader =
-      !error &&
-      value == null &&
-      (loading ||
-        !String(this.state.yil || "").match(/\b(18|19|20)\d{2}\b/));
-    const connectionFailed =
-      this.state.connectionStatus === "failed" && !!error && value == null;
-
-    return (
-      <div
-        className={`vegetation-stats-widget ${themeClass} map-overlay-mode`}
-        data-ind-size="sm"
-      >
-        {showBlockingLoader ? (
-          <div className="loading-indicator">
-            <AgriDashboardSpinner compact size={40} />
-          </div>
-        ) : (
-          <div className="widget-content">
-            <div className="stat-main">
-              <div className="stat-label">{label}</div>
-              <div className="stat-value">
-                {connectionFailed ? (
-                  <span title={String(error || "")}>-</span>
-                ) : (
-                  <AgriAnimatedCount value={value} emptyFallback="-" />
-                )}
-                <span className="unit">{unit}</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
   }
 }

@@ -22,6 +22,9 @@ import {
   toPanelLanguage,
   type CssVarStyle,
 } from "../../panel-filter-detail";
+import { areaUnitLabel } from "../../../shared/agri-area-unit";
+import { pickLabel } from "../../../shared/agri-i18n";
+import { VEGETATION_TITLE, VEGETATION_SELECT_REGION_TITLE, VEGETATION_SELECT_REGION_BODY, VEGETATION_CATEGORY_LABELS } from "../../panel-messages";
 
 /** Defers ResizeObserver setup until the DOM is ready. */
 const RESPONSIVE_SIZING_DEFER_MS = 0;
@@ -191,31 +194,8 @@ export default class AgriBar extends React.PureComponent<
     language: "uz_cyr" | "uz_lat" | "ru" | "en",
   ): string => {
     const base = category.trim();
-    if (base === "1-Juda yaxshi") {
-      if (language === "en") return "Excellent";
-      if (language === "ru") return "Очень хороший";
-      if (language === "uz_lat") return "A'lo";
-      return "Жуда яхши";
-    }
-    if (base === "2-Yaxshi") {
-      if (language === "en") return "Good";
-      if (language === "ru") return "Хороший";
-      if (language === "uz_lat") return "Yaxshi";
-      return "Яхши";
-    }
-    if (base === "3-O'rta") {
-      if (language === "en") return "Moderate";
-      if (language === "ru") return "Средний";
-      if (language === "uz_lat") return "O'rta";
-      return "Ўрта";
-    }
-    if (base === "4-Past") {
-      if (language === "en") return "Poor";
-      if (language === "ru") return "Низкий";
-      if (language === "uz_lat") return "Past";
-      return "Паст";
-    }
-    return category;
+    const label = VEGETATION_CATEGORY_LABELS[base];
+    return label ? pickLabel(label, language) : category;
   };
 
   private readonly handleMasterFilterChange = (event: Event) => {
@@ -514,35 +494,17 @@ export default class AgriBar extends React.PureComponent<
     const effectiveViloyat = (lockedViloyat || selectedViloyat || "").trim();
     const chartInteractive = !!effectiveViloyat;
     const areaUnit =
-      language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
+      areaUnitLabel(language);
     const theme: "light" | "dark" = isDarkTheme ? "dark" : "light";
 
     const titleText =
-      language === "en"
-        ? "Vegetation Status"
-        : language === "ru"
-          ? "Состояние вегетации"
-          : language === "uz_lat"
-            ? "Vegetatsiya Holati"
-            : "Вегетация Ҳолати";
+      pickLabel(VEGETATION_TITLE, language);
 
     const selectRegionTitle =
-      language === "en"
-        ? "Select a region"
-        : language === "ru"
-          ? "Выберите регион"
-          : language === "uz_lat"
-            ? "Viloyatni tanlang"
-            : "Вилоятни танланг";
+      pickLabel(VEGETATION_SELECT_REGION_TITLE, language);
 
     const selectRegionBody =
-      language === "en"
-        ? "Select a region first to view vegetation status"
-        : language === "ru"
-          ? "Чтобы увидеть состояние вегетации, сначала выберите регион"
-          : language === "uz_lat"
-            ? "Vegetatsiya holatini ko‘rish uchun avval viloyatni tanlang"
-            : "Вегетация ҳолатини кўриш учун аввал вилоятни танланг";
+      pickLabel(VEGETATION_SELECT_REGION_BODY, language);
 
     const sortedCategories = [...vhData.categories].sort(
       (a, b) => a.order - b.order,

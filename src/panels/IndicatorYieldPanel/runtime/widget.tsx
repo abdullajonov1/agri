@@ -1,204 +1,31 @@
 // Average Yield Indicator — standalone widget, independent of AgriIndicator10.
 // Shows avg(yld) from Agri_table_data, scoped by the same master yil/viloyat/tuman filters.
 
-import { type AllWidgetProps, React } from "jimu-core";
-import AgriDashboardSpinner from "../../../shared/AgriDashboardSpinner";
-import AgriAnimatedCount from "../../../shared/AgriAnimatedCount";
 import { getAgriTableDataLayer } from "../../../gis/agri-table-data-source";
-import { eqAposSmart, normalizeApos } from "../../../data/agri-sql";
+import { eqAposSmart } from "../../../data/agri-sql";
 import { buildIndicatorStatsWhere } from "../../../controller/agri-where-builder";
-import { bindMasterFilter } from "../../../data/agri-filter-bus";
 import { queryIndicatorOutStatNullable } from "../../../data/agri-indicator-stats";
 import { normalizeTurlarListSql } from "../../../data/agri-turlar";
-import {
-  detectIsDarkTheme,
-  normalizeLanguage,
-  resolveInitialLanguage,
-  type AgriLanguage,
-} from "../../../shared/agri-language";
-import { isStaleMasterFilterEvent } from "../../../shared/agri-indicator-common";
-import {
-  finiteMetaNumber,
-  panelEventDetail,
-  type PanelFilterDetail,
-} from "../../panel-filter-detail";
-import "../../IndicatorPanel/runtime/KadastrIndicator.css";
+import type { AgriLabel } from "../../../shared/agri-i18n";
+import { IndicatorStatBase } from "../../indicator-stat/IndicatorStatBase";
 
-/** Logger disabled — keep call sites without console noise. */
-function agriLog(_phase: string, _detail?: Record<string, unknown>): void {
-  /* no-op */
-}
+const LABEL: AgriLabel = {
+  en: "Average yield",
+  ru: "Средняя урожайность",
+  uz_lat: "O'rtacha hosildorlik",
+  uz_cyr: "Ўртача ҳосилдорлик",
+};
 
-interface State {
-  value: number | null;
-  loading: boolean;
-  error: string | null;
+export default class AgriIndicatorYield extends IndicatorStatBase {
+  protected readonly label = LABEL;
 
-  yil: string;
-  viloyat: string;
-  tuman: string;
-  turlar: string[];
-  uniqueid: string;
-  lockedViloyat: string | null;
-
-  layer: __esri.FeatureLayer | null;
-  connectionStatus: "idle" | "connecting" | "connected" | "failed";
-
-  isDarkTheme: boolean;
-  language: AgriLanguage;
-}
-
-export default class AgriIndicatorYield extends React.PureComponent<
-  AllWidgetProps<Record<string, unknown>>,
-  State
-> {
-  private _isMounted = false;
-  private _unbindMasterFilter: (() => void) | null = null;
-  private _requestId = 0;
-  private _lastMasterFilterTs = 0;
-  private _lastMasterFilterBroadcastGeneration = 0;
-
-  constructor(props: AllWidgetProps<Record<string, unknown>>) {
-    super(props);
-    this.state = {
-      value: null,
-      loading: true,
-      error: null,
-
-      yil: "",
-      viloyat: "",
-      tuman: "",
-      turlar: [],
-      uniqueid: "",
-      lockedViloyat: null,
-
-      layer: null,
-      connectionStatus: "idle",
-
-      isDarkTheme: detectIsDarkTheme(),
-      language: resolveInitialLanguage(),
-    };
+  protected loadLayer(): Promise<{ layer: unknown }> {
+    return getAgriTableDataLayer();
   }
 
-  componentDidMount(): void {
-    this._isMounted = true;
-    this._unbindMasterFilter = bindMasterFilter(this.handleMasterFilterChanged);
-    document.addEventListener(
-      "agriV11ThemeToggled",
-      this.handleThemeChange as EventListener,
-    );
-    document.addEventListener(
-      "languageChanged",
-      this.handleLanguageChange as EventListener,
-    );
-
-    this.setState({ connectionStatus: "connecting" });
-    getAgriTableDataLayer()
-      .then(({ layer }) => {
-        if (!this._isMounted) return;
-        this.setState({ layer: layer as __esri.FeatureLayer, connectionStatus: "connected" }, () =>
-          this.fetchValue(),
-        );
-      })
-      .catch((err) => {
-        if (!this._isMounted) return;
-        this.setState({
-          connectionStatus: "failed",
-          loading: false,
-          error: String(err?.message || err),
-        });
-      });
+  protected normalizeTurlar(raw: unknown, fallback = ""): string[] {
+    return normalizeTurlarListSql(raw, fallback);
   }
-
-  componentWillUnmount(): void {
-    this._isMounted = false;
-    this._unbindMasterFilter?.();
-    this._unbindMasterFilter = null;
-    document.removeEventListener(
-      "agriV11ThemeToggled",
-      this.handleThemeChange as EventListener,
-    );
-    document.removeEventListener(
-      "languageChanged",
-      this.handleLanguageChange as EventListener,
-    );
-  }
-
-  private readonly handleThemeChange = (event: Event): void => {
-    const detail = (event as CustomEvent<PanelFilterDetail | null>)?.detail;
-    if (detail?.theme) {
-      this.setState({ isDarkTheme: detail.theme === "dark" });
-    } else {
-      this.setState({ isDarkTheme: detectIsDarkTheme() });
-    }
-  };
-
-  private readonly handleLanguageChange = (event: Event): void => {
-    if (!this._isMounted) return;
-    const d = panelEventDetail(event);
-    const next = normalizeLanguage(d.lang ?? d.language ?? d.code);
-    if (next !== this.state.language) this.setState({ language: next });
-  };
-
-  private readonly normalizeTurlar = (raw: unknown, fallback = ""): string[] =>
-    normalizeTurlarListSql(raw, fallback);
-
-  private readonly handleMasterFilterChanged = (event: Event): void => {
-    if (!this._isMounted) return;
-    const d = panelEventDetail(event);
-    if (!d?.filters) return;
-
-    const eventTs = finiteMetaNumber(d?.meta, "timestamp");
-    const eventGen = finiteMetaNumber(d?.meta, "broadcastGeneration");
-    if (
-      isStaleMasterFilterEvent(eventTs, eventGen, {
-        lastMasterFilterTs: this._lastMasterFilterTs,
-        lastMasterFilterBroadcastGeneration:
-          this._lastMasterFilterBroadcastGeneration,
-      })
-    ) {
-      return;
-    }
-    if (eventGen > 0) this._lastMasterFilterBroadcastGeneration = eventGen;
-    if (eventTs > 0) this._lastMasterFilterTs = eventTs;
-
-    const f = d.filters;
-    const nextYil = (f.yil ?? "").toString();
-    const nextViloyat = normalizeApos(f.viloyat || "");
-    const nextTuman = normalizeApos(f.tuman || "");
-    const nextTurlar = this.normalizeTurlar(
-      f.turlar,
-      f.turi || f.tur || "",
-    );
-    const nextUniqueid = f.polygonMode
-      ? String(f.uniqueid || "").trim()
-      : "";
-    const nextLocked = d?.scope?.lockedViloyat
-      ? normalizeApos(String(d.scope.lockedViloyat))
-      : null;
-
-    const changed =
-      nextYil !== this.state.yil ||
-      nextViloyat !== this.state.viloyat ||
-      nextTuman !== this.state.tuman ||
-      JSON.stringify(nextTurlar) !== JSON.stringify(this.state.turlar) ||
-      nextUniqueid !== this.state.uniqueid ||
-      nextLocked !== this.state.lockedViloyat;
-
-    if (!changed) return;
-
-    this.setState(
-      {
-        yil: nextYil,
-        viloyat: nextViloyat,
-        tuman: nextTuman,
-        turlar: nextTurlar,
-        uniqueid: nextUniqueid,
-        lockedViloyat: nextLocked,
-      },
-      () => this.fetchValue(),
-    );
-  };
 
   private buildWhere(): string {
     const { yil, viloyat, tuman, turlar, uniqueid, lockedViloyat } = this.state;
@@ -221,7 +48,7 @@ export default class AgriIndicatorYield extends React.PureComponent<
     return where;
   }
 
-  private readonly fetchValue = async (): Promise<void> => {
+  protected async fetchValue(): Promise<void> {
     const { layer, connectionStatus, yil } = this.state;
     if (!layer || connectionStatus !== "connected") return;
 
@@ -237,18 +64,6 @@ export default class AgriIndicatorYield extends React.PureComponent<
     try {
       const where = this.buildWhere();
 
-      agriLog("query:request", {
-        url: layer?.url,
-        where,
-        outStatistics: [
-          {
-            onStatisticField: "yld",
-            statisticType: "avg",
-            outStatisticFieldName: "agg",
-          },
-        ],
-      });
-
       // Only show blocking loader when we have nothing to display yet.
       if (this.state.value == null) {
         this.setState({ loading: true });
@@ -262,12 +77,6 @@ export default class AgriIndicatorYield extends React.PureComponent<
       });
       if (!this._isMounted || requestId !== this._requestId) return;
 
-      agriLog("query:response", {
-        where,
-        rawAgg: raw,
-        avgYld: raw,
-        matchedZeroRows: raw == null,
-      });
       this.setState({
         value: raw != null && Number.isFinite(raw) ? raw : null,
         loading: false,
@@ -275,57 +84,8 @@ export default class AgriIndicatorYield extends React.PureComponent<
       });
     } catch {
       if (!this._isMounted || requestId !== this._requestId) return;
-      // Soft-empty on query failure — never flash ⚠️ on first paint when
-      // year/filter is still settling or yld is sparse.
+      // Soft-empty on query failure — never flash a warning on first paint.
       this.setState({ loading: false, value: null, error: null });
     }
-  };
-
-  render() {
-    const { value, loading, error, isDarkTheme, language } = this.state;
-
-    const label =
-      language === "en"
-        ? "Average yield"
-        : language === "ru"
-        ? "Средняя урожайность"
-        : language === "uz_lat"
-          ? "O'rtacha hosildorlik"
-          : "Ўртача ҳосилдорлик";
-
-    const themeClass = isDarkTheme ? "dark-theme" : "light-theme";
-    // Continuous spinner until first value; avoid "-" gap while year settles.
-    const showBlockingLoader =
-      !error &&
-      value == null &&
-      (loading || !(this.state.yil || "").trim());
-    const connectionFailed =
-      this.state.connectionStatus === "failed" && !!error && value == null;
-
-    return (
-      <div
-        className={`vegetation-stats-widget ${themeClass} map-overlay-mode`}
-        data-ind-size="sm"
-      >
-        {showBlockingLoader ? (
-          <div className="loading-indicator">
-            <AgriDashboardSpinner compact size={40} />
-          </div>
-        ) : (
-          <div className="widget-content">
-            <div className="stat-main">
-              <div className="stat-label">{label}</div>
-              <div className="stat-value">
-                {connectionFailed ? (
-                  <span title={String(error || "")}>-</span>
-                ) : (
-                  <AgriAnimatedCount value={value} emptyFallback="-" />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
   }
 }

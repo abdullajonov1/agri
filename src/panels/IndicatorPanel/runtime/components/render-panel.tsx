@@ -4,6 +4,9 @@ import { React, DataSourceComponent } from "jimu-core";
 import { JimuMapViewComponent } from "jimu-arcgis";
 import AgriDashboardSpinner from "../../../../shared/AgriDashboardSpinner";
 import AgriAnimatedCount from "../../../../shared/AgriAnimatedCount";
+import { areaUnitLabel } from "../../../../shared/agri-area-unit";
+import { pickLabel } from "../../../../shared/agri-i18n";
+import { INDICATOR_DEFAULT_STAT, INDICATOR_RECONNECT, indicatorGroupTotal } from "../../../panel-messages";
 
 export function render(host: IndicatorWidgetHost) {
   const {
@@ -19,13 +22,7 @@ export function render(host: IndicatorWidgetHost) {
   const useApiDataSource = !!config?.useApiDataSource;
 
   const defaultStatLabel =
-    language === "en"
-      ? "Crop area"
-      : language === "ru"
-        ? "Площадь посевов"
-      : language === "uz_lat"
-        ? "Ekin maydonlari"
-        : "Экин майдонлари";
+    pickLabel(INDICATOR_DEFAULT_STAT, language);
 
   const configuredLabel = String(config?.label || "").trim();
   const usesDefaultLabel =
@@ -35,7 +32,7 @@ export function render(host: IndicatorWidgetHost) {
     );
   const label = usesDefaultLabel ? defaultStatLabel : configuredLabel;
 
-  const defaultUnit = language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
+  const defaultUnit = areaUnitLabel(language);
   const configuredUnit = String(config?.unitLabel || "").trim();
   const usesDefaultUnit =
     !configuredUnit || ["ga", "га"].includes(configuredUnit.toLowerCase());
@@ -73,13 +70,7 @@ export function render(host: IndicatorWidgetHost) {
   const dVal = config?.displayGroupValue;
   const bucketCaption = isGrouped
     ? dVal === undefined
-      ? language === "en"
-        ? `Total (${groupByField})`
-        : language === "ru"
-        ? `Итого по полю ${groupByField}`
-        : language === "uz_lat"
-          ? `Jami (${groupByField})`
-          : `Жами (${groupByField})`
+      ? indicatorGroupTotal(language, groupByField)
       : `${groupByField} = ${resolveCategoryLabel(dVal)}`
     : null;
 
@@ -142,13 +133,7 @@ export function render(host: IndicatorWidgetHost) {
               className="retry-button"
               onClick={host.retryMapConnection}
             >
-              {language === "en"
-                ? "Reconnect"
-                : language === "ru"
-                ? "Повторить подключение"
-                : language === "uz_lat"
-                  ? "Qayta ulanish"
-                  : "Қайта уланиш"}
+              {pickLabel(INDICATOR_RECONNECT, language)}
             </button>
           )}
         </div>

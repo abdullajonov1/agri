@@ -2,6 +2,9 @@ import type { RegionWidgetHost } from "../../region-host";
 import type { RegionalDataItem } from "../../widget";
 import { React } from "jimu-core";
 import { regionLog as regionLogFn } from "../../region-log";
+import { areaUnitLabel } from "../../../../../shared/agri-area-unit";
+import { pickLabel } from "../../../../../shared/agri-i18n";
+import { REGION_TOOLTIP_VALUE, REGION_TOOLTIP_PERCENT } from "../../../../panel-messages";
 
 /** Recharts passes either the row itself or `{ payload: row }`. */
 type ChartRowPayload = { payload?: unknown } | null | undefined;
@@ -342,22 +345,10 @@ export const handleChartSurfaceMove = (host: RegionWidgetHost, e: React.MouseEve
 export const renderCursorTooltipContent = (host: RegionWidgetHost, d: RegionalDataItem & { displayName?: string }): React.ReactNode => {
   const language = host.state.language;
   const tooltipValueLabel =
-    language === "en"
-      ? "Value:"
-      : language === "ru"
-      ? "Значение:"
-      : language === "uz_lat"
-        ? "Qiymat:"
-        : "Қиймат:";
+    pickLabel(REGION_TOOLTIP_VALUE, language);
   const tooltipPercentLabel =
-    language === "en"
-      ? "Percentage:"
-      : language === "ru"
-      ? "Процент:"
-      : language === "uz_lat"
-        ? "Foiz:"
-        : "Фоиз:";
-  const areaUnit = language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
+    pickLabel(REGION_TOOLTIP_PERCENT, language);
+  const areaUnit = areaUnitLabel(language);
   const tooltipTitle =
     d?.displayName ??
     (d as typeof d & { displayNameTranslated?: string })?.displayNameTranslated ??

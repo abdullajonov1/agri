@@ -2,12 +2,16 @@ import type { PieWidgetHost } from "../../pie-host";
 import { getPieVhFilterUniqueIdsSig } from "../../../../../gis/agri-chart-filter-order";
 import { agroV5Log } from "../../../../../gis/agri-debug-log";
 import { bindMasterFilter } from "../../../../../data/agri-filter-bus";
+import { normalizeTurlar } from "../../../../../data/agri-turlar";
 import { findAreaFieldByPreferredNames, AREA_FIELD_PREFERRED_PIE } from "../../../../../data/agri-area-field";
 import { getPieCategoryStatsCached } from "../../../../../data/agri-stats-store";
 import type { AgriPieProps, AgriPieState } from "../../widget";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../../shared/map-connection-service";
 import { initPieChart, toPieSliceData, type PieSliceClickParams } from "../../echarts-setup";
 import { readPanelEventDetail, toPanelLanguage } from "../../../../panel-filter-detail";
+import { areaUnitLabel } from "../../../../../shared/agri-area-unit";
+import { pickLabel } from "../../../../../shared/agri-i18n";
+import { PIE_CENTER_ALL } from "../../../../panel-messages";
 
 export const handleMasterFilterChange = (host: PieWidgetHost, event: Event) => {
   const d = readPanelEventDetail(event);
@@ -48,13 +52,10 @@ export const handleMasterFilterChange = (host: PieWidgetHost, event: Event) => {
         ? [incoming.turi]
         : []
       : host.state.turlar;
-  const nextTurlarNames: string[] = Array.from(
-    new Set(
-      (incomingTurlar as unknown[])
-        .map((value: unknown) => host.normalizeName(String(value || "")))
-        .filter(Boolean),
-    ),
-  );
+  const nextTurlarNames: string[] = normalizeTurlar(incomingTurlar, {
+    dedupe: true,
+    normalize: (value) => host.normalizeName(value),
+  });
   // Selection highlight keys are crop_id; master filter still sends turi names.
   const nextTurlar: string[] = host.turiNamesToCropIds(nextTurlarNames);
   const nextTuri: string = nextTurlar.length === 1 ? nextTurlar[0] : "";
@@ -508,7 +509,7 @@ export const ensurePieChart = (pieHost: PieWidgetHost) => {
 };
 export const formatCenterArea = (host: PieWidgetHost, value: number): string => {
   const { language } = host.state;
-  const areaUnit = language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
+  const areaUnit = areaUnitLabel(language);
   const safe = Number.isFinite(value) ? value : 0;
   return `${safe.toLocaleString("ru-RU", {
     maximumFractionDigits: safe >= 100 ? 0 : 1,
@@ -523,10 +524,7 @@ export const formatCenterPercent = (host: PieWidgetHost, value: number): string 
 };
 export const getCenterAllLabel = (host: PieWidgetHost): string => {
   const { language } = host.state;
-  if (language === "en") return "All";
-  if (language === "ru") return "Все";
-  if (language === "uz_lat") return "Barchasi";
-  return "Барчаси";
+  return pickLabel(PIE_CENTER_ALL, language);
 };
 export const isIpadLayout = (host: PieWidgetHost): boolean => {
   // Hide legend / expand pie on iPad Pro (~1366) and every smaller viewport.

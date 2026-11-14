@@ -3,12 +3,21 @@ import { VH_CATEGORY_TO_NDVI_STATUS, type VegetationCropBreakdownRow, queryVeget
 import { agroV5Log } from "../../../../../gis/agri-debug-log";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 import { messageOf } from "../../../../panel-filter-detail";
-import { queryAgriTuriCropMappings, getAgriTableDataLayer, expandUniqueIdsForAgriTable } from "../../../../../gis/agri-table-data-source";
+import { queryAgriTuriCropMappings, getAgriTableDataLayer } from "../../../../../gis/agri-table-data-source";
 import { getTuriCropLookupKey } from "../../../../../shared/agri-crop-labels";
-import { buildPieCategoriesFromMergedRows, syncPieSelectionAgainstCategories, buildPieCategoriesFromPackRows } from "../../../../../data/agri-dashboard-pack-apply";
-import { getPieVhFilterUniqueIds, getPieVhFilterUniqueIdsSig } from "../../../../../gis/agri-chart-filter-order";
-import { waitForDashboardPackReady, getDashboardPack } from "../../../../../store/agri-dashboard-store";
-import { matchPieDashboardPack } from "../../../../../data/agri-dashboard-pack-match";
+import { buildPieCategoriesFromMergedRows, syncPieSelectionAgainstCategories } from "../../../../../data/agri-dashboard-pack-apply";
+import {
+  isStaleFetch,
+  applyMissingYearState,
+  applyNoCategoryFieldState,
+  runVhFirstStep,
+  resolveVhJoinIds,
+  tryServePieFromPack,
+  buildPieWhereParts,
+  logPieFetchQuery,
+  queryMergedCategoryRows,
+  commitMergedCategories,
+} from "./pie-data-fetch-steps";
 
 /** Coalesces rapid region changes before starting a pie data fetch. */
 const FETCH_DEBOUNCE_MS = 16;
@@ -264,14 +273,7 @@ export async function _doFetchCategoryData(host: PieWidgetHost): Promise<void> {
 
   // Requires at least yil; viloyat optional (empty = republic-wide)
   if (!host.state.yil) {
-    host._lastFetchKey = key;
-    host._pendingVhPieFetchKey = "";
-    host._hasCompletedFetch = false;
-    host.setState({
-      categoryData: { categories: [], totalValue: 0 },
-      loading: false,
-      error: null,
-    });
+    applyMissingYearState(host, key);
     return;
   }
 
@@ -291,60 +293,21 @@ export async function _doFetchCategoryData(host: PieWidgetHost): Promise<void> {
 
     const { layer: tableLayer } = await getAgriTableDataLayer();
     await host.ensureCropIdMaps();
-    if (!host._isMounted || fetchId !== host._fetchCounter) return;
+    if (isStaleFetch(host, fetchId)) return;
     const categoryField =
       host.findCategoryField(tableLayer as __esri.FeatureLayer) || "crop_id";
     if (!categoryField) {
-      host._hasCompletedFetch = true;
-      host._lastFetchKey = key;
-      host._pendingVhPieFetchKey = "";
-      host.setState({
-        loading: false,
-        error: "No category field found. Please check your layer fields.",
-      });
+      applyNoCategoryFieldState(host, key);
       return;
     }
 
     // includeCategory: false — this widget always shows the full crop
-    // breakdown (every slice), regardless of which crop is currently
-    // selected. The selected crop is only ever a visual highlight
-    // (selectedCategory/activeSlice), never a self-filter on this query.
+    // breakdown (every slice); the selected crop is only a visual highlight.
 
     // VH-first: query vegetation crop mix immediately (same source as VH bar).
-    // Do NOT block on the uniqueid bridge — that left the pie stuck on the
-    // unscoped region total until (or unless) a follow-up broadcast arrived.
-    if (
-      host.state.filterPieByVh &&
-      String(host.state.vh || "").trim()
-    ) {
-      const handled = await host.fetchPieCategoriesViaVegetation(fetchId);
-      if (!host._isMounted || fetchId !== host._fetchCounter) return;
-      if (handled) {
-        host._lastFetchKey = key;
-        host._pendingVhPieFetchKey = "";
-        return;
-      }
-      // Vegetation unavailable — join Agri_table via bridge uniqueids.
-      if (getPieVhFilterUniqueIds() == null) {
-        agroV5Log(
-          "pie:fetch-wait-uniqueids-pending",
-          { filterPieByVh: true, vh: host.state.vh },
-          "vh",
-        );
-        host._pendingVhPieFetchKey = key;
-        if (fetchId === host._fetchCounter && host._isMounted) {
-          host.setState({ loading: true, error: null });
-        }
-        return;
-      }
-      agroV5Log(
-        "pie:vegetation-empty-fallback-join",
-        {
-          vh: host.state.vh,
-          vhIdsCount: getPieVhFilterUniqueIds()?.length ?? null,
-        },
-        "vh",
-      );
+    // Do NOT block on the uniqueid bridge.
+    if (host.state.filterPieByVh && String(host.state.vh || "").trim()) {
+      if (await runVhFirstStep(host, key, fetchId)) return;
     } else {
       host._pendingVhPieFetchKey = "";
     }
@@ -352,200 +315,53 @@ export async function _doFetchCategoryData(host: PieWidgetHost): Promise<void> {
     const scopeViloyat = String(
       host.state.viloyat || host.state.lockedViloyat || "",
     ).trim();
-    const vhIdsRaw = host.state.filterPieByVh
-      ? getPieVhFilterUniqueIds()
-      : null;
     // Vegetation ids are lower-case unbraced GUIDs; Agri_table_data may
-    // store braced/upper-case ones (PostgreSQL equality is case-sensitive).
-    // Expand to the table's detected style so the join cannot miss rows.
-    let vhIds = vhIdsRaw;
-    if (Array.isArray(vhIdsRaw) && vhIdsRaw.length) {
-      try {
-        vhIds = await expandUniqueIdsForAgriTable(vhIdsRaw);
-      } catch {
-        vhIds = vhIdsRaw;
-      }
-      if (!host._isMounted || fetchId !== host._fetchCounter) return;
-      // Do not await getAgriTableUniqueIdSamples here — it always hit the
-      // network even when __AGRO_V5_*_DEBUG is off (args evaluated first).
-      agroV5Log(
-        "pie:vh-join-ids",
-        {
-          rawCount: vhIdsRaw.length,
-          expandedCount: vhIds?.length ?? null,
-          vegIdSample: vhIdsRaw[0] ?? null,
-        },
-        "vh",
-      );
-    }
+    // store braced/upper-case ones, so expand to the table's style.
+    const joinIds = await resolveVhJoinIds(host, fetchId);
+    if (!joinIds) return;
+    const { vhIds } = joinIds;
     const vhScoped =
-      host.state.filterPieByVh &&
-      Array.isArray(vhIds) &&
-      vhIds.length > 0;
+      host.state.filterPieByVh && Array.isArray(vhIds) && vhIds.length > 0;
     const { district: pieDistrictCode } =
       await host.resolveRegionDistrictForPie();
-    if (!host._isMounted || fetchId !== host._fetchCounter) return;
+    if (isStaleFetch(host, fetchId)) return;
     const whereClause = host.buildWhereClauseForDS({
       includeCategory: false,
       // VH uniqueids are already region/district scoped in
-      // agri_vegetation_indices — skip viloyat/tuman name predicates on
-      // Agri_table_data (e.g. "Sirdaryo" vs "Sirdaryo viloyati").
+      // agri_vegetation_indices — skip viloyat/tuman name predicates.
       includeViloyat: !!scopeViloyat && !vhScoped,
       districtCode: pieDistrictCode ?? null,
     });
 
-    // Shared DashboardPack hit (no VH) — skip duplicate ArcGIS groupBy.
-    if (!host.state.filterPieByVh) {
-      await waitForDashboardPackReady(2500);
-      if (!host._isMounted || fetchId !== host._fetchCounter) return;
-      const piePack = matchPieDashboardPack(getDashboardPack(), {
-        where: whereClause,
-        hasVh: false,
-      });
-      if (piePack) {
-        const { categories, totalValue } = buildPieCategoriesFromPackRows(
-          piePack.rows,
-        );
-        if (!host._isMounted || fetchId !== host._fetchCounter) return;
-        const {
-          validSelectedCategories,
-          activeSlice,
-          singleSelection,
-        } = syncPieSelectionAgainstCategories(
-          host.state.selectedCategories,
-          categories,
-          (value) => host.normalizeName(value),
-        );
-
-        host._hasCompletedFetch = true;
-        host._lastFetchKey = key;
-        host._pendingVhPieFetchKey = "";
-        host.setState({
-          categoryData: { categories, totalValue },
-          loading: false,
-          error: null,
-          activeSlice,
-          selectedCategories: validSelectedCategories,
-          selectedCategory: singleSelection,
-        });
-        return;
-      }
+    if (
+      !host.state.filterPieByVh &&
+      (await tryServePieFromPack(host, key, fetchId, whereClause))
+    ) {
+      return;
     }
 
-    const layersForQuery: __esri.FeatureLayer[] = [
-      tableLayer as __esri.FeatureLayer,
-    ];
-
-    const merged = new Map<string, { key: string; value: number }>();
     const vhChunks = host.buildPieVhWhereChunks(vhIds);
-    const whereParts =
-      vhChunks && vhChunks.length
-        ? vhChunks.map((chunk) =>
-            whereClause && whereClause !== "1=1"
-              ? `(${whereClause}) AND (${chunk})`
-              : chunk,
-          )
-        : [whereClause || "1=1"];
+    const whereParts = buildPieWhereParts(whereClause, vhChunks);
 
-    agroV5Log(
-      "pie:fetch-query",
-      {
-        filterPieByVh: host.state.filterPieByVh,
-        vhScopedSkipGeography: vhScoped,
-        vh: host.state.vh,
-        vhIdsCount: vhIds?.length ?? null,
-        vhIdsSig: getPieVhFilterUniqueIdsSig(),
-        vhChunkCount: vhChunks?.length ?? 0,
-        whereClause,
-        wherePartCount: whereParts.length,
-        turlar: host.state.turlar,
-        turi: host.state.turi,
-        viloyat: scopeViloyat,
-        tuman: host.state.tuman,
-        yil: host.state.yil,
-      },
-      host.state.tuman ? "tuman" : "vh",
-    );
-
-    for (const layer of layersForQuery) {
-      const layerCategoryField = host.findCategoryField(layer);
-      if (!layerCategoryField) continue;
-
-      for (const partWhere of whereParts) {
-        const part = await host.queryCategoryStatsJSON(
-          layer,
-          partWhere,
-          layerCategoryField,
-        );
-
-        for (const r of part) {
-          const cropId = String(r.key ?? "").trim();
-          if (!cropId) continue;
-          const prev = merged.get(cropId);
-          if (prev) {
-            prev.value += Number(r.value || 0);
-          } else {
-            merged.set(cropId, {
-              key: cropId,
-              value: Number(r.value || 0),
-            });
-          }
-        }
-      }
-    }
-
-    const rows = Array.from(merged.values());
-
-    if (!host._isMounted || fetchId !== host._fetchCounter) return;
-
-    const { categories, totalValue } = buildPieCategoriesFromMergedRows(rows);
-
-    agroV5Log(
-      "pie:fetch-result",
-      {
-        filterPieByVh: host.state.filterPieByVh,
-        vh: host.state.vh,
-        viloyat: host.state.viloyat,
-        tuman: host.state.tuman,
-        yil: host.state.yil,
-        categoryCount: categories.length,
-        totalValue,
-        categories: categories.map((c) => ({
-          key: c.key,
-          value: Math.round(c.value),
-          pct: Math.round(c.percentage),
-        })),
-        mergedRawCount: rows.length,
-      },
-      host.state.tuman ? "tuman" : "vh",
-    );
-
-    const {
-      validSelectedCategories,
-      activeSlice,
-      singleSelection,
-    } = syncPieSelectionAgainstCategories(
-      host.state.selectedCategories,
-      categories,
-      (value) => host.normalizeName(value),
-    );
-
-    host._hasCompletedFetch = true;
-    host._lastFetchKey = key;
-    host._pendingVhPieFetchKey = "";
-    host.setState({
-      categoryData: { categories, totalValue },
-      loading: false,
-      error: null,
-      activeSlice,
-      turi: singleSelection,
-      turlar: validSelectedCategories,
-      selectedCategory: singleSelection || null,
-      selectedCategories: validSelectedCategories,
-      debugInfo: `Loaded ${categories.length} categories (WHERE: ${whereClause})`,
+    logPieFetchQuery(host, {
+      vhScoped,
+      vhIds,
+      vhChunkCount: vhChunks?.length ?? 0,
+      whereClause,
+      wherePartCount: whereParts.length,
+      scopeViloyat,
     });
+
+    const rows = await queryMergedCategoryRows(
+      host,
+      tableLayer as __esri.FeatureLayer,
+      whereParts,
+    );
+    if (isStaleFetch(host, fetchId)) return;
+
+    commitMergedCategories(host, key, rows, whereClause);
   } catch (error: unknown) {
-    if (!host._isMounted || fetchId !== host._fetchCounter) return;
+    if (isStaleFetch(host, fetchId)) return;
 
     // Do not store _lastFetchKey: the same key must retry after an error.
     host._hasCompletedFetch = true;

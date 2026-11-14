@@ -2,6 +2,7 @@ import type { RegionFilterUpdates, RegionWidgetHost } from "../../region-host";
 import { messageOf, panelEventDetail } from "../../../../panel-filter-detail";
 import { regionLog as regionLogFn } from "../../region-log";
 import { bindMasterFilter } from "../../../../../data/agri-filter-bus";
+import { normalizeTurlar, turlarSourceFromDetail } from "../../../../../data/agri-turlar";
 import { detectIsDarkTheme, normalizeLanguage } from "../../../../../shared/agri-language";
 import type { WidgetSize } from "../../widget";
 import { type JimuMapView } from "jimu-arcgis";
@@ -206,13 +207,10 @@ export const handleMasterFilterChange = (host: RegionWidgetHost, event: Event) =
 
   const f = d.filters;
 
-  const nextTurlar: string[] = Array.from(
-    new Set<string>(
-      (Array.isArray(f.turlar) ? f.turlar : f.turi ? [f.turi] : ([] as unknown[]))
-        .map((value: unknown) => host.normalizeApos(String(value || "")))
-        .filter(Boolean),
-    ),
-  );
+  const nextTurlar: string[] = normalizeTurlar(turlarSourceFromDetail(f), {
+    dedupe: true,
+    normalize: (value) => host.normalizeApos(value),
+  });
   const nextVh = String(f.vh || "").trim();
   const nextFilterPieByVh = Boolean(f.filterPieByVh);
   const nextTuman = String(f.tuman || "").trim();

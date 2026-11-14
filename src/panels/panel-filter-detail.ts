@@ -6,6 +6,7 @@
  */
 import type { AgriLanguage } from "../shared/agri-language";
 import { toPlainRecord } from "../shared/agri-plain-object";
+import { normalizeTurlar, turlarSourceFromDetail } from "../data/agri-turlar";
 
 /** `detail.filters` of masterFilterChanged (all optional — producers vary). */
 export interface PanelFilterFields {
@@ -92,12 +93,8 @@ export const readThemeIsDark = (detail: PanelFilterDetail): boolean | null => {
 };
 
 /** Normalise `turlar` / `turi` into a clean string list. */
-export const readTurlar = (filters: PanelFilterFields): string[] => {
-  if (Array.isArray(filters.turlar)) {
-    return filters.turlar.map((value) => String(value || "")).filter(Boolean);
-  }
-  return filters.turi ? [String(filters.turi)] : [];
-};
+export const readTurlar = (filters: PanelFilterFields): string[] =>
+  normalizeTurlar(turlarSourceFromDetail(filters));
 
 /**
  * `.message` of a thrown value (Error or esri error-like object), or "" when

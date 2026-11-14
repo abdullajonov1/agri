@@ -7,6 +7,9 @@ import { TriangleAlert } from "lucide-react";
 import { Button } from "jimu-ui";
 import AgriChartLoader from "../../../../shared/AgriChartLoader";
 import { agriNoDataLabel } from "../../../../shared/agriNoDataLabel";
+import { areaUnitLabel } from "../../../../shared/agri-area-unit";
+import { pickLabel } from "../../../../shared/agri-i18n";
+import { CROP_TYPE_TITLE } from "../../../panel-messages";
 
 export const renderRadarPieChart = (host: PieWidgetHost, _chartData: PieChartDatum[], _containerWidth: number = 300, _containerHeight: number = 300): JSX.Element => {
   return (
@@ -41,16 +44,10 @@ export function render(host: PieWidgetHost) {
   const visibleCategories = sortedCategories;
 
   const themeClass = isDarkTheme ? "dark-theme" : "light-theme";
-  const areaUnit = language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
+  const areaUnit = areaUnitLabel(language);
 
   const titleText =
-    language === "en"
-      ? "Crop Type"
-      : language === "ru"
-      ? "Тип культуры"
-      : language === "uz_lat"
-        ? "Ekin Turi"
-        : "Экин Тури";
+    pickLabel(CROP_TYPE_TITLE, language);
 
   const chartData = visibleCategories.map((category) => ({
     name: host.getCategoryDisplayName(category.key, language),

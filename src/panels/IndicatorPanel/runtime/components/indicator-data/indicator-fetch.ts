@@ -8,13 +8,8 @@ import { agriVhIndicatorLog } from "../../../../../gis/agri-debug-log";
 import { canonicalIndicatorApiPlaces } from "./indicator-api-places";
 import { requestIndicatorApiValue } from "./indicator-api-client";
 import { isAbortError } from "../../../../../shared/agri-http";
+import { vhWhereSummary, isStale, publishValue, pickNationalSumLayers } from "./indicator-fetch-steps";
 import { asStatisticDefinitions } from "../../../../../shared/agri-plain-object";
-
-const vhWhereSummary = (where: string) => ({
-  whereLength: where.length,
-  whereHead: where.slice(0, 220),
-  inLiteralCount: (where.match(/'[^']*'/g) || []).length,
-});
 
 export const fetchApiData = async (host: IndicatorWidgetHost) => {
   if (!host._isMounted) return;
@@ -127,6 +122,212 @@ const invalidateInFlight = (host: IndicatorWidgetHost): number => {
   return requestId;
 };
 
+type StatOp = "count" | "sum" | "avg" | "min" | "max" | "first";
+type FetchCtx = {
+  host: IndicatorWidgetHost;
+  requestId: number;
+  fl: __esri.FeatureLayer;
+  op: StatOp;
+  field: string;
+  where: string;
+  vhActive: boolean;
+};
+
+/** Shared DashboardPack hit — default sum(maydon), no VH / uniqueid. Returns true when handled. */
+const tryDashboardPack = async ({ host, requestId, op, field, where }: FetchCtx): Promise<boolean> => {
+  if (
+    !canConsumeIndicatorDashboardPack({
+      op,
+      field,
+      selectedVegetationStatus: host.state.selectedVegetationStatus,
+      selectedUniqueid: host.state.selectedUniqueid,
+    })
+  ) {
+    return false;
+  }
+  await waitForDashboardPackReady(2500);
+  if (isStale(host, requestId)) return true;
+  const indicatorPack = matchIndicatorDashboardPack(getDashboardPack(), {
+    where,
+    hasVh: false,
+    attributeField: "maydon",
+  });
+  if (!indicatorPack) return false;
+  publishValue(host, indicatorPack.value);
+  return true;
+};
+
+const fetchFirst = async ({ host, requestId, fl, field, where }: FetchCtx) => {
+  const q = fl.createQuery();
+  q.where = where;
+  q.outFields = [field];
+  q.orderByFields = [`${field} ASC`];
+  q.returnGeometry = false;
+  q.num = 1;
+
+  const res = await fl.queryFeatures(q);
+  if (isStale(host, requestId)) return;
+  const v = Number(res?.features?.[0]?.attributes?.[field] ?? 0);
+  publishValue(host, v, res?.features?.length || 0);
+};
+
+/** Layers + WHERE used for the "sum" operation. */
+const resolveSumLayers = ({ host, fl, field, where }: FetchCtx) => {
+  const allLayers = (host.state.featureLayers || []).filter(Boolean);
+  const selectedVil = (host.state.selectedViloyat || "").trim();
+  if (!selectedVil) {
+    return {
+      layersForSum: pickNationalSumLayers(fl, allLayers, (l) => host.isRepublicLayer(l)),
+      whereForSum: where,
+    };
+  }
+  // Prefer a routed regional layer when multi-layer setups exist,
+  // but always keep viloyat/tuman in WHERE — Agri_table_data is a
+  // single table for all regions.
+  const routed = host.getFeatureLayerForViloyat(selectedVil, allLayers) || fl;
+  let whereForSum = host.buildWhereClause(true);
+  if (host.props.config?.excludeZeroValues && field) {
+    whereForSum += ` AND ${host.nz(field)}`;
+  }
+  return { layersForSum: [routed], whereForSum };
+};
+
+const fetchSum = async (ctx: FetchCtx, onField: string) => {
+  const { host, requestId, vhActive } = ctx;
+  const { layersForSum, whereForSum } = resolveSumLayers(ctx);
+  const selectedVil = (host.state.selectedViloyat || "").trim();
+  const selectedTum = (host.state.selectedTuman || "").trim();
+
+  let totalRaw = 0;
+  const layerResults: Array<Record<string, unknown>> = [];
+  for (const layer of layersForSum) {
+    const layerFields = (layer.fields || []).map((f) => (f?.name || "").toLowerCase());
+    if (!layerFields.includes(onField.toLowerCase())) {
+      layerResults.push({ url: layer?.url, skipped: `maydon yo'q: ${onField}` });
+      continue;
+    }
+
+    const t0 = Date.now();
+    const rawLayer =
+      (await queryIndicatorOutStatNullable({
+        layer,
+        where: whereForSum,
+        statisticType: "sum",
+        onStatisticField: onField,
+      })) ?? null;
+    if (isStale(host, requestId)) return;
+    layerResults.push({
+      url: layer?.url,
+      raw: rawLayer,
+      noRows: rawLayer == null,
+      ms: Date.now() - t0,
+    });
+    totalRaw += Number(rawLayer) || 0;
+  }
+
+  if (vhActive) {
+    agriVhIndicatorLog("4-natija-sum", {
+      widgetId: host.props?.id,
+      vh: host.state.selectedVegetationStatus,
+      selectedViloyat: selectedVil,
+      selectedTuman: selectedTum,
+      layerCount: layersForSum.length,
+      layerResults,
+      totalRaw,
+      ...vhWhereSummary(whereForSum),
+    });
+  }
+
+  if (isStale(host, requestId)) return;
+  publishValue(host, totalRaw);
+};
+
+const fetchAggregate = async (
+  { host, requestId, fl, op, where, vhActive }: FetchCtx,
+  onField: string,
+) => {
+  const q = fl.createQuery();
+  q.where = where;
+  q.outStatistics = asStatisticDefinitions([
+    {
+      onStatisticField: onField,
+      statisticType: op as __esri.StatisticDefinition["statisticType"],
+      outStatisticFieldName: "agg",
+    },
+  ]);
+  q.returnGeometry = false;
+
+  const stats = await fl.queryFeatures(q);
+  if (isStale(host, requestId)) return;
+  const raw = Number(stats?.features?.[0]?.attributes?.agg ?? 0);
+  if (vhActive) {
+    agriVhIndicatorLog("4-natija", {
+      widgetId: host.props?.id,
+      vh: host.state.selectedVegetationStatus,
+      op,
+      raw,
+      featureCount: stats?.features?.length ?? 0,
+      ...vhWhereSummary(where),
+    });
+  }
+  publishValue(host, raw);
+};
+
+const logQueryReady = ({ host, fl, op, field, where }: FetchCtx) => {
+  agriVhIndicatorLog("3-sorov-tayyor", {
+    widgetId: host.props?.id,
+    vh: host.state.selectedVegetationStatus,
+    op,
+    field,
+    layerUrl: fl?.url,
+    vhUniqueidsCount: host.state.vhUniqueids?.length ?? null,
+    joinExpandedCount: host._vhJoinExpanded?.length ?? null,
+    joinUsesExpanded:
+      host._vhJoinSource === host.state.vhUniqueids && !!host._vhJoinExpanded,
+    ...vhWhereSummary(where),
+  });
+};
+
+/** Resolve layer/op/where, then run the matching query and publish the result. */
+const runStatQuery = async (host: IndicatorWidgetHost, requestId: number, vhActive: boolean) => {
+  host.setState({
+    loading: host.state.vegetationArea == null,
+    error: null,
+  });
+
+  const fl = host._canonicalFeatureLayer || host.state.featureLayer;
+  if (!fl) {
+    host.setState({ loading: false, error: "No feature layer available" });
+    return;
+  }
+  const oidField = fl.objectIdField || "objectid";
+  const op = (host.props.config?.statOperation || "count") as StatOp;
+  const field = (host.props.config?.attributeField || "").trim();
+
+  let where = host.buildWhereClause();
+  if (host.props.config?.excludeZeroValues && field) {
+    where += ` AND ${host.nz(field)}`;
+  }
+  const ctx: FetchCtx = { host, requestId, fl, op, field, where, vhActive };
+
+  if (vhActive) logQueryReady(ctx);
+  if (await tryDashboardPack(ctx)) return;
+  if (op === "first") return fetchFirst(ctx);
+
+  if (op !== "count" && !field) {
+    host.setState({
+      loading: false,
+      error: "Select attribute field for this aggregation",
+    });
+    return;
+  }
+
+  const onField = op === "count" ? oidField : field;
+  // In Agri3, overall "sum" should reflect totals across regional layers.
+  if (op === "sum") return fetchSum(ctx, onField);
+  return fetchAggregate(ctx, onField);
+};
+
 export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boolean) => {
   if (host.props.config?.useApiDataSource) return host.fetchApiData();
 
@@ -179,285 +380,7 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
     if (host._abortController) host._abortController.abort();
     controller = new AbortController();
     host._abortController = controller;
-
-    host.setState({
-      loading: host.state.vegetationArea == null,
-      error: null,
-    });
-
-    const fl = host._canonicalFeatureLayer || host.state.featureLayer;
-    if (!fl) {
-      host.setState({ loading: false, error: "No feature layer available" });
-      return;
-    }
-    const oidField = fl.objectIdField || "objectid";
-
-    const op = (host.props.config?.statOperation || "count") as
-      | "count"
-      | "sum"
-      | "avg"
-      | "min"
-      | "max"
-      | "first";
-    const field = (host.props.config?.attributeField || "").trim();
-
-    let where = host.buildWhereClause();
-
-    if (host.props.config?.excludeZeroValues && field) {
-      where += ` AND ${host.nz(field)}`;
-    }
-
-    if (vhActive) {
-      agriVhIndicatorLog("3-sorov-tayyor", {
-        widgetId: host.props?.id,
-        vh: host.state.selectedVegetationStatus,
-        op,
-        field,
-        layerUrl: fl?.url,
-        vhUniqueidsCount: host.state.vhUniqueids?.length ?? null,
-        joinExpandedCount: host._vhJoinExpanded?.length ?? null,
-        joinUsesExpanded:
-          host._vhJoinSource === host.state.vhUniqueids &&
-          !!host._vhJoinExpanded,
-        ...vhWhereSummary(where),
-      });
-    }
-
-    // Shared DashboardPack hit — default sum(maydon), no VH / uniqueid.
-    if (
-      canConsumeIndicatorDashboardPack({
-        op,
-        field,
-        selectedVegetationStatus: host.state.selectedVegetationStatus,
-        selectedUniqueid: host.state.selectedUniqueid,
-      })
-    ) {
-      await waitForDashboardPackReady(2500);
-      if (!host._isMounted || requestId !== host._requestId) return;
-      const indicatorPack = matchIndicatorDashboardPack(getDashboardPack(), {
-        where,
-        hasVh: false,
-        attributeField: "maydon",
-      });
-      if (indicatorPack) {
-        const totalVal = formatIndicatorStatValue(
-          indicatorPack.value,
-          host.props.config?.decimalPlaces || 0,
-        );
-        if (!host._isMounted || requestId !== host._requestId) return;
-        host.setState({
-          vegetationArea: totalVal,
-          totalArea: totalVal,
-          loading: false,
-          lastUpdate: new Date(),
-          error: null,
-        });
-        return;
-      }
-    }
-
-    if (op === "first") {
-      const q = fl.createQuery();
-      q.where = where;
-      q.outFields = [field];
-      q.orderByFields = [`${field} ASC`];
-      q.returnGeometry = false;
-      q.num = 1;
-
-      const res = await fl.queryFeatures(q);
-      if (!host._isMounted || requestId !== host._requestId) return;
-      const v = Number(res?.features?.[0]?.attributes?.[field] ?? 0);
-      const val = formatIndicatorStatValue(
-        v,
-        host.props.config?.decimalPlaces || 0,
-      );
-
-      if (!host._isMounted || requestId !== host._requestId) return;
-
-      host.setState({
-        vegetationArea: val,
-        totalArea: val,
-        featureCount: res?.features?.length || 0,
-        loading: false,
-        lastUpdate: new Date(),
-        error: null,
-      });
-      return;
-    }
-
-    const statMap: Record<
-      "count" | "sum" | "avg" | "min" | "max",
-      __esri.StatisticDefinition["statisticType"]
-    > = {
-      count: "count",
-      sum: "sum",
-      avg: "avg",
-      min: "min",
-      max: "max",
-    };
-
-    if (op !== "count" && !field) {
-      host.setState({
-        loading: false,
-        error: "Select attribute field for this aggregation",
-      });
-      return;
-    }
-
-    const onField = op === "count" ? oidField : field;
-
-    // In Agri3, overall "sum" should reflect totals across regional layers.
-    // If regional layers exist, use them (excluding republic layer to avoid overlap).
-    if (op === "sum") {
-      const allLayers = (host.state.featureLayers || []).filter(Boolean);
-      const selectedVil = (host.state.selectedViloyat || "").trim();
-      const selectedTum = (host.state.selectedTuman || "").trim();
-
-      let layersForSum: __esri.FeatureLayer[] = [];
-      let whereForSum = where;
-
-      if (selectedVil) {
-        // Prefer a routed regional layer when multi-layer setups exist,
-        // but always keep viloyat/tuman in WHERE — Agri_table_data is a
-        // single table for all regions (legacy "drop viloyat predicate"
-        // only worked with per-region layers).
-        const routed =
-          host.getFeatureLayerForViloyat(selectedVil, allLayers) || fl;
-        layersForSum = [routed];
-        whereForSum = host.buildWhereClause(true);
-        if (host.props.config?.excludeZeroValues && field) {
-          whereForSum += ` AND ${host.nz(field)}`;
-        }
-      } else {
-        // Republic overview: Agri_table_data is one national table — summing
-        // every non-republic layer duplicates the same FeatureServer query.
-        const sameUrlAsCanonical = (layer: __esri.FeatureLayer) => {
-          const a = String(layer?.url || "").replace(/\/+$/, "");
-          const b = String(fl?.url || "").replace(/\/+$/, "");
-          return !!a && !!b && a === b;
-        };
-        const nonRepublicLayers = allLayers.filter(
-          (l) => !host.isRepublicLayer(l),
-        );
-        const distinctLayerUrls = new Set(
-          nonRepublicLayers
-            .map((l) => String(l?.url || "").replace(/\/+$/, ""))
-            .filter(Boolean),
-        );
-        if (
-          !nonRepublicLayers.length ||
-          distinctLayerUrls.size <= 1 ||
-          nonRepublicLayers.every(sameUrlAsCanonical)
-        ) {
-          layersForSum = [fl];
-        } else {
-          layersForSum = nonRepublicLayers;
-        }
-      }
-
-      let totalRaw = 0;
-
-      const layerResults: Array<Record<string, unknown>> = [];
-      for (const layer of layersForSum) {
-        const layerFields = (layer.fields || []).map((f) =>
-          (f?.name || "").toLowerCase(),
-        );
-        if (!layerFields.includes(onField.toLowerCase())) {
-          layerResults.push({
-            url: layer?.url,
-            skipped: `maydon yo'q: ${onField}`,
-          });
-          continue;
-        }
-
-        const t0 = Date.now();
-        const rawLayer =
-          (await queryIndicatorOutStatNullable({
-            layer,
-            where: whereForSum,
-            statisticType: "sum",
-            onStatisticField: onField,
-          })) ?? null;
-        if (!host._isMounted || requestId !== host._requestId) return;
-        layerResults.push({
-          url: layer?.url,
-          raw: rawLayer,
-          noRows: rawLayer == null,
-          ms: Date.now() - t0,
-        });
-        totalRaw += Number(rawLayer) || 0;
-      }
-
-      if (vhActive) {
-        agriVhIndicatorLog("4-natija-sum", {
-          widgetId: host.props?.id,
-          vh: host.state.selectedVegetationStatus,
-          selectedViloyat: selectedVil,
-          selectedTuman: selectedTum,
-          layerCount: layersForSum.length,
-          layerResults,
-          totalRaw,
-          ...vhWhereSummary(whereForSum),
-        });
-      }
-
-      const totalVal = formatIndicatorStatValue(
-        totalRaw,
-        host.props.config?.decimalPlaces || 0,
-      );
-
-      if (!host._isMounted || requestId !== host._requestId) return;
-
-      host.setState({
-        vegetationArea: totalVal,
-        totalArea: totalVal,
-        loading: false,
-        lastUpdate: new Date(),
-        error: null,
-      });
-      return;
-    }
-
-
-
-    const q = fl.createQuery();
-    q.where = where;
-    q.outStatistics = asStatisticDefinitions([
-      {
-        onStatisticField: onField,
-        statisticType: statMap[op],
-        outStatisticFieldName: "agg",
-      },
-    ]);
-    q.returnGeometry = false;
-
-    const stats = await fl.queryFeatures(q);
-    if (!host._isMounted || requestId !== host._requestId) return;
-    const raw = Number(stats?.features?.[0]?.attributes?.agg ?? 0);
-    if (vhActive) {
-      agriVhIndicatorLog("4-natija", {
-        widgetId: host.props?.id,
-        vh: host.state.selectedVegetationStatus,
-        op,
-        raw,
-        featureCount: stats?.features?.length ?? 0,
-        ...vhWhereSummary(where),
-      });
-    }
-    const val = formatIndicatorStatValue(
-      raw,
-      host.props.config?.decimalPlaces || 0,
-    );
-
-    if (!host._isMounted || requestId !== host._requestId) return;
-
-    host.setState({
-      vegetationArea: val,
-      totalArea: val,
-      loading: false,
-      lastUpdate: new Date(),
-      error: null,
-    });
+    await runStatQuery(host, requestId, vhActive);
   } catch (e) {
     const err = e as { name?: string; message?: string; details?: unknown } | null | undefined;
     if (vhActive) {
@@ -467,16 +390,16 @@ export const fetchData = async (host: IndicatorWidgetHost, _forceRefresh?: boole
         name: err?.name,
         message: String(err?.message || e),
         details: err?.details,
-        stale: !host._isMounted || requestId !== host._requestId,
+        stale: isStale(host, requestId),
       });
     }
     if (err?.name === "AbortError") {
-      if (!host._isMounted || requestId !== host._requestId) return;
+      if (isStale(host, requestId)) return;
       host.setState({ loading: false });
       return;
     }
 
-    if (!host._isMounted || requestId !== host._requestId) return;
+    if (isStale(host, requestId)) return;
     host.setState({ loading: false, error: err?.message || "Query failed" });
   } finally {
     if (host._abortController === controller) host._abortController = null;
