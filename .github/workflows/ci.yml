@@ -1,0 +1,57 @@
+# Self-contained CI for the agri-main widget.
+#
+# Runs only checks that need nothing outside this repository. Each command was
+# run locally from the widget root before being added.
+#
+# Deliberately NOT run here:
+#   - jest / tsc / eslint: need the Experience Builder client SDK (jimu-*),
+#     which is not in this repository, so they cannot run in CI.
+#   - scripts/publish-agri.sh, scripts/release-agri.sh: deploy to a live portal
+#     and need credentials; not safe or possible in CI.
+#   - scripts/install-hooks.sh: configures a local git clone; not a check.
+#   - scripts/smoke-*.mjs, scripts/move-graff-batch.mjs, scripts/sync-graff-host.mjs:
+#     call live services or local Experience Builder installs.
+#
+# Triggers: master only (main is the GitHub Pages branch).
+
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Quality gate
+        run: node scripts/check-quality.mjs
+
+      - name: Network timeout check
+        run: node scripts/check-network-timeouts.mjs
+
+      - name: Unit tests
+        run: node --test scripts/*.test.mjs
+
+      - name: Shell syntax check
+        run: bash -n scripts/*.sh

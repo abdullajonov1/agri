@@ -46,4 +46,7 @@ echo "Building production bundle..."
 (cd "$CLIENT" && NODE_ENV=production OUTPUT_FOLDER=./dist-prod npx webpack --mode production \
   --config "your-extensions/widgets/$(basename "$ROOT")/scripts/webpack.prod-only.js")
 
+echo "Checking bundle size budget..."
+node "$ROOT/scripts/check-bundle-size.mjs" "$CLIENT/dist-prod/widgets/$(basename "$ROOT")"
+
 bash "$ROOT/scripts/publish-agri.sh"
