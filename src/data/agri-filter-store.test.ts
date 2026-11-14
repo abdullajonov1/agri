@@ -9,7 +9,6 @@ jest.mock("../gis/agri-debug-log", () => ({
 }));
 
 import {
-  bootstrapMasterFilterSync,
   clearMasterFilterSnapshot,
   getMasterFilterSnapshot,
   subscribeMasterFilter,
@@ -58,25 +57,6 @@ describe("agri-filter-store", () => {
     expect(logMock).toHaveBeenCalledWith("masterFilter:listener-error", { error: "boom" });
     bad();
     unsubGood();
-  });
-
-  test("bootstrapMasterFilterSync replays snapshot when present", () => {
-    syncMasterFilterSnapshot({ viloyat: "A" });
-    const handler = jest.fn();
-    bootstrapMasterFilterSync(handler);
-    const event = handler.mock.calls[0][0] as CustomEvent;
-    expect(event.type).toBe("masterFilterChanged");
-    expect(event.detail).toEqual({ viloyat: "A" });
-  });
-
-  test("bootstrapMasterFilterSync requests state when no snapshot", () => {
-    const requested = jest.fn();
-    document.addEventListener("requestMasterFilterState", requested);
-    const handler = jest.fn();
-    bootstrapMasterFilterSync(handler);
-    expect(handler).not.toHaveBeenCalled();
-    expect(requested).toHaveBeenCalledTimes(1);
-    document.removeEventListener("requestMasterFilterState", requested);
   });
 });
 

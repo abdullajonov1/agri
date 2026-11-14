@@ -7,6 +7,7 @@ import { getRegionGroupFeaturesCached } from "./agri-stats-store";
 import type { DashboardRegionRow } from "../types/dashboard-pack";
 import { makeRegionDistrictKey } from "../filter/localization/geo-keys";
 import { ensureLayerLoaded, type AgriAttributes } from "../types/agri-layer";
+import { agroV5Log } from "../gis/agri-debug-log";
 
 export type RegionStatMode = "sum" | "count";
 
@@ -133,7 +134,8 @@ export async function queryRegionAggregateRows(opts: {
 
   try {
     await ensureLayerLoaded(layer);
-  } catch {
+  } catch (err: unknown) {
+    agroV5Log("regionStats.ensureLayerLoaded", { error: err instanceof Error ? err.message : String(err) });
     /* load failure is non-fatal: the REST query below may still succeed */
   }
 

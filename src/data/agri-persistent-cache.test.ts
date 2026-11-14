@@ -1,5 +1,6 @@
 import {
   AGRI_PERSIST_TTL_MS,
+  AgriCacheClearError,
   clearAgriPersistentCache,
   clearAgriPersistentNamespace,
   getAgriPersistentCache,
@@ -75,6 +76,64 @@ describe("agri-persistent-cache", () => {
     });
   });
 
+  describe("schema version and per-key clear", () => {
+    test("writes the schema version into the envelope", () => {
+      setAgriPersistentCache("stats", "k", 1);
+      const env = JSON.parse(localStorage.getItem(`${PREFIX}stats:k`) || "{}");
+      expect(env.v).toBe(1);
+    });
+
+    test("treats missing or different version as a miss", () => {
+      const far = Date.now() + 1e9;
+      localStorage.setItem(
+        `${PREFIX}stats:old`,
+        JSON.stringify({ expiresAt: far, savedAt: 1, value: 1 }),
+      );
+      localStorage.setItem(
+        `${PREFIX}stats:next`,
+        JSON.stringify({ v: 2, expiresAt: far, savedAt: 1, value: 1 }),
+      );
+      expect(getAgriPersistentCache("stats", "old")).toBeNull();
+      expect(getAgriPersistentCache("stats", "next")).toBeNull();
+    });
+
+    test("prune drops entries with a missing or different version", () => {
+      const far = Date.now() + 1e9;
+      localStorage.setItem(
+        `${PREFIX}stats:old`,
+        JSON.stringify({ expiresAt: far, savedAt: 1, value: 1 }),
+      );
+      setAgriPersistentCache("stats", "ok", 2);
+      pruneAgriPersistentCache();
+      expect(localStorage.getItem(`${PREFIX}stats:old`)).toBeNull();
+      expect(getAgriPersistentCache("stats", "ok")).toBe(2);
+    });
+
+    test("clear continues after a failure and throws one aggregate error", () => {
+      setAgriPersistentCache("a", "1", 1);
+      setAgriPersistentCache("a", "2", 2);
+      setAgriPersistentCache("a", "3", 3);
+      const real = Storage.prototype.removeItem;
+      jest
+        .spyOn(Storage.prototype, "removeItem")
+        .mockImplementation(function (this: Storage, k: string) {
+          if (k.endsWith(":a:1")) throw new Error("denied");
+          real.call(this, k);
+        });
+      let thrown: unknown;
+      try {
+        clearAgriPersistentCache();
+      } catch (err) {
+        thrown = err;
+      }
+      expect(thrown).toBeInstanceOf(AgriCacheClearError);
+      expect((thrown as AgriCacheClearError).message).toMatch(/1 of 3/);
+      expect((thrown as AgriCacheClearError).errors).toHaveLength(1);
+      expect(localStorage.getItem(`${PREFIX}a:2`)).toBeNull();
+      expect(localStorage.getItem(`${PREFIX}a:3`)).toBeNull();
+    });
+  });
+
   test("round-trips a JSON value under a namespaced key", () => {
     expect(setAgriPersistentCache("stats", "k1", { a: 1 })).toBe(true);
     expect(localStorage.getItem(`${PREFIX}stats:k1`)).not.toBeNull();
@@ -123,7 +182,7 @@ describe("agri-persistent-cache", () => {
     localStorage.setItem("other-app", "keep");
     localStorage.setItem(
       `${PREFIX}stats:gone`,
-      JSON.stringify({ expiresAt: 1, savedAt: 0, value: 1 }),
+      JSON.stringify({ v: 1, expiresAt: 1, savedAt: 0, value: 1 }),
     );
     pruneAgriPersistentCache(10);
     expect(localStorage.getItem(`${PREFIX}stats:gone`)).toBeNull();
@@ -136,7 +195,7 @@ describe("agri-persistent-cache", () => {
     for (let i = 0; i < 4; i++) {
       localStorage.setItem(
         `${PREFIX}stats:e${i}`,
-        JSON.stringify({ expiresAt: far, savedAt: i, value: big }),
+        JSON.stringify({ v: 1, expiresAt: far, savedAt: i, value: big }),
       );
     }
     pruneAgriPersistentCache();

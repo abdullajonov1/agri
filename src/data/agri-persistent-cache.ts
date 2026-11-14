@@ -18,7 +18,11 @@ const STORAGE_PREFIX = "agri_v5_pc:";
 const MAX_STORAGE_CHARS = 2_500_000;
 const MAX_ENTRY_CHARS = 750_000;
 
+/** Bump when the envelope shape changes; other versions read as a miss. */
+const CACHE_SCHEMA_VERSION = 1;
+
 type PersistEnvelope<T> = {
+  v: number;
   expiresAt: number;
   savedAt: number;
   value: T;
@@ -76,6 +80,7 @@ function safeParse<T>(raw: string | null): PersistEnvelope<T> | null {
     const parsed = JSON.parse(raw) as PersistEnvelope<T>;
     if (!parsed || typeof parsed !== "object") return null;
     if (typeof parsed.expiresAt !== "number") return null;
+    if (parsed.v !== CACHE_SCHEMA_VERSION) return null;
     return parsed;
   } catch (err) {
     agroV5Log("persistent cache parse failed", errorDetail(err));
@@ -155,6 +160,7 @@ export function setAgriPersistentCache<T>(
   const fk = fullKey(namespace, key);
   const now = Date.now();
   const envelope: PersistEnvelope<T> = {
+    v: CACHE_SCHEMA_VERSION,
     expiresAt: now + Math.max(0, ttlMs),
     savedAt: now,
     value,
@@ -213,6 +219,17 @@ export function clearAgriPersistentNamespace(namespace: string): void {
   }
 }
 
+/** Thrown by clearAgriPersistentCache when some keys could not be removed. */
+export class AgriCacheClearError extends Error {
+  readonly errors: readonly unknown[];
+
+  constructor(errors: readonly unknown[], message: string) {
+    super(message);
+    this.name = "AgriCacheClearError";
+    this.errors = errors;
+  }
+}
+
 /**
  * Drops every persisted stat entry. Called on logout so the next user of a
  * shared PC never sees the previous user's aggregates. Storage errors are
@@ -226,7 +243,20 @@ export function clearAgriPersistentCache(): void {
     const key = store.key(i);
     if (key && key.startsWith(STORAGE_PREFIX)) keys.push(key);
   }
-  keys.forEach((key) => { store.removeItem(key); });
+  const errors: unknown[] = [];
+  for (const key of keys) {
+    try {
+      store.removeItem(key);
+    } catch (err) {
+      errors.push(err);
+    }
+  }
+  if (errors.length > 0) {
+    throw new AgriCacheClearError(
+      errors,
+      `persistent cache clear failed for ${errors.length} of ${keys.length} keys`,
+    );
+  }
 }
 
 /**

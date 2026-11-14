@@ -23,6 +23,7 @@ import {
   resolveGraffDistrictNumber,
 } from "../data/agri-graff-stats";
 import { extractGraffYearToken } from "../data/agri-graff-date";
+import { normalizeTurlar, turlarSourceFromDetail } from "../data/agri-turlar";
 import { findAreaFieldByPreferredNames } from "../data/agri-area-field";
 import { makeRegionDistrictKey } from "../filter/localization/geo-keys";
 import { emptyDashboardPack, type DashboardFilterSlice, type DashboardGraffPack, type DashboardIndicatorPack, type DashboardPiePack, type DashboardRegionPack } from "../types/dashboard-pack";
@@ -43,28 +44,15 @@ const readErrorMessageField = (e: unknown): unknown =>
 
 const CONTROLLER_DEBOUNCE_MS = 60;
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-let inFlight: Promise<void> | null = null;
-let lastKey = "";
-let generation = 0;
-
 function asString(v: unknown): string {
   return String(v ?? "").trim();
 }
 
-function normalizeTurlar(filters: Record<string, unknown>): string[] {
-  const raw = Array.isArray(filters.turlar)
-    ? filters.turlar
-    : filters.turi
-      ? [filters.turi]
-      : [];
-  return Array.from(
-    new Set(
-      raw
-        .map((v) => asString(v))
-        .filter(Boolean),
-    ),
-  );
+function normalizeFilterTurlar(filters: Record<string, unknown>): string[] {
+  return normalizeTurlar(turlarSourceFromDetail(filters), {
+    dedupe: true,
+    stringify: asString,
+  });
 }
 
 export function extractDashboardFilterSlice(
@@ -77,7 +65,7 @@ export function extractDashboardFilterSlice(
     viloyat: asString(filters.viloyat),
     tuman: asString(filters.tuman),
     turi: asString(filters.turi),
-    turlar: normalizeTurlar(filters),
+    turlar: normalizeFilterTurlar(filters),
     vh: asString(filters.vh),
     lockedViloyat: asString(scope.lockedViloyat),
     filterPieByVh: filters.filterPieByVh === true,
@@ -289,178 +277,29 @@ async function prefetchGraffPack(
   };
 }
 
-async function runController(
-  detail: MasterFilterSnapshot,
-  key: string,
-  gen: number,
-): Promise<void> {
-  const filter = extractDashboardFilterSlice(detail);
-  const plan = buildDashboardQueryPlan(filter);
-
-  setDashboardPack(
-    emptyDashboardPack({
-      phase: plan.warmupLayers ? "warming" : "ready",
-      key,
-      filter,
-      region: null,
-      pie: null,
-      indicator: null,
-      graff: null,
-      graffPolygon: null,
-      statsDeferredToPanels: plan.deferStatsToPanels,
-      error: null,
-    }),
-  );
-
-  if (plan.warmupLayers) {
-    await Promise.all([
-      getAgriDashboardBootstrap().catch((): undefined => undefined),
-      getAgriTableDataLayer().catch((): undefined => undefined),
-      getAgriVegetationIndicesLayer().catch((): undefined => undefined),
-    ]);
-    if (gen !== generation) return;
-  }
-
-  const anyPrefetch =
-    plan.prefetchRegion ||
-    plan.prefetchPie ||
-    plan.prefetchIndicator ||
-    plan.prefetchGraff;
-
-  if (!anyPrefetch) {
-    patchDashboardPack({
-      phase: "ready",
-      key,
-      filter,
-      region: null,
-      pie: null,
-      indicator: null,
-      graff: null,
-      graffPolygon: null,
-      statsDeferredToPanels: plan.deferStatsToPanels,
-      error: null,
-    });
-    return;
-  }
-
-  patchDashboardPack({ phase: "loading-stats", key, filter });
-
-  try {
-    const { layer } = await getAgriTableDataLayer();
-    if (gen !== generation) return;
-    try {
-      await ensureLayerLoaded(layer);
-    } catch {
-      /* load failure is non-fatal: the stats queries below may still succeed */
-    }
-    if (gen !== generation) return;
-
-    const [region, pie, indicator, graff] = await Promise.all([
-      plan.prefetchRegion
-        ? prefetchRegionPack(filter, layer as __esri.FeatureLayer).catch(
-            (): null => null,
-          )
-        : Promise.resolve(null),
-      plan.prefetchPie
-        ? prefetchPiePack(filter, layer as __esri.FeatureLayer).catch(
-            (): null => null,
-          )
-        : Promise.resolve(null),
-      plan.prefetchIndicator
-        ? prefetchIndicatorPack(filter, layer as __esri.FeatureLayer).catch(
-            (): null => null,
-          )
-        : Promise.resolve(null),
-      plan.prefetchGraff
-        ? prefetchGraffPack(filter).catch((): null => null)
-        : Promise.resolve(null),
-    ]);
-    if (gen !== generation) return;
-
-    patchDashboardPack({
-      phase: "ready",
-      key,
-      filter,
-      region,
-      pie,
-      indicator,
-      graff,
-      graffPolygon: null,
-      // Keep true under VH so Pie/Indicator refuse empty packed slices.
-      // Region still packs (ignores VH) and matchRegion ignores this flag.
-      statsDeferredToPanels: plan.deferStatsToPanels,
-      error: null,
-    });
-  } catch (e: unknown) {
-    if (gen !== generation) return;
-    patchDashboardPack({
-      phase: "error",
-      key,
-      filter,
-      region: null,
-      pie: null,
-      indicator: null,
-      graff: null,
-      graffPolygon: null,
-      statsDeferredToPanels: true,
-      error: String(readErrorMessageField(e) || e || "dashboard controller failed"),
-    });
-  }
+export interface DashboardController {
+  schedule: (detail: MasterFilterSnapshot | null | undefined) => void;
+  reset: () => void;
 }
 
-/** Invalidate older in-flight runs and cancel any pending debounced run. */
-function supersedePendingWork(): void {
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = null;
-  inFlight = null;
-  generation += 1;
-}
+/** Creates an isolated controller; debounce/in-flight/generation state is per instance. */
+export function createDashboardController(): DashboardController {
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let inFlight: Promise<void> | null = null;
+  let lastKey = "";
+  let generation = 0;
 
-/**
- * Schedule controller work after a master filter snapshot.
- * Replaces bare warmup — warmup is included inside the controller.
- */
-export function scheduleDashboardController(
-  detail: MasterFilterSnapshot | null | undefined,
-): void {
-  if (!detail || typeof detail !== "object") return;
-  if (detail.vhBarDataPending === true) return;
+  async function runController(
+    detail: MasterFilterSnapshot,
+    key: string,
+    gen: number,
+  ): Promise<void> {
+    const filter = extractDashboardFilterSlice(detail);
+    const plan = buildDashboardQueryPlan(filter);
 
-  const filter = extractDashboardFilterSlice(detail);
-  const key = buildDashboardPackKey(filter);
-
-  if (!filter.yil) {
     setDashboardPack(
       emptyDashboardPack({
-        phase: "ready",
-        key,
-        filter,
-        statsDeferredToPanels: false,
-      }),
-    );
-    return;
-  }
-
-  // Same filter already packed in memory (or multi-key localStorage hydrate).
-  const existing = getDashboardPack();
-  if (existing.phase === "ready" && existing.key === key) {
-    supersedePendingWork();
-    lastKey = key;
-    return;
-  }
-
-  const fromDisk = getPersistedDashboardPack(key);
-  if (fromDisk) {
-    supersedePendingWork();
-    lastKey = key;
-    setDashboardPack(fromDisk);
-    return;
-  }
-
-  if (key !== lastKey) {
-    setDashboardPack(
-      emptyDashboardPack({
-        phase: "warming",
+        phase: plan.warmupLayers ? "warming" : "ready",
         key,
         filter,
         region: null,
@@ -468,34 +307,214 @@ export function scheduleDashboardController(
         indicator: null,
         graff: null,
         graffPolygon: null,
-        statsDeferredToPanels: false,
+        statsDeferredToPanels: plan.deferStatsToPanels,
         error: null,
       }),
     );
+
+    if (plan.warmupLayers) {
+      await Promise.all([
+        getAgriDashboardBootstrap().catch((): undefined => undefined),
+        getAgriTableDataLayer().catch((): undefined => undefined),
+        getAgriVegetationIndicesLayer().catch((): undefined => undefined),
+      ]);
+      if (gen !== generation) return;
+    }
+
+    const anyPrefetch =
+      plan.prefetchRegion ||
+      plan.prefetchPie ||
+      plan.prefetchIndicator ||
+      plan.prefetchGraff;
+
+    if (!anyPrefetch) {
+      patchDashboardPack({
+        phase: "ready",
+        key,
+        filter,
+        region: null,
+        pie: null,
+        indicator: null,
+        graff: null,
+        graffPolygon: null,
+        statsDeferredToPanels: plan.deferStatsToPanels,
+        error: null,
+      });
+      return;
+    }
+
+    patchDashboardPack({ phase: "loading-stats", key, filter });
+
+    try {
+      const { layer } = await getAgriTableDataLayer();
+      if (gen !== generation) return;
+      try {
+        await ensureLayerLoaded(layer);
+      } catch {
+        /* load failure is non-fatal: the stats queries below may still succeed */
+      }
+      if (gen !== generation) return;
+
+      const [region, pie, indicator, graff] = await Promise.all([
+        plan.prefetchRegion
+          ? prefetchRegionPack(filter, layer as __esri.FeatureLayer).catch(
+              (): null => null,
+            )
+          : Promise.resolve(null),
+        plan.prefetchPie
+          ? prefetchPiePack(filter, layer as __esri.FeatureLayer).catch(
+              (): null => null,
+            )
+          : Promise.resolve(null),
+        plan.prefetchIndicator
+          ? prefetchIndicatorPack(filter, layer as __esri.FeatureLayer).catch(
+              (): null => null,
+            )
+          : Promise.resolve(null),
+        plan.prefetchGraff
+          ? prefetchGraffPack(filter).catch((): null => null)
+          : Promise.resolve(null),
+      ]);
+      if (gen !== generation) return;
+
+      patchDashboardPack({
+        phase: "ready",
+        key,
+        filter,
+        region,
+        pie,
+        indicator,
+        graff,
+        graffPolygon: null,
+        // Keep true under VH so Pie/Indicator refuse empty packed slices.
+        // Region still packs (ignores VH) and matchRegion ignores this flag.
+        statsDeferredToPanels: plan.deferStatsToPanels,
+        error: null,
+      });
+    } catch (e: unknown) {
+      if (gen !== generation) return;
+      patchDashboardPack({
+        phase: "error",
+        key,
+        filter,
+        region: null,
+        pie: null,
+        indicator: null,
+        graff: null,
+        graffPolygon: null,
+        statsDeferredToPanels: true,
+        error: String(readErrorMessageField(e) || e || "dashboard controller failed"),
+      });
+    }
   }
 
-  // The newest scheduled key is authoritative: drop any pending timer for an older key.
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = null;
-
-  if (key === lastKey && inFlight) return;
-
-  debounceTimer = setTimeout(() => {
+  /** Invalidate older in-flight runs and cancel any pending debounced run. */
+  function supersedePendingWork(): void {
+    if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = null;
+    inFlight = null;
+    generation += 1;
+  }
+
+  /**
+   * Schedule controller work after a master filter snapshot.
+   * Replaces bare warmup — warmup is included inside the controller.
+   */
+  function schedule(
+    detail: MasterFilterSnapshot | null | undefined,
+  ): void {
+    if (!detail || typeof detail !== "object") return;
+    if (detail.vhBarDataPending === true) return;
+
+    const filter = extractDashboardFilterSlice(detail);
+    const key = buildDashboardPackKey(filter);
+
+    if (!filter.yil) {
+      setDashboardPack(
+        emptyDashboardPack({
+          phase: "ready",
+          key,
+          filter,
+          statsDeferredToPanels: false,
+        }),
+      );
+      return;
+    }
+
+    // Same filter already packed in memory (or multi-key localStorage hydrate).
+    const existing = getDashboardPack();
+    if (existing.phase === "ready" && existing.key === key) {
+      supersedePendingWork();
+      lastKey = key;
+      return;
+    }
+
+    const fromDisk = getPersistedDashboardPack(key);
+    if (fromDisk) {
+      supersedePendingWork();
+      lastKey = key;
+      setDashboardPack(fromDisk);
+      return;
+    }
+
+    if (key !== lastKey) {
+      setDashboardPack(
+        emptyDashboardPack({
+          phase: "warming",
+          key,
+          filter,
+          region: null,
+          pie: null,
+          indicator: null,
+          graff: null,
+          graffPolygon: null,
+          statsDeferredToPanels: false,
+          error: null,
+        }),
+      );
+    }
+
+    // The newest scheduled key is authoritative: drop any pending timer for an older key.
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = null;
+
     if (key === lastKey && inFlight) return;
-    lastKey = key;
-    const gen = ++generation;
-    inFlight = runController(detail, key, gen).finally(() => {
-      if (gen === generation) inFlight = null;
-    });
-  }, CONTROLLER_DEBOUNCE_MS);
+
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      if (key === lastKey && inFlight) return;
+      lastKey = key;
+      const gen = ++generation;
+      inFlight = runController(detail, key, gen).finally(() => {
+        if (gen === generation) inFlight = null;
+      });
+    }, CONTROLLER_DEBOUNCE_MS);
+  }
+
+  /** Test / hot-reload helper */
+  function reset(): void {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = null;
+    inFlight = null;
+    lastKey = "";
+    generation += 1;
+  }
+
+  return { schedule, reset };
 }
 
-/** Test / hot-reload helper */
+const defaultController = createDashboardController();
+
+/**
+ * Schedule controller work after a master filter snapshot (default instance).
+ */
+export function scheduleDashboardController(
+  detail: MasterFilterSnapshot | null | undefined,
+): void {
+  defaultController.schedule(detail);
+}
+
+/** Test / hot-reload helper (default instance) */
 export function resetDashboardController(): void {
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = null;
-  inFlight = null;
-  lastKey = "";
-  generation += 1;
+  defaultController.reset();
 }

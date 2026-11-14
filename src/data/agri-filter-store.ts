@@ -55,17 +55,3 @@ export function subscribeMasterFilter(
   };
 }
 
-/**
- * Late-mounted panels: apply cached filter immediately, or ask Localization to replay.
- * @deprecated Prefer bindMasterFilter from agri-filter-bus.ts
- */
-export function bootstrapMasterFilterSync(
-  handler: (event: Event) => void,
-): void {
-  const snapshot = getMasterFilterSnapshot();
-  if (snapshot) {
-    handler(new CustomEvent("masterFilterChanged", { detail: snapshot }));
-    return;
-  }
-  document.dispatchEvent(new CustomEvent("requestMasterFilterState"));
-}

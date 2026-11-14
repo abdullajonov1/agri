@@ -32,6 +32,7 @@ jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 import {
   buildDashboardPackKey,
+  createDashboardController,
   extractDashboardFilterSlice,
   resetDashboardController,
   scheduleDashboardController,
@@ -132,6 +133,18 @@ describe("extractDashboardFilterSlice / buildDashboardPackKey", () => {
     );
     expect(slice.turlar).toEqual(["a", "b"]);
     expect(slice.filterPieByVh).toBe(true);
+  });
+
+  test("pack keys stay byte-identical for apostrophe, duplicate and falsy inputs", () => {
+    const key = (filters: Record<string, unknown>): string =>
+      buildDashboardPackKey(extractDashboardFilterSlice(detail(filters)));
+    const base = (turi: string, turlar: string): string =>
+      `{"yil":"","viloyat":"","tuman":"","turi":"${turi}","turlar":${turlar},"vh":"","lockedViloyat":"","filterPieByVh":false}`;
+    expect(key({ turlar: ["Bug’doy", "Bug'doy", " Bug'doy ", "Bug’doy"] })).toBe(
+      base("", '["Bug’doy","Bug\'doy"]'),
+    );
+    expect(key({ turi: "G‘o‘za" })).toBe(base("G‘o‘za", '["G‘o‘za"]'));
+    expect(key({ turlar: [0, "0", false, "x"] })).toBe(base("", '["0","false","x"]'));
   });
 
   test("missing filters/scope yields empty slice", () => {
@@ -363,5 +376,28 @@ describe("scheduleDashboardController", () => {
 
     expect(getDashboardPack().key).toBe(keyB);
     expect(getDashboardPack().filter.yil).toBe("2023");
+  });
+});
+
+describe("createDashboardController", () => {
+  test("two instances keep separate state", async () => {
+    const a = createDashboardController();
+    const b = createDashboardController();
+    let releaseA: (v: unknown) => void = () => undefined;
+    regionRowsMock.mockImplementationOnce(
+      () => new Promise((resolve) => { releaseA = resolve; }),
+    );
+    a.schedule(detail({ yil: "2024" }));
+    await runScheduled();
+    expect(regionRowsMock).toHaveBeenCalledTimes(1);
+
+    // Resetting b must not supersede a's in-flight run.
+    b.reset();
+    releaseA({ rows: [{ name: "A", maydon: 10 }], totalArea: 10 });
+    await runScheduled();
+
+    const pack = await waitForPhase("ready");
+    expect(pack.phase).toBe("ready");
+    expect(pack.region).not.toBeNull();
   });
 });
