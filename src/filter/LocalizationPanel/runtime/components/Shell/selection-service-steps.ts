@@ -1,5 +1,5 @@
 import { agriLog } from "../localization-log";
-import type { LocalizationHost } from "../host";
+import type { SelectionStepsHost } from "./shell-host";
 import type { FilterState, GeoWidgetState } from "../../widget";
 import { clearPieVhFilterUniqueIds } from "../../../../../gis/agri-chart-filter-order";
 import type { MapZoomRequest } from "../../../../localization/map-zoom-policy";
@@ -111,7 +111,7 @@ export const computeZoomRequest = (args: {
 // ------------------------------------------------------------- host-bound steps
 
 const clearGraffSearchUpdates = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   updates: Partial<GeoWidgetState>,
 ) => {
   updates.graffSearchText = "";
@@ -126,7 +126,7 @@ const clearGraffSearchUpdates = (
 
 /** Translate the event detail into raw state updates (no hierarchy clearing yet). */
 export const collectBasicUpdates = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   d: WidgetSelectionDetail,
 ): Partial<GeoWidgetState> => {
   const updates: Partial<GeoWidgetState> = {};
@@ -191,7 +191,7 @@ export const collectBasicUpdates = (
  * (AgriPopup) keeps the new map selection/zoom and only clears search UI.
  */
 export const resolveSearchSelection = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   d: WidgetSelectionDetail,
   updates: Partial<GeoWidgetState>,
 ): SearchClearInfo => {
@@ -239,7 +239,7 @@ export const updateDebugYearFlag = (updates: Partial<GeoWidgetState>) => {
 
 /** If user is locked, never accept external viloyat overrides. */
 export const stripLockedViloyat = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   updates: Partial<GeoWidgetState>,
 ) => {
   if (!host.state.lockedViloyat) return;
@@ -261,7 +261,7 @@ export const stripLockedViloyat = (
 
 /** Compare updates against current state and log the tuman update. */
 export const detectGeoChanges = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   d: WidgetSelectionDetail,
   updates: Partial<GeoWidgetState>,
 ): GeoChangeFlags => {
@@ -296,7 +296,7 @@ export const detectGeoChanges = (
  * AgriBar's own event always wins for vh (set earlier).
  */
 export const resetStaleSelectionOnGeoChange = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   d: WidgetSelectionDetail,
   updates: Partial<GeoWidgetState>,
   flags: GeoChangeFlags,
@@ -321,7 +321,7 @@ export const resetStaleSelectionOnGeoChange = (
   }
 };
 
-const clearVhUniqueIdScope = (host: LocalizationHost) => {
+const clearVhUniqueIdScope = (host: SelectionStepsHost) => {
   host._vhMapUniqueIds = null;
   host._vhRegionChartUniqueIds = null;
   host._vhUniqueIdsCropScoped = false;
@@ -329,7 +329,7 @@ const clearVhUniqueIdScope = (host: LocalizationHost) => {
 
 /** Clear everything below the changed hierarchy level (year > viloyat > tuman > turi). */
 export const applyHierarchyClearing = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   d: WidgetSelectionDetail,
   updates: Partial<GeoWidgetState>,
   flags: GeoChangeFlags,
@@ -401,7 +401,7 @@ export const applyHierarchyClearing = (
  * renderer stays strictly manual, so cropRendererMode is never auto-toggled.
  */
 export const syncChartOrderAndCropFlags = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   updates: Partial<GeoWidgetState>,
   flags: GeoChangeFlags,
 ): { nextVhForOrder: string; nextTurlarForOrder: string[] } => {
@@ -453,7 +453,7 @@ export const syncChartOrderAndCropFlags = (
 };
 
 export const hasStateChanges = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   updates: Partial<GeoWidgetState>,
 ): boolean =>
   (Object.keys(updates) as Array<keyof GeoWidgetState>).some(
@@ -464,7 +464,7 @@ export const hasStateChanges = (
 export const isVhOnlyApply = (
   d: WidgetSelectionDetail,
   updates: Partial<GeoWidgetState>,
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   flags: GeoChangeFlags,
 ): boolean => {
   const turiClearedWithVh =
@@ -483,7 +483,7 @@ export const isVhOnlyApply = (
 
 /** Polygon-only path of the setState callback: no map layer re-sync. */
 export const runPolygonSelectionCallback = (
-  host: LocalizationHost,
+  host: SelectionStepsHost,
   d: WidgetSelectionDetail,
   updates: Partial<GeoWidgetState>,
   search: SearchClearInfo,

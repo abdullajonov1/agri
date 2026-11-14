@@ -6,7 +6,7 @@ import {
 } from "../../../../../gis/agri-table-data-source";
 import { type React } from "jimu-core";
 import { agriLog } from "../localization-log";
-import type { LocalizationHost } from "../host";
+import type { GraffSearchHost } from "./graff-search-host";
 import type { FilterState, GeoWidgetState, GraffSearchRecord } from "../../widget";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 import { pickLabel } from "../../../../../shared/agri-i18n";
@@ -23,7 +23,7 @@ import {
 const GRAFF_SEARCH_DEBOUNCE_MS = 300;
 
 export const emitGraffTableSearchChanged = (
-  host: LocalizationHost,
+  host: GraffSearchHost,
   query: string,
   options?: { preserveSelection?: boolean },
 ) => {
@@ -41,13 +41,13 @@ export const emitGraffTableSearchChanged = (
   );
 };
 
-export const emitGraffTableSearchClear = (host: LocalizationHost, options?: {
+export const emitGraffTableSearchClear = (host: GraffSearchHost, options?: {
   preserveSelection?: boolean;
 }) => {
   host.emitGraffTableSearchChanged("", options);
 };
 
-export const emitGraffTableRowSelected = (host: LocalizationHost, record: GraffSearchRecord) => {
+export const emitGraffTableRowSelected = (host: GraffSearchHost, record: GraffSearchRecord) => {
   document.dispatchEvent(
     new CustomEvent("agriGraff4TableRowSelected", {
       detail: {
@@ -60,13 +60,13 @@ export const emitGraffTableRowSelected = (host: LocalizationHost, record: GraffS
   );
 };
 
-export const getGraffDisplayFields = (host: LocalizationHost): string[] => {
+export const getGraffDisplayFields = (host: GraffSearchHost): string[] => {
   // Search modal: INN (STIR) + fermer name
   return ["f_inn", "f_name"];
 };
 
 export const buildGraffSearchTextWhere = (
-  host: LocalizationHost,
+  host: GraffSearchHost,
   raw: string,
   layer?: __esri.FeatureLayer,
 ): string => {
@@ -93,7 +93,7 @@ export const buildGraffSearchTextWhere = (
  * selected, STIR search is scoped to the whole viloyat — not the active
  * district — so other tumans in that region still appear in the list.
  */
-export const buildGraffSearchScopeWhere = (host: LocalizationHost): string => {
+export const buildGraffSearchScopeWhere = (host: GraffSearchHost): string => {
   const { yil } = host.state;
   if (!yil) return "1=0";
 
@@ -108,7 +108,7 @@ export const buildGraffSearchScopeWhere = (host: LocalizationHost): string => {
 };
 
 export const getGraffSearchFieldLabel = (
-  host: LocalizationHost,
+  host: GraffSearchHost,
   fieldName: string,
   language: FilterState["language"],
 ): string => {
@@ -127,7 +127,7 @@ export const getGraffSearchFieldLabel = (
 };
 
 export const formatGraffSearchCellValue = (
-  host: LocalizationHost,
+  host: GraffSearchHost,
   fieldName: string,
   rawValue: unknown,
 ): string => {
@@ -140,7 +140,7 @@ export const formatGraffSearchCellValue = (
   return String(rawValue);
 };
 
-export const runGraffAutoComplete = async (host: LocalizationHost, term: string) => {
+export const runGraffAutoComplete = async (host: GraffSearchHost, term: string) => {
   if (!host._isMounted) return;
 
   const requestId = ++host._graffAutoCompleteRequestId;
@@ -280,7 +280,7 @@ export const runGraffAutoComplete = async (host: LocalizationHost, term: string)
 };
 
 export const handleGraffSearchInputChange = (
-  host: LocalizationHost,
+  host: GraffSearchHost,
   event: React.ChangeEvent<HTMLInputElement>,
 ) => {
   const nextValue = String(event?.target?.value ?? "");
@@ -365,7 +365,7 @@ export const handleGraffSearchInputChange = (
   }, GRAFF_SEARCH_DEBOUNCE_MS);
 };
 
-export const handleGraffSearchFocus = (host: LocalizationHost): void => {
+export const handleGraffSearchFocus = (host: GraffSearchHost): void => {
   const trimmed = String(host.state.graffSearchText || "").trim();
   if (!trimmed || !host.state.yil) return;
 
@@ -386,7 +386,7 @@ export const handleGraffSearchFocus = (host: LocalizationHost): void => {
  * Clear STIR selection and restore the geography that was active before
  * the farmer search row was chosen (republic / viloyat / tuman).
  */
-export const clearFarmerSearchAndRestoreGeo = (host: LocalizationHost): void => {
+export const clearFarmerSearchAndRestoreGeo = (host: GraffSearchHost): void => {
   if (host._graffSearchDebounceTimer) {
     clearTimeout(host._graffSearchDebounceTimer);
     host._graffSearchDebounceTimer = null;
@@ -455,11 +455,11 @@ export const clearFarmerSearchAndRestoreGeo = (host: LocalizationHost): void => 
   );
 };
 
-export const handleGraffSearchClear = (host: LocalizationHost) => {
+export const handleGraffSearchClear = (host: GraffSearchHost) => {
   host.clearFarmerSearchAndRestoreGeo();
 };
 
-export const handleGraffSearchRowClick = (host: LocalizationHost, record: GraffSearchRecord) => {
+export const handleGraffSearchRowClick = (host: GraffSearchHost, record: GraffSearchRecord) => {
   const inn = String(record.f_inn || "").trim();
   const name = String(record.f_name || "").trim();
   const label = inn || name;
@@ -519,7 +519,7 @@ export const handleGraffSearchRowClick = (host: LocalizationHost, record: GraffS
 /**
  * Resolve STIR → uniqueids, then refresh pie / VH / map zoom to those fields.
  */
-export const applyFarmerSearchSelection = async (host: LocalizationHost, inn: string): Promise<void> => {
+export const applyFarmerSearchSelection = async (host: GraffSearchHost, inn: string): Promise<void> => {
   if (!host._isMounted) return;
   const cleanInn = String(inn || "").trim();
   if (!cleanInn) {

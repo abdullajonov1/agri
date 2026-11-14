@@ -1,6 +1,8 @@
 import { React } from "jimu-core";
 import ReactDOM from "react-dom";
 import type { GeoWidgetState } from "../../widget";
+import { pickLabel } from "../../../../../shared/agri-i18n";
+import { YIL_HEADER } from "./toolbar-messages";
 
 export type YilMenuProps = Pick<GeoWidgetState, "openToolbarMenu" | "yilOptions" | "yil" | "language"> & {
   _yilToolbarItemRef: React.RefObject<HTMLDivElement>;
@@ -16,7 +18,7 @@ export const YilMenu = (props: YilMenuProps) => {
   const { yilOptions, yil, language } = props;
 
   const headerLabel =
-    language === "en" ? "Year" : language === "ru" ? "Год" : language === "uz_lat" ? "Yil" : "Йил";
+    pickLabel(YIL_HEADER, language);
 
   return ReactDOM.createPortal(
     <div

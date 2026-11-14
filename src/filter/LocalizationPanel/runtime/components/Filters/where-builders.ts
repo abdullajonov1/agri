@@ -11,9 +11,10 @@ import { buildYearLikeClause } from "../../../../../controller/agri-where-builde
 import { buildSpatialJoinWhere } from "../../../../../gis/agri-table-data-source";
 import { withAgriAccessWhere } from "../../../../../gis/feature-layer-data";
 import { agriLog } from "../localization-log";
-import type { LocalizationConfig, LocalizationHost } from "../host";
+import type { LocalizationConfig } from "../host";
+import type { FiltersHost } from "./filters-host";
 
-export function buildUniqueIdClause(host: LocalizationHost, raw: string, layer?: __esri.FeatureLayer): string {
+export function buildUniqueIdClause(host: FiltersHost, raw: string, layer?: __esri.FeatureLayer): string {
   const field = layer
     ? host.findLayerFieldName(layer, "uniqueid") || "uniqueid"
     : "uniqueid";
@@ -24,7 +25,7 @@ export function buildUniqueIdClause(host: LocalizationHost, raw: string, layer?:
  * Build viloyat filter clause using stored viloyat → region mapping.
  * Supports: viloyat name (looks up region number from _viloyatToRegion) or raw region number.
  */
-export function buildViloyatRegionClause(host: LocalizationHost): string {
+export function buildViloyatRegionClause(host: FiltersHost): string {
   const { viloyat, lockedViloyat } = host.state;
   const rawViloyat = (lockedViloyat ?? viloyat ?? "").toString();
   return buildViloyatRegionSqlClause(
@@ -42,7 +43,7 @@ export function buildViloyatRegionClause(host: LocalizationHost): string {
  * poison rows (Qamashi tagged with Yakkabog' code) cannot win. Fall back to
  * tuman text only when no code is known yet.
  */
-export function buildTumanDistrictClause(host: LocalizationHost): string {
+export function buildTumanDistrictClause(host: FiltersHost): string {
   const { tuman, viloyat, lockedViloyat } = host.state;
   const rawViloyat = (lockedViloyat ?? viloyat ?? "").toString();
   const rawTuman = (tuman ?? "").toString();
@@ -87,7 +88,7 @@ export function buildTumanDistrictClause(host: LocalizationHost): string {
  * When includeTuri is false, bar/chart logic can ignore crop (turi) and
  * show vegetation for the whole region; when true, it is included.
  */
-export function buildNdviSpatialWhere(host: LocalizationHost, includeTuri = true): string {
+export function buildNdviSpatialWhere(host: FiltersHost, includeTuri = true): string {
   const where = host.buildWhereClause(false, includeTuri);
   return where;
 }
@@ -96,7 +97,7 @@ export function buildNdviSpatialWhere(host: LocalizationHost, includeTuri = true
  * Build NDVI status filter clause for the currently selected VH bucket and ndviDate.
  * Example: status_2025_09_01 = 'yaxshi'
  */
-export function buildNdviStatusClauseForCurrentVh(host: LocalizationHost): string {
+export function buildNdviStatusClauseForCurrentVh(host: FiltersHost): string {
   const primaryLayer =
     host.state.featureLayer ?? host.state.featureLayers?.[0];
   if (!primaryLayer) return "";
@@ -118,7 +119,7 @@ export function buildNdviStatusClauseForCurrentVh(host: LocalizationHost): strin
  * Build NDVI date-only clause (no VH bucket) for the current ndviDate.
  * Example: status_2025_09_18 IS NOT NULL
  */
-export function buildNdviDateClauseWithoutVh(host: LocalizationHost): string {
+export function buildNdviDateClauseWithoutVh(host: FiltersHost): string {
   const primaryLayer =
     host.state.featureLayer ?? host.state.featureLayers?.[0];
   if (!primaryLayer) return "";
@@ -136,7 +137,7 @@ export function buildNdviDateClauseWithoutVh(host: LocalizationHost): string {
 }
 
 export function buildWhereClause(
-  host: LocalizationHost,
+  host: FiltersHost,
   includeVh = true,
   includeTuri = true,
   includeViloyat = true,

@@ -1,4 +1,5 @@
-import type { LocalizationHost, LocalizationWidgetProps } from "../host";
+import type { LocalizationWidgetProps } from "../host";
+import type { LifecycleHost } from "./shell-host";
 import { debugCatch } from "../localization-log";
 import type { GeoWidgetState } from "../../widget";
 import { isMapImageOwnedLayer } from "../../../../../gis/feature-layer-data";
@@ -9,7 +10,7 @@ import { subscribeAgriLandOverlay } from "../../../../../store/agri-land-overlay
 /** Delay after mount before the deferred widget initialization check runs. */
 const INITIALIZATION_DELAY_MS = 3000;
 
-export function componentDidMount(host: LocalizationHost) {
+export function componentDidMount(host: LifecycleHost) {
   host._isMounted = true;
   host.hydrateNotificationCache();
   host._unbindNotificationPack = subscribeDashboardPack(
@@ -88,7 +89,7 @@ export function componentDidMount(host: LocalizationHost) {
   );
 }
 
-export function componentWillUnmount(host: LocalizationHost) {
+export function componentWillUnmount(host: LifecycleHost) {
   host._isMounted = false;
   host._unbindNotificationPack?.();
   host._unbindNotificationPack = null;
@@ -169,7 +170,7 @@ export function componentWillUnmount(host: LocalizationHost) {
   }
 }
 
-export function componentDidUpdate(host: LocalizationHost, prevProps: LocalizationWidgetProps, prevState: GeoWidgetState) {
+export function componentDidUpdate(host: LifecycleHost, prevProps: LocalizationWidgetProps, prevState: GeoWidgetState) {
   const { connectionStatus, mapConnectionAttempts } = host.state;
 
   const shouldRetry =

@@ -1,12 +1,16 @@
 import { agriLog } from "../localization-log";
-import type { LocalizationConfig, LocalizationHost } from "../host";
-import { syncMasterFilterSnapshot } from "../../../../../data/agri-filter-store";
-import { getPieVhFilterUniqueIdsSig } from "../../../../../gis/agri-chart-filter-order";
-import { resolveVhUniqueidSlices, buildBarCategoryBroadcast, buildBroadcastGeoSnapshot, isBroadcastGeoCurrent } from "../../../../localization/broadcast-detail";
-import type { VHBarData } from "../../../../localization/vh-constants";
+import type { LocalizationConfig } from "../host";
+import type { BroadcastHost } from "./shell-host";
+import {
+  buildBaseDetail,
+  makeIsBroadcastCurrent,
+  makeSender,
+  resolveEffectiveNdviDate,
+} from "./broadcast-steps";
+import { resolveVhUniqueidSlices, buildBarCategoryBroadcast, buildBroadcastGeoSnapshot } from "../../../../localization/broadcast-detail";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 
-export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnly?: boolean }) => {
+export const broadcastFilterState = (host: BroadcastHost, opts?: { pendingOnly?: boolean }) => {
   if (!host._isMounted) return;
   if (host.state.connectionStatus !== "connected") return;
 
@@ -17,15 +21,10 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
     turi,
     turlar,
     vh,
-    yilOptions,
     ndviDate,
     lockedViloyat,
-    records,
-    totalRecordCount,
     selectedGraffUniqueid,
-    selectedGraffUniqueidClickedAt,
     polygonMode,
-    selectedFarmerInn,
   } = host.state;
 
   const primaryLayer =
@@ -35,11 +34,13 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
   // crop mix must use the same NDVI date as A'lo/Yaxshi totals.
   const explicitNdvi = (ndviDate || "").trim();
   const barUsedNdvi = host.getGeoScopedVhBarUsedDate();
-  const effectiveNdviDate =
-    (host.state.ndviDateLocked && explicitNdvi) ||
-    barUsedNdvi ||
-    explicitNdvi ||
-    (primaryLayer ? host.getLatestNdviDateForBar(primaryLayer) || "" : "");
+  const effectiveNdviDate = resolveEffectiveNdviDate({
+    explicitNdvi,
+    ndviDateLocked: host.state.ndviDateLocked,
+    barUsedNdvi,
+    latestForPrimaryLayer: () =>
+      primaryLayer ? host.getLatestNdviDateForBar(primaryLayer) || "" : "",
+  });
 
   const effectiveViloyat = lockedViloyat || viloyat;
 
@@ -81,139 +82,31 @@ export const broadcastFilterState = (host: LocalizationHost, opts?: { pendingOnl
     chartDimOrder: host._chartDimOrder,
   });
 
-  const baseDetail = {
-    filters: {
-      yil,
-      viloyat: effectiveViloyat,
-      tuman,
-      turi,
-      turlar: host.normalizeTurlar(turlar, turi),
-      vh,
-      ndviDate: effectiveNdviDate,
-      // expose whether this ndviDate came from an explicit
-      // user choice (Graff/date picker) so listeners like
-      // AgriIndicator can distinguish it from the auto
-      // "latest date" used only for bar charts.
-      ndviDateLocked: Boolean(host.state.ndviDateLocked && explicitNdvi),
-      barCategoryField: barCategoryField ?? undefined,
-      barCategoryValue: barCategoryValue ?? undefined,
-      language: host.state.language,
-      // Single-polygon focus (e.g. from AgriPopup or AgriGraff10's own row
-      // click) — lets AgriGraff10 switch its chart to that one polygon's
-      // vegetation-index series instead of the region-wide timeseries.
-      uniqueid: polygonMode ? selectedGraffUniqueid || "" : "",
-      uniqueidClickedAt: polygonMode
-        ? selectedGraffUniqueidClickedAt || undefined
-        : undefined,
-      polygonMode: Boolean(polygonMode),
-      farmerInn: String(selectedFarmerInn || "").trim(),
-      // First-selected chart scopes the other widget; second only maps.
-      filterPieByVh: chartFlags.filterPieByVh,
-      filterVhBarByCrop: chartFlags.filterVhBarByCrop,
-      chartDimOrder: host._chartDimOrder.slice(),
-    },
+  const baseDetail = buildBaseDetail({
+    state: host.state,
+    effectiveViloyat,
+    effectiveNdviDate,
+    explicitNdvi,
+    normalizedTurlar: host.normalizeTurlar(turlar, turi),
+    barCategoryField,
+    barCategoryValue,
+    chartFlags,
+    chartDimOrder: host._chartDimOrder,
     vhUniqueids,
     vhRegionChartUniqueids,
-    options: {
-      yil: yilOptions,
-    },
-    scope: {
-      lockedViloyat,
-      locked: Boolean(lockedViloyat),
-    },
-    meta: {
-      recordCount: totalRecordCount ?? records?.length ?? 0,
-      whereClause: host.buildWhereClause(),
-      // Frozen at broadcast start so late VH completions cannot look "newer"
-      // than a subsequent geography broadcast.
-      timestamp: Date.now(),
-      broadcastGeneration,
-      language: host.state.language,
-    },
-    source: "AgriFilter",
-  };
+    whereClause: host.buildWhereClause(),
+    broadcastGeneration,
+  });
 
-  const isBroadcastCurrent = (): boolean => {
-    if (!host._isMounted) return false;
-    if (broadcastGeneration !== host._broadcastGeneration) return false;
-    const liveViloyat = String(host.state.lockedViloyat || host.state.viloyat || "");
-    return isBroadcastGeoCurrent(geoSnapshot, {
-      yil: host.state.yil,
-      viloyat: liveViloyat,
-      tuman: host.state.tuman,
-      turi: host.state.turi,
-      turlar: host.state.turlar,
-      polygonMode: Boolean(host.state.polygonMode),
-      selectedGraffUniqueid: host.state.selectedGraffUniqueid,
-      chartFlags: host.getChartFilterFlags(),
-      chartDimOrder: host._chartDimOrder,
-    });
-  };
-
-  const send = (
-    vhBarData: VHBarData | null,
-    vhBarDataPending: boolean,
-  ) => {
-    if (!isBroadcastCurrent()) {
-      agriLog("broadcastFilterState:SKIP-stale", {
-        broadcastGeneration,
-        currentGeneration: host._broadcastGeneration,
-        snapshot: geoSnapshot,
-        live: {
-          yil: host.state.yil,
-          viloyat: host.state.lockedViloyat || host.state.viloyat,
-          tuman: host.state.tuman,
-        },
-      });
-      return;
-    }
-    const detail = { ...baseDetail, vhBarData, vhBarDataPending };
-    const digest = JSON.stringify({
-      filters: detail.filters,
-      options: detail.options,
-      scope: detail.scope,
-      vhUniqueids: detail.vhUniqueids,
-      vhRegionChartUniqueids: detail.vhRegionChartUniqueids,
-      pieVhUniqueIdsSig: getPieVhFilterUniqueIdsSig(),
-      vhBarData,
-      vhBarDataPending,
-      recordCount: detail.meta.recordCount,
-      whereClause: detail.meta.whereClause,
-    });
-    if (digest === host._lastBroadcastDigest) {
-      agriLog('broadcastFilterState:SKIP-duplicate');
-      return;
-    }
-    host._lastBroadcastDigest = digest;
-    host._lastBroadcastDetail = detail;
-    agriLog("broadcastFilterState:send", {
-      vh: detail.filters.vh || "",
-      filterPieByVh: detail.filters.filterPieByVh,
-      filterVhBarByCrop: detail.filters.filterVhBarByCrop,
-      chartDimOrder: detail.filters.chartDimOrder,
-      vhUniqueidsCount: Array.isArray(detail.vhUniqueids)
-        ? detail.vhUniqueids.length
-        : detail.vhUniqueids,
-      vhRegionChartUniqueidsCount: Array.isArray(
-        detail.vhRegionChartUniqueids,
-      )
-        ? detail.vhRegionChartUniqueids.length
-        : detail.vhRegionChartUniqueids,
-      turlar: detail.filters.turlar,
-      viloyat: detail.filters.viloyat,
-      tuman: detail.filters.tuman,
-      whereClauseSample: String(detail.meta?.whereClause || "").slice(0, 280),
-      vhBarDataPending,
-      pendingOnly: opts?.pendingOnly ?? false,
-    });
-    syncMasterFilterSnapshot(detail);
-    document.dispatchEvent(
-      new CustomEvent("masterFilterChanged", {
-        detail,
-        bubbles: true,
-      }),
-    );
-  };
+  const isBroadcastCurrent = makeIsBroadcastCurrent(host, broadcastGeneration, geoSnapshot);
+  const send = makeSender({
+    host,
+    baseDetail,
+    broadcastGeneration,
+    geoSnapshot,
+    isCurrent: isBroadcastCurrent,
+    pendingOnly: opts?.pendingOnly ?? false,
+  });
 
   // Previously we required a separate NDVI table (2nd data source).
   // Now NDVI status is stored directly on the polygon layer as date-based fields.

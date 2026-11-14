@@ -1,8 +1,8 @@
-import type { LocalizationHost } from "../../host";
+import type { MapFilterFetchHost } from "../map-host";
 import { dedupedQueryFeatureCount } from "../../../../../../data/agri-query-gateway";
 import { debugCatch, agriLog } from "../../localization-log";
 
-export const fetchDataWithCurrentState = async (host: LocalizationHost) => {
+export const fetchDataWithCurrentState = async (host: MapFilterFetchHost) => {
   if (!host._isMounted || host.state.connectionStatus !== "connected") return;
   const requestId = ++host._filterDataRequestId;
   const isCurrent = () => host._isMounted && requestId === host._filterDataRequestId;

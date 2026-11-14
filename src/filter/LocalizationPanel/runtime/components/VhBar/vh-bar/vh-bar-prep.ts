@@ -1,4 +1,5 @@
-import type { LocalizationConfig, LocalizationHost } from "../../host";
+import type { LocalizationConfig } from "../../host";
+import type { VhBarPrepHost, VhBarYearScopeHost } from "../vh-bar-host";
 import { type VHBarData, VH_TO_NDVI_STATUS } from "../../../../../localization/vh-constants";
 import { buildVhBarComputeKey } from "../../../../../localization/vh-bar-aggregate";
 import { executeVhBarCompute } from "../../../../../localization/vh-bar-compute";
@@ -8,7 +9,7 @@ import { resolveRegionNumberFromMaps, resolveDistrictNumberFromMaps, buildVhUniq
 import { queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-vegetation-data-source";
 
 /** True when the VH bar reads the year summary (no locked day, no STIR farmer). */
-export const isVhYearSummaryScope = (host: LocalizationHost): boolean =>
+export const isVhYearSummaryScope = (host: VhBarYearScopeHost): boolean =>
   !(host.state.ndviDateLocked && String(host.state.ndviDate || "").trim()) &&
   !String(host.state.selectedFarmerInn || "").trim();
 
@@ -30,7 +31,7 @@ const compareDateLabels = (a: string, b: string): number => {
 
 /** Get latest available NDVI date for bar (selected date, or latest from options/map, or from layer fields). */
 export function getLatestNdviDateForBar(
-  host: LocalizationHost,
+  host: VhBarPrepHost,
   primaryLayer?: __esri.FeatureLayer,
 ): string | null {
   const current = (host.state.ndviDate || "").trim();
@@ -77,7 +78,7 @@ export function getLatestNdviDateForBar(
  * so this always returned the all-zero fallback. agri_vegetation_indices
  * has a real per-date `ndvi_status` field, no schema guessing needed.
  */
-export const computeVhBarData = async (host: LocalizationHost): Promise<VHBarData | null> => {
+export const computeVhBarData = async (host: VhBarPrepHost): Promise<VHBarData | null> => {
   const key = host.makeVhBarComputeKey();
   const memoized = host._vhBarComputeMemo.get(key);
   if (memoized) return memoized;
@@ -107,7 +108,7 @@ export const computeVhBarData = async (host: LocalizationHost): Promise<VHBarDat
   host._lastVhBarComputeKey = key;
   return promise;
 };
-export const makeVhBarComputeKey = (host: LocalizationHost): string => {
+export const makeVhBarComputeKey = (host: VhBarPrepHost): string => {
   const {
     viloyat,
     lockedViloyat,
@@ -144,7 +145,7 @@ export const makeVhBarComputeKey = (host: LocalizationHost): string => {
     farmerIdsSig,
   });
 };
-export const executeComputeVhBarData = async (host: LocalizationHost): Promise<VHBarData | null> => {
+export const executeComputeVhBarData = async (host: VhBarPrepHost): Promise<VHBarData | null> => {
   // Tag the resulting bar date with the geography this compute reads below;
   // by the time it resolves the user may already be on another viloyat.
   const geoKeyAtStart = host.makeVhBarDateGeoKey();
@@ -182,7 +183,7 @@ export const executeComputeVhBarData = async (host: LocalizationHost): Promise<V
  * Progressive republic totals while spinner stays on (pending=true).
  * Avoids the old bug where pending=false made incomplete totals look final.
  */
-export const publishVhBarPartial = (host: LocalizationHost, vhBarData: VHBarData): void => {
+export const publishVhBarPartial = (host: VhBarPrepHost, vhBarData: VHBarData): void => {
   if (!host._isMounted || !host._lastBroadcastDetail) return;
   const computeKey = host.makeVhBarComputeKey();
   if (
@@ -211,13 +212,13 @@ export const publishVhBarPartial = (host: LocalizationHost, vhBarData: VHBarData
  * Callers that need a date for the *current* scope (cache keys, Pie) must
  * not reuse another region's date; date probing may still try it first.
  */
-export const getGeoScopedVhBarUsedDate = (host: LocalizationHost): string => {
+export const getGeoScopedVhBarUsedDate = (host: VhBarPrepHost): string => {
   const date = String(host._vhBarUsedDate || "").trim();
   if (!date) return "";
   return host._vhBarUsedDateGeo === host.makeVhBarDateGeoKey() ? date : "";
 };
 /** Write a uniqueid list, dropping the oldest entries past the cap. */
-export const setVhUniqueIdCacheEntry = (host: LocalizationHost, key: string, ids: string[]): void => {
+export const setVhUniqueIdCacheEntry = (host: VhBarPrepHost, key: string, ids: string[]): void => {
   if (!key) return;
   host._vhUniqueIdCache[key] = ids;
   const keys = Object.keys(host._vhUniqueIdCache);
@@ -231,7 +232,7 @@ export const setVhUniqueIdCacheEntry = (host: LocalizationHost, key: string, ids
  * Build the cache key used by resolve/prefetch for map-scoped VH uniqueids.
  * Returns null when region/status/date cannot be resolved yet.
  */
-export const buildVhMapUniqueIdCacheKey = (host: LocalizationHost): string | null => {
+export const buildVhMapUniqueIdCacheKey = (host: VhBarPrepHost): string | null => {
   const vhCategory = host.normalizeApos(String(host.state.vh || "")).trim();
   const status = vhCategory ? VH_TO_NDVI_STATUS[vhCategory] : undefined;
   if (!status) return null;
@@ -278,7 +279,7 @@ export const buildVhMapUniqueIdCacheKey = (host: LocalizationHost): string | nul
   });
 };
 /** True when the current VH map-scope uniqueid list is already cached. */
-export const isVhMapUniqueIdCacheWarm = (host: LocalizationHost): boolean => {
+export const isVhMapUniqueIdCacheWarm = (host: VhBarPrepHost): boolean => {
   const key = host.buildVhMapUniqueIdCacheKey();
   return !!key && Array.isArray(host._vhUniqueIdCache[key]);
 };
@@ -291,7 +292,7 @@ export const isVhMapUniqueIdCacheWarm = (host: LocalizationHost): boolean => {
  * select must not page 4× status uniqueid chains in the background (~dozens
  * of PBF queries that never get used until the user clicks VH).
  */
-export const prefetchVhStatusUniqueIds = (host: LocalizationHost, ndviDate: string): void => {
+export const prefetchVhStatusUniqueIds = (host: VhBarPrepHost, ndviDate: string): void => {
   const date = String(ndviDate || "").trim();
   if (!date || !host._isMounted) return;
   if (!String(host.state.vh || "").trim()) return;

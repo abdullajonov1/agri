@@ -1,4 +1,4 @@
-import type { LocalizationHost } from "../../host";
+import type { ConnectionInitHost } from "../connection-host";
 import { type JimuMapView } from "jimu-arcgis";
 import { getAgriServiceUrls } from "../../../../../../shared/agri-service-urls";
 import esriRequest from "esri/request";
@@ -14,7 +14,7 @@ const FAIL_OPEN_IF_NO_MATCH = false;
 /* ---------------------- Map / DataSource ---------------------- */
 
 /** Mutable copy of the widget's configured useDataSources (or `[]`). */
-function readUseDataSourcesFromProps(host: LocalizationHost): IMUseDataSource[] {
+function readUseDataSourcesFromProps(host: ConnectionInitHost): IMUseDataSource[] {
   const raw: unknown =
     host.props.useDataSources?.asMutable?.() ??
     host.props.useDataSources ??
@@ -23,7 +23,7 @@ function readUseDataSourcesFromProps(host: LocalizationHost): IMUseDataSource[] 
 }
 
 export const getPortalSelf = async (
-  host: LocalizationHost,
+  host: ConnectionInitHost,
   jimuMapView: JimuMapView,
 ): Promise<{
   username: string | null;
@@ -60,14 +60,14 @@ export const getPortalSelf = async (
   }
 };
 /** Effective data sources to use. By default use all selected sources. */
-export function getEffectiveUseDataSources(host: LocalizationHost): IMUseDataSource[] {
+export function getEffectiveUseDataSources(host: ConnectionInitHost): IMUseDataSource[] {
   const arr = readUseDataSourcesFromProps(host);
   const cfgN = Number(host.props.config?.numberOfDataSources);
   const hasLimit = Number.isFinite(cfgN) && cfgN > 0;
   const n = hasLimit ? Math.min(arr.length, Math.floor(cfgN)) : arr.length;
   return arr.slice(0, n);
 }
-export const attachMapClickDispatcher = (host: LocalizationHost, jimuMapView: JimuMapView): void => {
+export const attachMapClickDispatcher = (host: ConnectionInitHost, jimuMapView: JimuMapView): void => {
   const view = jimuMapView?.view;
   if (!view) return;
 
@@ -115,11 +115,11 @@ export const attachMapClickDispatcher = (host: LocalizationHost, jimuMapView: Ji
     });
   });
 };
-export const removeViewReadyWatch = (host: LocalizationHost): void => {
+export const removeViewReadyWatch = (host: ConnectionInitHost): void => {
   host._viewReadyWatchHandle?.remove();
   host._viewReadyWatchHandle = null;
 };
-export const onActiveViewChange = (host: LocalizationHost, jimuMapView: JimuMapView) => {
+export const onActiveViewChange = (host: ConnectionInitHost, jimuMapView: JimuMapView) => {
   removeViewReadyWatch(host);
   if (!jimuMapView) {
     host.setState({
@@ -157,7 +157,7 @@ export const onActiveViewChange = (host: LocalizationHost, jimuMapView: JimuMapV
     }
   });
 };
-export const initializeMapConnection = (host: LocalizationHost, jimuMapView: JimuMapView): Promise<void> => {
+export const initializeMapConnection = (host: ConnectionInitHost, jimuMapView: JimuMapView): Promise<void> => {
   if (!host._isMounted || host.state.connectionStatus === 'connected') {
     return Promise.resolve();
   }
@@ -169,7 +169,7 @@ export const initializeMapConnection = (host: LocalizationHost, jimuMapView: Jim
   host._mapConnectionPromise = run;
   return run;
 };
-export const reassertPolygonGeographyFilter = (host: LocalizationHost, phase: string): void => {
+export const reassertPolygonGeographyFilter = (host: ConnectionInitHost, phase: string): void => {
   if (!host._isMounted || !host.state.polygonMode) return;
   const map = host.state.activeMapView?.view?.map;
   if (!map) return;
@@ -190,7 +190,7 @@ export const reassertPolygonGeographyFilter = (host: LocalizationHost, phase: st
     shownLayerCount: shown.length,
   });
 };
-export const initializeMapConnectionOnce = async (host: LocalizationHost, jimuMapView: JimuMapView) => {
+export const initializeMapConnectionOnce = async (host: ConnectionInitHost, jimuMapView: JimuMapView) => {
   if (!host._isMounted) return;
   agriLog("initializeMapConnection:start", {
     hasMapView: !!jimuMapView,
@@ -254,7 +254,7 @@ export const initializeMapConnectionOnce = async (host: LocalizationHost, jimuMa
  * Used when no Map widget is linked, or when map-layer matching fails.
  */
 export const initializeDataSourceOnlyConnection = async (
-  host: LocalizationHost,
+  host: ConnectionInitHost,
   failureMessage = "Could not resolve a queryable layer for the selected data source(s).",
 ): Promise<void> => {
   agriLog("initializeDataSourceOnlyConnection:start", {
@@ -299,7 +299,7 @@ export const initializeDataSourceOnlyConnection = async (
 };
 /** Shared tail of both the map-matched and data-source-only connection paths. */
 export const finalizeConnection = async (
-  host: LocalizationHost,
+  host: ConnectionInitHost,
   featureLayers: __esri.FeatureLayer[],
   jimuMapView: JimuMapView | null,
 ): Promise<void> => {

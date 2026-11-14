@@ -2,6 +2,8 @@ import { React } from "jimu-core";
 import ReactDOM from "react-dom";
 import { ChevronRight, FunctionSquare, Sprout, X } from "lucide-react";
 import type { GeoWidgetState } from "../../widget";
+import { pickLabel } from "../../../../../shared/agri-i18n";
+import { FORMULA_LABEL, INDEX_INFO_HEADER } from "./toolbar-messages";
 
 /** Inline style carrying the per-index accent CSS custom property. */
 type IndexAccentStyle = React.CSSProperties & { "--index-accent"?: string };
@@ -190,7 +192,7 @@ export const IndexInfoDetail = (props: IndexInfoDetailProps) => {
   if (!item) return null;
 
   const formulaLabel =
-    language === "en" ? "Formula" : language === "ru" ? "Формула" : language === "uz_lat" ? "Formula" : "Формула";
+    pickLabel(FORMULA_LABEL, language);
 
   return ReactDOM.createPortal(
     <div
@@ -263,13 +265,7 @@ export const IndexInfoMenu = (props: IndexInfoMenuProps) => {
   const { language } = props;
 
   const headerLabel =
-    language === "en"
-      ? "About indices"
-      : language === "ru"
-        ? "Инфо про индексы"
-      : language === "uz_lat"
-        ? "Indekslar haqida"
-        : "Индекслар ҳақида";
+    pickLabel(INDEX_INFO_HEADER, language);
 
   return ReactDOM.createPortal(
     <div

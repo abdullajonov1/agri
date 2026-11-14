@@ -1,4 +1,4 @@
-import type { LocalizationHost } from "../../host";
+import type { MapFilterZoomExtentHost } from "../map-host";
 import type { MapZoomRequest } from "../../../../../localization/map-zoom-policy";
 import { isEmptyMapExtent } from "../../../../../localization/map-zoom-policy";
 import { agriLog, debugCatch } from "../../localization-log";
@@ -87,7 +87,7 @@ const querySublayerExtent = async (
  * for ALL regions and would zoom to the entire republic.
  */
 export const queryShownRegionYearExtent = async (
-  host: LocalizationHost,
+  host: MapFilterZoomExtentHost,
   zoomRequest: MapZoomRequest,
   isStale: () => boolean,
 ): Promise<__esri.Extent | null> => {

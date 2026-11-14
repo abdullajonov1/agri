@@ -1,4 +1,5 @@
 import type { LocalizationHost } from "../../host";
+import type { MapFilterPaintStageHost } from "../map-host";
 import { type MapZoomRequest, shouldDeferCropForFastReveal, shouldDeferVhUniqueIdResolve } from "../../../../../localization/map-zoom-policy";
 import { agriLog } from "../../localization-log";
 import { errorMessage } from "../../../../../../shared/agri-plain-object";
@@ -16,7 +17,7 @@ export interface MapSurfaceCover {
  * Resolves false when the apply went stale and the caller must stop.
  */
 export const runFilterPaintStage = async (
-  host: LocalizationHost,
+  host: MapFilterPaintStageHost,
   zoomRequest: MapZoomRequest,
   stillCurrent: () => boolean,
   { coverMap, coverReason, vhOnly }: MapSurfaceCover,

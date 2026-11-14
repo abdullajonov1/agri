@@ -1,4 +1,5 @@
-import type { LocalizationConfig, LocalizationHost } from "../../host";
+import type { LocalizationConfig } from "../../host";
+import type { ConnectionLayerHost } from "../connection-host";
 import type { AgriMapLayer } from "../../../../../localization/agri-map-layer";
 import { featureAttributes } from "../../../../../localization/agri-map-layer";
 import { firstCollectionArray } from "../../../../../../gis/agri-layer-types";
@@ -34,7 +35,7 @@ interface LayerBackedDataSource {
 type DataSourceInfoWithRecords = IMDataSourceInfo & { records?: unknown };
 
 export const resolveFeatureLayerFromOneUseDataSource = async (
-  host: LocalizationHost,
+  host: ConnectionLayerHost,
   useDs: IMUseDataSource,
   jimuMapView: JimuMapView | null,
 ): Promise<__esri.FeatureLayer | null> => {
@@ -168,7 +169,7 @@ export const resolveFeatureLayerFromOneUseDataSource = async (
  * so visual map filtering must target these instead, joined by uniqueid.
  */
 export const resolveSpatialMapLayers = async (
-  host: LocalizationHost,
+  host: ConnectionLayerHost,
   jimuMapView: JimuMapView | null,
 ): Promise<__esri.FeatureLayer[]> => {
   const raw: unknown =
@@ -184,7 +185,7 @@ export const resolveSpatialMapLayers = async (
   return Array.from(new Set(results.filter(Boolean))) as __esri.FeatureLayer[];
 };
 export const resolveFeatureLayersFromUseDataSources = async (
-  host: LocalizationHost,
+  host: ConnectionLayerHost,
   jimuMapView: JimuMapView | null,
 ): Promise<__esri.FeatureLayer[]> => {
   // Agri_table_data is an external Table, not an operational layer on any
@@ -203,7 +204,7 @@ export const resolveFeatureLayersFromUseDataSources = async (
     return [];
   }
 };
-export const buildLayerViloyatIndex = async (host: LocalizationHost): Promise<void> => {
+export const buildLayerViloyatIndex = async (host: ConnectionLayerHost): Promise<void> => {
   const layers = host.state.featureLayers?.length
     ? host.state.featureLayers
     : host.state.featureLayer
@@ -263,7 +264,7 @@ export const buildLayerViloyatIndex = async (host: LocalizationHost): Promise<vo
  *  - this.state.ndviDateOptions: sorted list of date labels
  *  - this.state.ndviDate: keeps existing value when possible, otherwise latest date
  */
-export const detectNdviStatusDateFieldsFromLayer = (host: LocalizationHost): void => {
+export const detectNdviStatusDateFieldsFromLayer = (host: ConnectionLayerHost): void => {
   const primaryLayer =
     host.state.featureLayer ?? host.state.featureLayers?.[0];
   if (!primaryLayer) return;
@@ -341,7 +342,7 @@ export const detectNdviStatusDateFieldsFromLayer = (host: LocalizationHost): voi
     });
   }
 };
-export const onDataSourceCreated = (host: LocalizationHost, ds: DataSource) => {
+export const onDataSourceCreated = (host: ConnectionLayerHost, ds: DataSource) => {
   const qds = ds as QueriableDataSource;
   const dsId = (qds?.id || "").toString();
   agriLog("onDataSourceCreated:fired", {
@@ -393,7 +394,7 @@ export const onDataSourceCreated = (host: LocalizationHost, ds: DataSource) => {
   });
 };
 export const onDataSourceInfoChange = (
-  host: LocalizationHost,
+  host: ConnectionLayerHost,
   info: DataSourceInfoWithRecords | null,
 ) => {
   if (!host._isMounted) return;
@@ -411,14 +412,14 @@ export const onDataSourceInfoChange = (
     host.fetchDataWithCurrentState();
   }, DATA_SOURCE_INFO_DEBOUNCE_MS);
 };
-export const retryMapConnection = (host: LocalizationHost) => {
+export const retryMapConnection = (host: ConnectionLayerHost) => {
   host.setState({
     connectionStatus: "connecting",
     mapConnectionAttempts: 0,
     error: null,
   });
 };
-export const runInitialDataLoad = (host: LocalizationHost): Promise<void> => {
+export const runInitialDataLoad = (host: ConnectionLayerHost): Promise<void> => {
   if (!host._isMounted || host.state.connectionStatus !== 'connected') {
     return Promise.resolve();
   }
@@ -465,7 +466,7 @@ export const runInitialDataLoad = (host: LocalizationHost): Promise<void> => {
 };
 /* ---------------------- Filter Options ---------------------- */
 
-export const getUniqueValues = async (host: LocalizationHost, fieldName: string): Promise<string[]> => {
+export const getUniqueValues = async (host: ConnectionLayerHost, fieldName: string): Promise<string[]> => {
   const layers = host.state.featureLayers?.length
     ? host.state.featureLayers
     : host.state.featureLayer
@@ -488,7 +489,7 @@ export const getUniqueValues = async (host: LocalizationHost, fieldName: string)
   }
   return merged.sort();
 };
-export const fetchFilterOptions = async (host: LocalizationHost) => {
+export const fetchFilterOptions = async (host: ConnectionLayerHost) => {
   if (!host._isMounted) return;
   if (host.state.connectionStatus !== "connected") return;
 
@@ -543,7 +544,7 @@ export const fetchFilterOptions = async (host: LocalizationHost) => {
   }
 };
 export async function flDistinctFromLayer(
-  host: LocalizationHost,
+  host: ConnectionLayerHost,
   layer: __esri.FeatureLayer,
   fieldName: string,
   where: string,

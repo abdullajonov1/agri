@@ -1,5 +1,5 @@
 import { agriLog } from "../localization-log";
-import type { LocalizationHost } from "../host";
+import type { SelectionServiceHost } from "./shell-host";
 import type { GeoWidgetState } from "../../widget";
 import type { MapZoomRequest } from "../../../../localization/map-zoom-policy";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
@@ -24,7 +24,7 @@ import {
   type WidgetSelectionDetail,
 } from "./selection-service-steps";
 
-export const handleWidgetSelection = async (host: LocalizationHost, event: Event) => {
+export const handleWidgetSelection = async (host: SelectionServiceHost, event: Event) => {
   if (!host._isMounted) return;
 
   const d: WidgetSelectionDetail =

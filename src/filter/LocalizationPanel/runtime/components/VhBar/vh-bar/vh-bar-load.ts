@@ -1,4 +1,5 @@
-import type { LocalizationConfig, LocalizationHost } from "../../host";
+import type { LocalizationConfig } from "../../host";
+import type { VhBarLoadHost } from "../vh-bar-host";
 import { featureAttributes } from "../../../../../localization/agri-map-layer";
 import { buildVhUniqueIdCacheKey } from "../../../../../localization/resolve-geo-codes";
 import { queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-vegetation-data-source";
@@ -13,7 +14,7 @@ import { errorMessage } from "../../../../../../shared/agri-plain-object";
  * without holding up map filter / first broadcast.
  */
 export const resolveVhRegionChartUniqueIdsBackground = async (
-  host: LocalizationHost,
+  host: VhBarLoadHost,
   resolveGen: number,
   params: {
     status: string;
@@ -84,7 +85,7 @@ type PagedQuery = __esri.Query & {
   resultRecordCount?: number;
 };
 
-export const loadNdviBucketIds = async (host: LocalizationHost, vhCategory: string): Promise<void> => {
+export const loadNdviBucketIds = async (host: VhBarLoadHost, vhCategory: string): Promise<void> => {
   const ndviDate = (host.state.ndviDate || "").trim();
   if (!ndviDate) return;
 

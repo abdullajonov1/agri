@@ -1,4 +1,4 @@
-import type { LocalizationHost } from "../../host";
+import type { MapFilterApplyHost } from "../map-host";
 import { type MapZoomRequest, decideMapSurfaceCover, buildDefinitionExpressionDigest, isGeographyZoomReason, shouldNavigateMapZoom, isEmptyMapExtent } from "../../../../../localization/map-zoom-policy";
 import { isShownRegionYearLayerOpaque } from "../../../../../localization/map-filter-apply";
 import { agriLog, debugCatch } from "../../localization-log";
@@ -13,7 +13,7 @@ import { createExtentNavigator, queryShownRegionYearExtent as queryShownRegionYe
 type MapWithFullExtent = __esri.Map & { fullExtent?: __esri.Extent | null };
 
 export const applyMapFiltersOptimized = async (
-  host: LocalizationHost,
+  host: MapFilterApplyHost,
   zoomRequest: MapZoomRequest = { mode: "none", reason: "other" },
   isApplyCurrent?: () => boolean,
 ): Promise<void> => {

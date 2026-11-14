@@ -1,4 +1,4 @@
-import type { LocalizationHost } from "../host";
+import type { RenderPanelHost } from "./shell-host";
 import logoImage from "../../../assets/uzcosmos logo white.svg";
 import { GraffSearchDropdown } from "../GraffSearch/GraffSearchDropdown";
 import { GraffSearchInput } from "../GraffSearch/GraffSearchInput";
@@ -10,7 +10,7 @@ import { YilMenu } from "../Toolbar/YilMenu";
 import { JimuMapViewComponent } from "jimu-arcgis";
 import { DataSourceComponent, React, type IMUseDataSource } from "jimu-core";
 
-export function render(host: LocalizationHost) {
+export function render(host: RenderPanelHost) {
   const {
     loading,
     error,

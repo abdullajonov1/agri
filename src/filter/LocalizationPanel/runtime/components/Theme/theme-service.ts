@@ -1,7 +1,8 @@
-import type { LocalizationHost, ValueChangeEvent } from "../host";
+import type { ValueChangeEvent } from "../host";
+import type { ThemeHost } from "./theme-host";
 import { applyAppBackgroundTheme } from "../../../../localization/app-theme";
 
-export const resolveThemeState = (host: LocalizationHost) => {
+export const resolveThemeState = (host: ThemeHost) => {
   try {
     const savedTheme = localStorage.getItem("agri_v11_app_theme");
     if (savedTheme === "dark" || savedTheme === "light") {
@@ -37,7 +38,7 @@ export const resolveThemeState = (host: LocalizationHost) => {
   return true;
 };
 
-export const initializeTheme = (host: LocalizationHost) => {
+export const initializeTheme = (host: ThemeHost) => {
   const isDarkTheme = host.resolveThemeState();
   host.setState({ isDarkTheme });
   try {
@@ -57,7 +58,7 @@ export const initializeTheme = (host: LocalizationHost) => {
   );
 };
 
-export const applyThemeToDom = (host: LocalizationHost, isDarkTheme: boolean) => {
+export const applyThemeToDom = (host: ThemeHost, isDarkTheme: boolean) => {
   const root = document.documentElement;
   const body = document.body;
   const theme = isDarkTheme ? "dark" : "light";
@@ -72,7 +73,7 @@ export const applyThemeToDom = (host: LocalizationHost, isDarkTheme: boolean) =>
   applyAppBackgroundTheme(theme);
 };
 
-export const handleThemeChange = (host: LocalizationHost, event: ValueChangeEvent) => {
+export const handleThemeChange = (host: ThemeHost, event: ValueChangeEvent) => {
   if (!host._isMounted) return;
   const value = String(event?.target?.value || "light");
   const isDarkTheme = value === "dark";
@@ -95,7 +96,7 @@ export const handleThemeChange = (host: LocalizationHost, event: ValueChangeEven
   });
 };
 
-export const handleDocumentClick = (host: LocalizationHost, event: MouseEvent) => {
+export const handleDocumentClick = (host: ThemeHost, event: MouseEvent) => {
   const target = event.target as HTMLElement | null;
   if (!target) return;
   const inToolbar =
@@ -121,7 +122,7 @@ export const handleDocumentClick = (host: LocalizationHost, event: MouseEvent) =
   }
 };
 
-export const applyThemeByValue = (host: LocalizationHost, value: "light" | "dark") => {
+export const applyThemeByValue = (host: ThemeHost, value: "light" | "dark") => {
   if (!host._isMounted) return;
   const isDarkTheme = value === "dark";
 

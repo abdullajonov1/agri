@@ -5,12 +5,21 @@ import {
 } from "../../../../../gis/agri-vegetation-data-source";
 import { regionSoatoToDisplayName } from "../../../../../gis/feature-layer-data";
 import { translateAgriPlaceForDisplay } from "../../../../../shared/agri-place-display";
-import type { LocalizationHost } from "../host";
+import type {
+  NotificationDashboardPackHost,
+  NotificationFeedHost,
+  NotificationHydrateHost,
+  NotificationLanguageHost,
+  NotificationMenuOpenedHost,
+  NotificationPrefetchHost,
+  NotificationRegionNameHost,
+  NotificationScrollHost,
+} from "./toolbar-host";
 import { agriLog } from "../localization-log";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 
 /** localStorage hit only — no layer load and no statistics request. */
-export const hydrateNotificationCache = (host: LocalizationHost): void => {
+export const hydrateNotificationCache = (host: NotificationHydrateHost): void => {
   const cached = peekVegetationRecentDayRegionCounts(5);
   if (!cached) return;
   host._notificationLoadStarted = true;
@@ -21,7 +30,7 @@ export const hydrateNotificationCache = (host: LocalizationHost): void => {
   });
 };
 
-export const onDashboardPackForNotifications = (host: LocalizationHost, pack: {
+export const onDashboardPackForNotifications = (host: NotificationDashboardPackHost, pack: {
   phase?: string;
   filter?: { yil?: string };
 }): void => {
@@ -43,7 +52,7 @@ export const onDashboardPackForNotifications = (host: LocalizationHost, pack: {
   });
 };
 
-export const beginNotificationPrefetch = (host: LocalizationHost): void => {
+export const beginNotificationPrefetch = (host: NotificationPrefetchHost): void => {
   if (!host._isMounted || !host._notificationWidgetsReady) return;
   if (host._notificationLoadStarted) return;
   host._notificationLoadStarted = true;
@@ -59,7 +68,7 @@ export const beginNotificationPrefetch = (host: LocalizationHost): void => {
   void host.loadNotificationFeed();
 };
 
-export const onNotificationsMenuOpened = (host: LocalizationHost): void => {
+export const onNotificationsMenuOpened = (host: NotificationMenuOpenedHost): void => {
   if (host.state.notificationError) {
     if (!host._notificationWidgetsReady) return;
     host._notificationLoadStarted = false;
@@ -75,7 +84,7 @@ export const onNotificationsMenuOpened = (host: LocalizationHost): void => {
   host.beginNotificationPrefetch();
 };
 
-export const loadNotificationFeed = async (host: LocalizationHost): Promise<void> => {
+export const loadNotificationFeed = async (host: NotificationFeedHost): Promise<void> => {
   if (!host._notificationWidgetsReady) return;
   host._notificationLoadStarted = true;
   const token = ++host._notificationLoadToken;
@@ -122,7 +131,7 @@ export const loadNotificationFeed = async (host: LocalizationHost): Promise<void
   }
 };
 
-export const formatNotificationDate = (host: LocalizationHost, ymd: string): string => {
+export const formatNotificationDate = (host: NotificationLanguageHost, ymd: string): string => {
   const parts = String(ymd || "").split("-");
   if (parts.length !== 3) return ymd;
   const [y, m, d] = parts;
@@ -130,7 +139,7 @@ export const formatNotificationDate = (host: LocalizationHost, ymd: string): str
   return `${d}.${m}.${y}`;
 };
 
-export const resolveRegionNotificationName = (host: LocalizationHost, regionCode: string): string => {
+export const resolveRegionNotificationName = (host: NotificationRegionNameHost, regionCode: string): string => {
   const code = String(regionCode || "").trim();
   // Prefer live Agri_table_data mapping (region → viloyat); static map is fallback only.
   const rawName =
@@ -144,7 +153,7 @@ export const resolveRegionNotificationName = (host: LocalizationHost, regionCode
   );
 };
 
-export const formatFieldCount = (host: LocalizationHost, value: number): string => {
+export const formatFieldCount = (host: NotificationLanguageHost, value: number): string => {
   const lang = host.state.language;
   const locale =
     lang === "en" ? "en-US" : lang === "ru" ? "ru-RU" : "uz-UZ";
@@ -155,7 +164,7 @@ export const formatFieldCount = (host: LocalizationHost, value: number): string 
   }
 };
 
-export const updateNotificationScrollHint = (host: LocalizationHost): void => {
+export const updateNotificationScrollHint = (host: NotificationScrollHost): void => {
   if (!host._isMounted) return;
   const el = host._notificationBodyRef.current;
   const canScroll = !!(

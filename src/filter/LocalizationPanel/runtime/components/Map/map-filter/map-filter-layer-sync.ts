@@ -1,11 +1,12 @@
 import type { LocalizationHost } from "../../host";
+import type { MapFilterLayerSyncHost } from "../map-host";
 import { spatialWhereFromPrimarySync } from "../../../../../localization/map-filter-apply";
 import { ensureRegionYearMapImagesReady, unlockShownRegionYearFieldScales, refreshRegionYearMapExports, isMapImageOwnedLayer } from "../../../../../../gis/feature-layer-data";
 import { buildSpatialJoinWhere, queryAgriUniqueIdsForWhere } from "../../../../../../gis/agri-table-data-source";
 
 /** Re-sync the shown region-year layers once a timed-out preload settles. */
 const resyncAfterPreload = (
-  host: LocalizationHost,
+  host: MapFilterLayerSyncHost,
   isCurrent: (() => boolean) | undefined,
   preload: Promise<unknown>,
 ): void => {
@@ -23,7 +24,7 @@ const resyncAfterPreload = (
 
 /** Year + viloyat selected: wait (bounded) for MapImage metadata, then sync. */
 const revealYearRegionLayers = async (
-  host: LocalizationHost,
+  host: MapFilterLayerSyncHost,
   map: __esri.Map,
   isCurrent: (() => boolean) | undefined,
   forceMapExportRefresh: boolean,
@@ -59,7 +60,7 @@ const revealYearRegionLayers = async (
  * Resolves false when the apply went stale and the caller must stop.
  */
 export const revealRegionYearLayers = async (
-  host: LocalizationHost,
+  host: MapFilterLayerSyncHost,
   isCurrent: (() => boolean) | undefined,
   forceMapExportRefresh: boolean,
 ): Promise<boolean> => {

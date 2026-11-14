@@ -1,5 +1,5 @@
 import { agriLog } from "../localization-log";
-import type { LocalizationHost } from "../host";
+import type { SelectionApplyHost } from "./shell-host";
 import { clearPieVhFilterUniqueIds } from "../../../../../gis/agri-chart-filter-order";
 import { preloadRegionYearMapImages } from "../../../../../gis/feature-layer-data";
 import type { MapZoomRequest } from "../../../../localization/map-zoom-policy";
@@ -15,7 +15,7 @@ const REGION_CODES_WAIT_MS = 120;
  * behavior is unchanged — each function is the former inline branch body.
  */
 export interface SelectionApplyContext {
-  host: LocalizationHost;
+  host: SelectionApplyHost;
   applyId: number;
   isApplyCurrent: () => boolean;
   zoomRequest: MapZoomRequest;

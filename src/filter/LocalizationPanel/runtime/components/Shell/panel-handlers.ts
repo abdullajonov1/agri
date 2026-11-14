@@ -1,5 +1,6 @@
 import { agriLog } from "../localization-log";
-import type { LocalizationHost, ValueChangeEvent } from "../host";
+import type { ValueChangeEvent } from "../host";
+import type { PanelHandlersHost } from "./shell-host";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 import type { FilterState } from "../../widget-state";
 import { clearPieVhFilterUniqueIds, upsertChartDimOrder } from "../../../../../gis/agri-chart-filter-order";
@@ -14,7 +15,7 @@ const GROUP_ID_TO_VIEW: Record<
   // "99e138d333434fe9a0fd426f6e873af0": { viewItemId: "xxxxxxxxxxxxxxxxxxxx", viloyat: "Andijon viloyati" },
 };
 
-export function getAdminBoundarySelection(host: LocalizationHost) {
+export function getAdminBoundarySelection(host: PanelHandlersHost) {
   const viloyat = host.getEffectiveViloyat();
   const tuman = host.normalizeApos(String(host.state.tuman || ""));
   const helpers = host.getGeoCodeHelpers();
@@ -52,7 +53,7 @@ export function getAdminBoundarySelection(host: LocalizationHost) {
   };
 }
 
-export const setMapSurfaceLoading = (host: LocalizationHost, loading: boolean, reason: string) => {
+export const setMapSurfaceLoading = (host: PanelHandlersHost, loading: boolean, reason: string) => {
   try {
     document.dispatchEvent(
       new CustomEvent("agriMapSurfaceLoading", {
@@ -65,7 +66,7 @@ export const setMapSurfaceLoading = (host: LocalizationHost, loading: boolean, r
   }
 };
 
-export function getLayerMatchStateForViloyat(host: LocalizationHost, layer: __esri.FeatureLayer, effectiveViloyat: string) {
+export function getLayerMatchStateForViloyat(host: PanelHandlersHost, layer: __esri.FeatureLayer, effectiveViloyat: string) {
   return getLayerMatchStateForViloyatShared({
     effectiveViloyat,
     layer,
@@ -80,7 +81,7 @@ export function getLayerMatchStateForViloyat(host: LocalizationHost, layer: __es
  * runtime definitionExpression. Reapply the current geography synchronously
  * during the click chain, before the unfiltered export can be painted.
  */
-export const handlePolygonMapClickPhase = (host: LocalizationHost, event: Event) => {
+export const handlePolygonMapClickPhase = (host: PanelHandlersHost, event: Event) => {
   if (!host._isMounted) return;
   const phase = String((event as CustomEvent)?.detail?.phase || "click");
   const map = host.state.activeMapView?.view?.map;
@@ -94,7 +95,7 @@ export const handlePolygonMapClickPhase = (host: LocalizationHost, event: Event)
   });
 };
 
-export const ensureInitialization = async (host: LocalizationHost) => {
+export const ensureInitialization = async (host: PanelHandlersHost) => {
   if (!host._isMounted) return;
   const { dataSource, connectionStatus } = host.state;
 
@@ -109,7 +110,7 @@ export const ensureInitialization = async (host: LocalizationHost) => {
   }
 };
 
-export const resolveGroupScope = (host: LocalizationHost, groups: Array<{ id: string; title: string }>) => {
+export const resolveGroupScope = (host: PanelHandlersHost, groups: Array<{ id: string; title: string }>) => {
   const userIds = groups.map((g) => host._normId(g.id)).filter(Boolean);
   const normIdToOriginal: Record<string, string> = {};
   for (const k of Object.keys(GROUP_ID_TO_VIEW))
@@ -122,7 +123,7 @@ export const resolveGroupScope = (host: LocalizationHost, groups: Array<{ id: st
   return null;
 };
 
-export const resolveAllowedViloyats = (host: LocalizationHost, groups: Array<{ id: string; title: string }>) => {
+export const resolveAllowedViloyats = (host: PanelHandlersHost, groups: Array<{ id: string; title: string }>) => {
   const normIdToOriginal: Record<string, string> = {};
   for (const k of Object.keys(GROUP_ID_TO_VIEW)) {
     normIdToOriginal[host._normId(k)] = k;
@@ -137,7 +138,7 @@ export const resolveAllowedViloyats = (host: LocalizationHost, groups: Array<{ i
   return Array.from(set);
 };
 
-export const toggleToolbarMenu = (host: LocalizationHost, menu: "yil" | "language" | "indexInfo" | "notifications") => {
+export const toggleToolbarMenu = (host: PanelHandlersHost, menu: "yil" | "language" | "indexInfo" | "notifications") => {
   host.setState(
     (prev) => ({
       openToolbarMenu: prev.openToolbarMenu === menu ? null : menu,
@@ -153,7 +154,7 @@ export const toggleToolbarMenu = (host: LocalizationHost, menu: "yil" | "languag
   );
 };
 
-export const handleYilChange = (host: LocalizationHost, event: ValueChangeEvent) => {
+export const handleYilChange = (host: PanelHandlersHost, event: ValueChangeEvent) => {
   if (!host._isMounted) return;
 
   const selectedYil = host.normalizeApos(String(event?.target?.value ?? ""));
@@ -205,7 +206,7 @@ export const handleYilChange = (host: LocalizationHost, event: ValueChangeEvent)
   );
 };
 
-export const applyLanguage = (host: LocalizationHost, lang: FilterState["language"]) => {
+export const applyLanguage = (host: PanelHandlersHost, lang: FilterState["language"]) => {
   if (!host._isMounted) return;
   if (!lang || lang === host.state.language) return;
 
@@ -234,7 +235,7 @@ export const applyLanguage = (host: LocalizationHost, lang: FilterState["languag
   });
 };
 
-export const applyYil = (host: LocalizationHost, selectedYil: string) => {
+export const applyYil = (host: PanelHandlersHost, selectedYil: string) => {
   if (!host._isMounted) return;
 
   const nextYil = host.normalizeApos(selectedYil ?? "");
@@ -275,7 +276,7 @@ export const applyYil = (host: LocalizationHost, selectedYil: string) => {
   );
 };
 
-export const handleNdviDateChange = (host: LocalizationHost, event: ValueChangeEvent) => {
+export const handleNdviDateChange = (host: PanelHandlersHost, event: ValueChangeEvent) => {
   if (!host._isMounted) return;
 
   const raw = event?.target?.value ?? "";
@@ -307,7 +308,7 @@ export const handleNdviDateChange = (host: LocalizationHost, event: ValueChangeE
 };
 
 /** Keep first-selected-wins order for Pie ↔ VH chart scoping. */
-export const syncChartDimOrder = (host: LocalizationHost, nextVh: string, nextTurlar: string[], resetGeography: boolean) => {
+export const syncChartDimOrder = (host: PanelHandlersHost, nextVh: string, nextTurlar: string[], resetGeography: boolean) => {
   if (resetGeography) {
     host._chartDimOrder = [];
     clearPieVhFilterUniqueIds();

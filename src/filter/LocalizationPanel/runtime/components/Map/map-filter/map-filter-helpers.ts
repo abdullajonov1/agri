@@ -1,4 +1,5 @@
-import type { LocalizationConfig, LocalizationHost } from "../../host";
+import type { LocalizationConfig } from "../../host";
+import type { MapFilterHelpersHost } from "../map-host";
 import { buildNdviTableWhereWithRegion } from "../../../../../localization/map-where-clauses";
 import { normalizeUniqueidKey } from "../../../../../../data/agri-uniqueid-sql";
 import { shouldForceRegionYearMapExportRefresh, decideVhUniqueIdApplyPhase, isAgriTableDataUrl, augmentWhereWithNdviClauses, pickPrimaryWhereForSpatialJoin } from "../../../../../localization/map-filter-apply";
@@ -11,7 +12,7 @@ import { collectShownRegionYearQueryTargets, readQueryableDefinitionExpression, 
 import { arcgisEaseInOut, errorMessage, errorName } from "../../../../../../shared/agri-plain-object";
 
 /** Tell the dashboard shell to show/hide the "no data found" map overlay. */
-export const setMapNoData = (host: LocalizationHost, noData: boolean, reason: string): void => {
+export const setMapNoData = (host: MapFilterHelpersHost, noData: boolean, reason: string): void => {
   try {
     document.dispatchEvent(
       new CustomEvent("agriMapNoData", {
@@ -29,7 +30,7 @@ export const setMapNoData = (host: LocalizationHost, noData: boolean, reason: st
  * Prefers numeric region/district when the table has those fields (same mapping as polygon layer).
  */
 export function buildTableWhereWithRegion(
-  host: LocalizationHost,
+  host: MapFilterHelpersHost,
   dateField: string,
   ndviDate: string,
   tableFieldNames: string[],
@@ -54,7 +55,7 @@ export function buildTableWhereWithRegion(
  * determine the status; displayed area must come from Agri_table_data so
  * VH categories partition the same total used by Indicator/Pie/Region.
  */
-export const getPolygonAreasWithCurrentFilter = async (host: LocalizationHost, opts?: {
+export const getPolygonAreasWithCurrentFilter = async (host: MapFilterHelpersHost, opts?: {
   includeTuri?: boolean;
 }): Promise<Map<string, number>> => {
   const primaryLayer =
@@ -162,7 +163,7 @@ export const getPolygonAreasWithCurrentFilter = async (host: LocalizationHost, o
 /* ---------------------- Map Filter Application ---------------------- */
 
 export async function applyFiltersPersistent(
-  host: LocalizationHost,
+  host: MapFilterHelpersHost,
   isCurrent?: () => boolean,
   opts?: { vhDeferredSecondPass?: boolean },
 ): Promise<void> {
@@ -239,7 +240,7 @@ interface ViewAnimationLike {
 }
 
 export const zoomToSelectedDistrict = async (
-  host: LocalizationHost,
+  host: MapFilterHelpersHost,
   view: __esri.MapView | __esri.SceneView,
 ): Promise<boolean> => {
   const district = String(host.state.tuman || "").trim();

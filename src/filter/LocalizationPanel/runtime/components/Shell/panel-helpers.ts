@@ -1,4 +1,5 @@
-import type { CropUniqueValueInfo, LocalizationHost } from "../host";
+import type { CropUniqueValueInfo } from "../host";
+import type { PanelHelpersHost } from "./shell-host";
 import type { AgriMapLayer } from "../../../../localization/agri-map-layer";
 import { findLayerFieldName as findLayerFieldNameShared, buildCropDistinctCacheKey } from "../../../../localization/layer-utils";
 import { buildCropUniqueValueInfosFromValues as buildCropUniqueValueInfosShared } from "../../../../localization/crop-renderer";
@@ -8,27 +9,27 @@ import { eqAposSmart as eqAposSmartShared } from "../../../../../data/agri-sql";
 import type { ChartFilterFlags } from "../../../../../gis/agri-chart-filter-order";
 import { deriveChartFilterFlags } from "../../../../../gis/agri-chart-filter-order";
 
-export function getEffectiveViloyat(host: LocalizationHost): string {
+export function getEffectiveViloyat(host: PanelHelpersHost): string {
   return host.normalizeApos(
     (host.state.lockedViloyat || host.state.viloyat || "").toString(),
   );
 }
 
-export function findLayerFieldName(host: LocalizationHost, layer: AgriMapLayer, name: string): string | null {
+export function findLayerFieldName(host: PanelHelpersHost, layer: AgriMapLayer, name: string): string | null {
   return findLayerFieldNameShared(layer, name);
 }
 
-export const cropDistinctCacheKey = (host: LocalizationHost, layer: AgriMapLayer, field: string, where: string): string =>
+export const cropDistinctCacheKey = (host: PanelHelpersHost, layer: AgriMapLayer, field: string, where: string): string =>
   buildCropDistinctCacheKey(layer, field, where);
 
-export const buildCropUniqueValueInfosFromValues = (host: LocalizationHost, field: string, distinctValues: string[]): CropUniqueValueInfo[] =>
+export const buildCropUniqueValueInfosFromValues = (host: PanelHelpersHost, field: string, distinctValues: string[]): CropUniqueValueInfo[] =>
   buildCropUniqueValueInfosShared(
       field,
       distinctValues,
       host._turiToCropId || {},
     );
 
-export function buildYearClauseForLayer(host: LocalizationHost, layer: __esri.FeatureLayer): string {
+export function buildYearClauseForLayer(host: PanelHelpersHost, layer: __esri.FeatureLayer): string {
   return buildYearClauseForLayerFields(
     host.state.yil || "",
     layer?.fields || [],
@@ -36,7 +37,7 @@ export function buildYearClauseForLayer(host: LocalizationHost, layer: __esri.Fe
 }
 
 /** Late-mounted indicators ask for the last filter payload after Localization already broadcast. */
-export const handleRequestMasterFilterState = (host: LocalizationHost): void => {
+export const handleRequestMasterFilterState = (host: PanelHelpersHost): void => {
   if (!host._isMounted) return;
   const detail = getMasterFilterSnapshot() ?? host._lastBroadcastDetail;
   if (!detail) return;
@@ -48,13 +49,13 @@ export const handleRequestMasterFilterState = (host: LocalizationHost): void => 
   );
 };
 
-export function getMapWidgetId(host: LocalizationHost): string | null {
+export function getMapWidgetId(host: PanelHelpersHost): string | null {
   const ids: ArrayLike<string> | null | undefined = host.props.useMapWidgetIds;
   const first = ids?.length ? ids[0] : null;
   return first ? String(first) : null;
 }
 
-export const schedulePolygonFilterGuards = (host: LocalizationHost): void => {
+export const schedulePolygonFilterGuards = (host: PanelHelpersHost): void => {
   host.clearPolygonFilterGuards();
   [0, 300, 900].forEach((delay) => {
     host._polygonFilterGuardTimers.push(
@@ -66,13 +67,13 @@ export const schedulePolygonFilterGuards = (host: LocalizationHost): void => {
   });
 };
 
-export function eqAposSmart(host: LocalizationHost, field: string, raw: string): string {
+export function eqAposSmart(host: PanelHelpersHost, field: string, raw: string): string {
   if (!raw) return "";
   // Localization normalize trims; agri-sql eqAposSmart also trims — keep both.
   return eqAposSmartShared(field, host.normalizeApos(String(raw)));
 }
 
-export const getAposHelpers = (host: LocalizationHost) =>
+export const getAposHelpers = (host: PanelHelpersHost) =>
   ({
     normalizeApos: (s: string) => host.normalizeApos(s),
     makeRegionDistrictKey: (raw: string | null | undefined) =>
@@ -81,7 +82,7 @@ export const getAposHelpers = (host: LocalizationHost) =>
       host.eqAposSmart(field, value),
   });
 
-export const getChartFilterFlags = (host: LocalizationHost, vh = String(host.state.vh || "").trim(), turlar = host.getSelectedTurlar()): ChartFilterFlags =>
+export const getChartFilterFlags = (host: PanelHelpersHost, vh = String(host.state.vh || "").trim(), turlar = host.getSelectedTurlar()): ChartFilterFlags =>
   deriveChartFilterFlags(
       host._chartDimOrder,
       Boolean(vh),
@@ -93,7 +94,7 @@ export const getChartFilterFlags = (host: LocalizationHost, vh = String(host.sta
  * before VH (filterVhBarByCrop). VH-first keeps [] so cache keys match
  * resolveVhMapUniqueIds / map AND-turi behavior.
  */
-export const getCropIdsForVhUniqueIdScope = (host: LocalizationHost): string[] => {
+export const getCropIdsForVhUniqueIdScope = (host: PanelHelpersHost): string[] => {
   if (!host.getChartFilterFlags().filterVhBarByCrop) return [];
   return Array.from(
     new Set(
@@ -105,11 +106,11 @@ export const getCropIdsForVhUniqueIdScope = (host: LocalizationHost): string[] =
 };
 
 /** Build table WHERE for date field matching selected ndviDate (YYYY-MM-DD or string). */
-export function buildTableDateWhere(host: LocalizationHost, dateField: string, ndviDate: string): string | null {
+export function buildTableDateWhere(host: PanelHelpersHost, dateField: string, ndviDate: string): string | null {
   return buildTableDateEqualsWhere(dateField, ndviDate);
 }
 
-export const getGeoCodeHelpers = (host: LocalizationHost) =>
+export const getGeoCodeHelpers = (host: PanelHelpersHost) =>
   ({
     normalizeApos: (s: string) => host.normalizeApos(s),
     makeRegionDistrictKey: (raw: string | null | undefined) =>
@@ -117,7 +118,7 @@ export const getGeoCodeHelpers = (host: LocalizationHost) =>
   });
 
 /** Scope tag for `_vhBarUsedDate`: which viloyat/tuman proved that date. */
-export const makeVhBarDateGeoKey = (host: LocalizationHost): string =>
+export const makeVhBarDateGeoKey = (host: PanelHelpersHost): string =>
   [
       host.makeRegionDistrictKey(host.state.lockedViloyat || host.state.viloyat),
       host.makeRegionDistrictKey(host.state.tuman),

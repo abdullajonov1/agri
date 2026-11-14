@@ -1,6 +1,6 @@
 import { preloadRegionYearMapImages, refreshRegionYearMapExports, syncRegionYearLayerVisibility, type ShownRegionYearLayer, unlockShownRegionYearFieldScales } from "../../../../../gis/feature-layer-data";
 import { agriLog } from "../localization-log";
-import type { LocalizationHost } from "../host";
+import type { RegionYearLayersHost } from "./map-host";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 
 /** LayerView members read while waiting for a MapImage redraw. */
@@ -13,7 +13,7 @@ interface UpdatingLayerViewLike {
 }
 
 /** Background-warm the selected region's MapImage for the active year. */
-export const warmYearRegionMapImages = (host: LocalizationHost): void => {
+export const warmYearRegionMapImages = (host: RegionYearLayersHost): void => {
   const map = host.state.activeMapView?.view?.map;
   const yil = String(host.state.yil || "").trim();
   if (!map || !yil) return;
@@ -39,11 +39,29 @@ export const warmYearRegionMapImages = (host: LocalizationHost): void => {
   });
 };
 
+/** Layer-tree members read when walking up to the MapImage parent. */
+interface LayerTreeNodeLike {
+  type?: string;
+  opacity?: number;
+  parent?: LayerTreeNodeLike | null;
+}
+
 /**
  * Hide / show the just-revealed region-year MapImage layer(s) while the
  * crop UniqueValueRenderer is still loading.
  */
-export const setShownRegionYearOpacity = (host: LocalizationHost, opacity: number): void => {
+const setParentMapImageOpacity = (layer: LayerTreeNodeLike, opacity: number): void => {
+  let parent = layer.parent;
+  while (parent) {
+    if (String(parent?.type || "").toLowerCase() === "map-image") {
+      parent.opacity = opacity;
+      return;
+    }
+    parent = parent.parent;
+  }
+};
+
+export const setShownRegionYearOpacity = (host: RegionYearLayersHost, opacity: number): void => {
   for (const entry of host._lastShownRegionYearLayers || []) {
     const layer = entry?.layer;
     if (!layer) continue;
@@ -51,16 +69,7 @@ export const setShownRegionYearOpacity = (host: LocalizationHost, opacity: numbe
       // MapImage tiles paint from the parent service opacity; leaf Sublayer
       // opacity alone does not make fields visible.
       const type = String(layer?.type || "").toLowerCase();
-      if (type === "sublayer") {
-        let parent = layer.parent;
-        while (parent) {
-          if (String(parent?.type || "").toLowerCase() === "map-image") {
-            parent.opacity = opacity;
-            break;
-          }
-          parent = parent.parent;
-        }
-      }
+      if (type === "sublayer") setParentMapImageOpacity(layer, opacity);
       layer.opacity = opacity;
     } catch {
       /* ignore */
@@ -73,7 +82,7 @@ export const setShownRegionYearOpacity = (host: LocalizationHost, opacity: numbe
  * `refresh=false` only waits for the in-flight export (e.g. after a
  * definitionExpression change) without forcing an extra server export.
  */
-export const clearRegionYearSettleRepaintTimers = (host: LocalizationHost): void => {
+export const clearRegionYearSettleRepaintTimers = (host: RegionYearLayersHost): void => {
   host._regionYearSettleRepaintTimers.forEach((timer) => { clearTimeout(timer); });
   host._regionYearSettleRepaintTimers = [];
 };
@@ -83,7 +92,7 @@ export const clearRegionYearSettleRepaintTimers = (host: LocalizationHost): void
  * *current* view scale (no second zoom). Unlocks minScale again in case
  * layer.load() restored service scale gates after the first sync.
  */
-export const repaintShownRegionYearLayers = (host: LocalizationHost, phase: string): void => {
+export const repaintShownRegionYearLayers = (host: RegionYearLayersHost, phase: string): void => {
   if (!host._isMounted) return;
   const map = host.state.activeMapView?.view?.map;
   const viloyat = host.getEffectiveViloyat();
@@ -123,7 +132,7 @@ export const repaintShownRegionYearLayers = (host: LocalizationHost, phase: stri
  * duration; second shortly after in case the settle refresh was also aborted.
  */
 export const scheduleShownRegionYearSettleRepaint = (
-  host: LocalizationHost,
+  host: RegionYearLayersHost,
   requestId: number,
   delayMs: number,
   phase: string,
@@ -142,7 +151,7 @@ export const scheduleShownRegionYearSettleRepaint = (
 };
 
 export const waitForShownRegionYearRedraw = async (
-  host: LocalizationHost,
+  host: RegionYearLayersHost,
   refresh = true,
 ): Promise<void> => {
   const view = host.state.activeMapView?.view;
@@ -200,7 +209,7 @@ export const waitForShownRegionYearRedraw = async (
 };
 
 export function buildWhereForLayer(
-  host: LocalizationHost,
+  host: RegionYearLayersHost,
   layer: __esri.FeatureLayer,
   includeVh = false,
   includeTuri = true,
@@ -234,7 +243,7 @@ export function buildWhereForLayer(
 }
 
 export const syncShownRegionYearLayers = (
-  host: LocalizationHost,
+  host: RegionYearLayersHost,
   map: __esri.Map | null | undefined,
 ): ShownRegionYearLayer[] => {
   // Strict: null = no VH uniqueid filter; [] = VH active but zero matches (1=0);

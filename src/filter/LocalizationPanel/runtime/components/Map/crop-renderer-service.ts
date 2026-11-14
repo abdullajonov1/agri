@@ -1,13 +1,13 @@
 import { getDetachedQueryLayerFor, getMapImageParentLayer, isMapImageGroupSublayer, isMapImageOwnedLayer, safeLoadMapLayer } from "../../../../../gis/feature-layer-data";
 import { CROP_RENDERER_ITEMS, createCropFillSymbol, normalizeCropKey, resolveCropRendererColor } from "../../../../localization/crop-renderer";
 import { agriLog, debugCatch } from "../localization-log";
-import type { LocalizationHost } from "../host";
+import type { CropRendererHost } from "./map-host";
 import type { AgriMapLayer } from "../../../../localization/agri-map-layer";
 import { featureAttributes, isPresentValue } from "../../../../localization/agri-map-layer";
 import { firstCollectionArray } from "../../../../../gis/agri-layer-types";
 import { errorMessage } from "../../../../../shared/agri-plain-object";
 
-export const getCropRendererTargetLayers = (host: LocalizationHost): AgriMapLayer[] => {
+export const getCropRendererTargetLayers = (host: CropRendererHost): AgriMapLayer[] => {
   // Only paint layers RegionYear sync currently shows. Never fall back to
   // every map sublayer (that caused ~hundreds of groupBy requests).
   // Test agri leaves are FeatureLayer / MapImage Sublayer with no children —
@@ -52,7 +52,7 @@ export const getCropRendererTargetLayers = (host: LocalizationHost): AgriMapLaye
  * defaultSymbol (uniform blue-grey).
  */
 export const queryDistinctCropValues = async (
-  host: LocalizationHost,
+  host: CropRendererHost,
   layer: AgriMapLayer,
   field: string,
   where: string,
@@ -111,7 +111,7 @@ export const queryDistinctCropValues = async (
   return distinctValues;
 };
 
-export const refreshCropLayer = (host: LocalizationHost, layer: AgriMapLayer): void => {
+export const refreshCropLayer = (host: CropRendererHost, layer: AgriMapLayer): void => {
   // MapImage dynamic drawing is owned by the parent service layer —
   // refreshing both leaf + parent aborts the first export (canceled
   // MapServer `export` / sublayer id rows in DevTools).
@@ -128,7 +128,7 @@ export const refreshCropLayer = (host: LocalizationHost, layer: AgriMapLayer): v
   }
 };
 
-export const resetCropRenderer = (host: LocalizationHost): void => {
+export const resetCropRenderer = (host: CropRendererHost): void => {
   host._cropRendererRequestId = (host._cropRendererRequestId || 0) + 1;
   host._cropDistinctValueCache.clear();
   const renderedLayers =
@@ -154,7 +154,7 @@ export const resetCropRenderer = (host: LocalizationHost): void => {
   host._cropRenderedLayers.clear();
 };
 
-export const applyCropRenderer = async (host: LocalizationHost, requestId: number): Promise<void> => {
+export const applyCropRenderer = async (host: CropRendererHost, requestId: number): Promise<void> => {
   const layers = host.getCropRendererTargetLayers();
   if (!layers.length) {
     agriLog("cropRenderer:SKIP-no-shown-layers", {
@@ -284,7 +284,7 @@ export const applyCropRenderer = async (host: LocalizationHost, requestId: numbe
   }
 };
 
-export const syncCropRenderer = async (host: LocalizationHost): Promise<void> => {
+export const syncCropRenderer = async (host: CropRendererHost): Promise<void> => {
   // On by default (initial-state.ts): every filter/layer change reapplies the
   // crop palette to the currently visible live sublayers.
   if (host.state.cropRendererMode !== "on") return;
@@ -297,7 +297,7 @@ export const syncCropRenderer = async (host: LocalizationHost): Promise<void> =>
  * Lets the first MapImage export (from visibility) already use crop colors
  * instead of waiting for distinct-turi query + a second export.
  */
-export const applyInstantCropPaletteNoRefresh = (host: LocalizationHost): void => {
+export const applyInstantCropPaletteNoRefresh = (host: CropRendererHost): void => {
   if (host.state.cropRendererMode !== "on") return;
   if (String(host.state.vh || "").trim()) return;
   const layers = host.getCropRendererTargetLayers();

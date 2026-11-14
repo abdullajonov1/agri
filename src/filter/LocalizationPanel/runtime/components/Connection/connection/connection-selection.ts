@@ -1,4 +1,4 @@
-import type { LocalizationHost } from "../../host";
+import type { ConnectionSelectionHost } from "../connection-host";
 import { getAgriDashboardBootstrap } from "../../../../../../data/agri-bootstrap";
 import { storeScopedRegionDistrictMapping, hasDistrictMappingForSelection, resolveDistrictNumberFromMaps } from "../../../../../localization/resolve-geo-codes";
 import { getTuriCropLookupKey } from "../../../../../../shared/agri-crop-labels";
@@ -9,7 +9,7 @@ import { errorMessage } from "../../../../../../shared/agri-plain-object";
  * Stores viloyat→region / tuman→district / turi→crop_id from Agri_table_data
  * via grouped DISTINCT queries (not a 50k-row attribute dump).
  */
-export const fetchAndStoreRegionDistrictMappings = async (host: LocalizationHost): Promise<void> => {
+export const fetchAndStoreRegionDistrictMappings = async (host: ConnectionSelectionHost): Promise<void> => {
   const viloyatToRegion: Record<string, number> = {};
   const regionToViloyat: Record<string, string> = {};
   const tumanToDistrict: Record<string, number> = {};
@@ -71,7 +71,7 @@ export const fetchAndStoreRegionDistrictMappings = async (host: LocalizationHost
  * querying the polygon layer first. This runs when the user changes viloyat/tuman so
  * converter functions always have up-to-date codes.
  */
-export const ensureRegionDistrictForSelection = async (host: LocalizationHost): Promise<void> => {
+export const ensureRegionDistrictForSelection = async (host: ConnectionSelectionHost): Promise<void> => {
   const layers = host.state.featureLayers?.length
     ? host.state.featureLayers
     : host.state.featureLayer
@@ -146,13 +146,7 @@ export const ensureRegionDistrictForSelection = async (host: LocalizationHost): 
             ? String(a.viloyat).trim()
             : "";
         if (name && Number.isFinite(r)) {
-          const code = String(r);
-          if (
-            !host._regionToViloyat[code] ||
-            name.length > host._regionToViloyat[code].length
-          ) {
-            host._regionToViloyat[code] = name;
-          }
+          keepLongestViloyatName(host._regionToViloyat, String(r), name);
         }
       }
     }
@@ -176,6 +170,16 @@ export const ensureRegionDistrictForSelection = async (host: LocalizationHost): 
     });
   }
 };
+
+const keepLongestViloyatName = (
+  regionToViloyat: Record<string, string>,
+  code: string,
+  name: string,
+): void => {
+  const existing = regionToViloyat[code];
+  if (existing && name.length <= existing.length) return;
+  regionToViloyat[code] = name;
+};
 /**
  * Ensure we have a crop_id for the currently selected turi (crop type) by
  * querying the polygon layer if it wasn't already found in the initial
@@ -184,7 +188,7 @@ export const ensureRegionDistrictForSelection = async (host: LocalizationHost): 
  * only appears in a viloyat/tuman outside that initial sample would
  * otherwise never resolve). Mirrors ensureRegionDistrictForSelection().
  */
-export const ensureCropIdForSelection = async (host: LocalizationHost): Promise<void> => {
+export const ensureCropIdForSelection = async (host: ConnectionSelectionHost): Promise<void> => {
   const layers = host.state.featureLayers?.length
     ? host.state.featureLayers
     : host.state.featureLayer
