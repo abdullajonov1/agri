@@ -600,6 +600,11 @@ export const handleGeneralFilterChange = (host: GraffWidgetHost, event: CustomEv
   );
 };
 
+/** Debounce window that coalesces rapid external filter updates before applying them. */
+const EXTERNAL_FILTER_UPDATE_DEBOUNCE_MS = 200;
+/** Delay before clearing the isProcessingExternalUpdate flag after a refresh is scheduled. */
+const EXTERNAL_PROCESSING_RESET_MS = 100;
+
 // Central external filter update processor
 export const processExternalFilterUpdate = (host: GraffWidgetHost, sourceWidget: string, updates: ConfiguredFilters) => {
   const now = Date.now();
@@ -619,7 +624,7 @@ export const processExternalFilterUpdate = (host: GraffWidgetHost, sourceWidget:
   clearTimeout(host._updateDebounceTimer);
   host._updateDebounceTimer = setTimeout(() => {
     host.applyExternalFilterUpdate(sourceWidget, updates);
-  }, 200);
+  }, EXTERNAL_FILTER_UPDATE_DEBOUNCE_MS);
 };
 
 export const applyExternalFilterUpdate = async (host: GraffWidgetHost, sourceWidget: string, updates: ConfiguredFilters) => {
@@ -649,7 +654,7 @@ export const applyExternalFilterUpdate = async (host: GraffWidgetHost, sourceWid
 
   setTimeout(() => {
     if (host._isMounted) host.setState({ isProcessingExternalUpdate: false });
-  }, 100);
+  }, EXTERNAL_PROCESSING_RESET_MS);
 };
 
 export const normalizeUniqueidKey = (host: GraffWidgetHost, value: string | null | undefined): string =>

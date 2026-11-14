@@ -9,6 +9,9 @@ import { graffLog } from "../graff-log";
 import { hasActiveVegetationOverlay, releaseIdleSurfaceLoading } from "../graff-raster-overlay";
 import { arcgisEaseInOut } from "../../../../shared/agri-plain-object";
 
+/** Hover delay before prefetching vegetation for the map point under the cursor. */
+const HOVER_PREFETCH_DELAY_MS = 280;
+
 export const updateGraphViewportSize = (host: GraffWidgetHost) => {
   const wrap = host.graphSvgWrapRef.current;
   if (!wrap) return;
@@ -379,7 +382,7 @@ export const attachMapHoverPrefetch = (host: GraffWidgetHost, view: __esri.MapVi
     }
     host._hoverPrefetchTimer = window.setTimeout(() => {
       void host.prefetchVegetationForMapPoint(view, event, regionId, year);
-    }, 280);
+    }, HOVER_PREFETCH_DELAY_MS);
   });
 };
 

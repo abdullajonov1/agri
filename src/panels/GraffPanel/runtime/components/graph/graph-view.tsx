@@ -7,6 +7,16 @@ import { GRAFF_INDEX_BUTTONS } from "../../graff-graph-constants";
 import { React } from "jimu-core";
 import AgriChartLoader from "../../../../../shared/AgriChartLoader";
 import { setVegetationOverlayContext } from "../../../../../gis/agri-vegetation-overlay-prefetch";
+import { pickLabel } from "../../../../../shared/agri-i18n";
+import {
+  INDICATOR_HEADER_LABEL,
+  LEGEND_ALL_LABEL,
+  LEGEND_GROUP_LABEL,
+  VH_NOT_APPLIED_LABEL,
+  VIEW_GRAPH_LABEL,
+  VIEW_MODE_GROUP_LABEL,
+  VIEW_TABLE_LABEL,
+} from "./graph-view-messages";
 import { extractGraffYearToken } from "../../../../../data/agri-graff-date";
 
 export const INDEX_COLORS: Record<string, string> = Object.fromEntries(
@@ -123,30 +133,9 @@ export const switchToGraph = (host: GraffWidgetHost) => {
 };
 export const renderViewModeToggle = (host: GraffWidgetHost, activeMode: "table" | "graph") => {
   const { language } = host.state;
-  const viewTableLabel =
-    language === "en"
-      ? "Table"
-      : language === "ru"
-        ? "Таблица"
-        : language === "uz_lat"
-          ? "Jadval"
-          : "Жадвал";
-  const viewGraphLabel =
-    language === "en"
-      ? "Chart"
-      : language === "ru"
-        ? "График"
-        : language === "uz_lat"
-          ? "Grafik"
-          : "График";
-  const groupLabel =
-    language === "en"
-      ? "View mode"
-      : language === "ru"
-        ? "Режим просмотра"
-        : language === "uz_lat"
-          ? "Ko‘rinish"
-          : "Кўриниш";
+  const viewTableLabel = pickLabel(VIEW_TABLE_LABEL, language);
+  const viewGraphLabel = pickLabel(VIEW_GRAPH_LABEL, language);
+  const groupLabel = pickLabel(VIEW_MODE_GROUP_LABEL, language);
   const isGraph = activeMode === "graph";
 
   return (
@@ -192,28 +181,13 @@ export const renderGraphLegend = (host: GraffWidgetHost) => {
   const isAllSelected = indexButtons.every((btn) =>
     selectedIndices.includes(btn.key),
   );
-  const allLabel =
-    language === "en"
-      ? "All"
-      : language === "ru"
-        ? "Все"
-        : language === "uz_lat"
-          ? "Barchasi"
-          : "Барчаси";
+  const allLabel = pickLabel(LEGEND_ALL_LABEL, language);
 
   return (
     <div
       className="index-buttons-horizontal"
       role="group"
-      aria-label={
-        language === "en"
-          ? "Index indicators"
-          : language === "ru"
-            ? "Индекс показателей"
-            : language === "uz_lat"
-              ? "Index ko‘rsatkichlari"
-              : "Индекс кўрсаткичлари"
-      }
+      aria-label={pickLabel(LEGEND_GROUP_LABEL, language)}
     >
       <button
         type="button"
@@ -254,26 +228,12 @@ export const renderGraphLegend = (host: GraffWidgetHost) => {
 };
 export const renderGraphHeader = (host: GraffWidgetHost) => {
   const { language } = host.state;
-  const indicatorLabel =
-    language === "en"
-      ? "Index Indicators"
-      : language === "ru"
-        ? "Индекс Показателей"
-        : language === "uz_lat"
-          ? "Index Ko'rsatkichlari"
-          : "Индекс Кўрсаткичлари";
+  const indicatorLabel = pickLabel(INDICATOR_HEADER_LABEL, language);
 
   const hasVhFilter =
     String(host.state.regionalFilters?.vh || "").trim() !== "" &&
     !host.state.selecteduniqueid;
-  const vhNote =
-    language === "en"
-      ? "VH filter not applied"
-      : language === "ru"
-        ? "Фильтр VH не применён"
-        : language === "uz_lat"
-          ? "VH filtri qo‘llanmagan"
-          : "VH фильтри қўлланмаган";
+  const vhNote = pickLabel(VH_NOT_APPLIED_LABEL, language);
 
   return (
     <div className="graff-index-top">

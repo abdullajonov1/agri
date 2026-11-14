@@ -59,6 +59,9 @@ export interface GraffMapInteractionHost {
   sampleVegetationRasterValue: (mapPoint: __esri.Point) => number | null;
 }
 
+/** Defers the table reload so the export-image request gets bandwidth first. */
+const DEFERRED_TABLE_RELOAD_MS = 400;
+
 export const syncGraffExternalPolygonSelection = (
   host: GraffMapInteractionHost,
   uniqueid: string,
@@ -159,7 +162,7 @@ export const syncGraffExternalPolygonSelection = (
               return;
             }
             void host.fetchData();
-          }, 400);
+          }, DEFERRED_TABLE_RELOAD_MS);
         }
       },
     );

@@ -12,6 +12,9 @@ import type { GraffWidgetProps } from "../graff-state";
 import { MAP_CONNECTION_RETRY_MS } from "../../../../shared/map-connection-service";
 import type { AgriLanguage } from "../../../../shared/agri-language";
 
+/** Fallback wait before forcing widget initialization if it has not completed on its own. */
+const INITIALIZATION_FALLBACK_MS = 3000;
+
 export function componentDidMount(host: GraffWidgetHost) {
   host._isMounted = true;
   host.setState({ connectionStatus: "connecting" });
@@ -131,7 +134,7 @@ export function componentDidMount(host: GraffWidgetHost) {
 
   host.initializationTimer = setTimeout(() => {
     host.ensureInitialization();
-  }, 3000);
+  }, INITIALIZATION_FALLBACK_MS);
 
   window.addEventListener("resize", host.updateGraphViewportSize);
   if (host.state.viewMode === "graph") {

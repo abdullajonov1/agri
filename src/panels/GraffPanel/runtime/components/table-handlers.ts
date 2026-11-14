@@ -1,6 +1,11 @@
 import type { GraffWidgetHost } from "../graff-host";
 import { buildUniqueidPlainOrBracedWhere } from "../../../../data/agri-uniqueid-sql";
 
+/** First re-center attempt, once the table has likely started painting. */
+const SCROLL_ROW_CENTER_FIRST_RETRY_MS = 80;
+/** Final re-center attempt, after the table has settled from page swap or loader hide. */
+const SCROLL_ROW_CENTER_SECOND_RETRY_MS = 220;
+
 export const scrollSelectedRowIntoCenter = (host: GraffWidgetHost): void => {
   const container = host.tableContainerRef.current;
   if (!container) return;
@@ -51,8 +56,8 @@ export const scheduleScrollSelectedRowIntoCenter = (host: GraffWidgetHost): void
     window.requestAnimationFrame(run);
   });
   // Table may still be painting after page swap / loader hide.
-  window.setTimeout(run, 80);
-  window.setTimeout(run, 220);
+  window.setTimeout(run, SCROLL_ROW_CENTER_FIRST_RETRY_MS);
+  window.setTimeout(run, SCROLL_ROW_CENTER_SECOND_RETRY_MS);
 };
 
 export const buildUniqueidWhere = (host: GraffWidgetHost, uniqueid: string): string =>

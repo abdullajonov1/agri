@@ -1,34 +1,37 @@
 import { type React } from "jimu-core";
-import SpatialReference from "esri/geometry/SpatialReference";
-import Extent from "esri/geometry/Extent";
-import * as projection from "esri/geometry/projection";
-import ImageElement from "esri/layers/support/ImageElement";
-import ExtentAndRotationGeoreference from "esri/layers/support/ExtentAndRotationGeoreference";
-import MediaLayer from "esri/layers/MediaLayer";
 import {
   fetchPolygonExportImageTiff,
-  getExportImageSeasonMonths,
-  isExportImageNoImageryError,
-  isExportImageOutOfSeasonError,
-  isRegionDateWithImagery,
-  isRegionDateWithoutImagery,
-  parseExportImageCropId,
-  parseExportImageSeasonMonths,
-  pickExportRasterDate,
-  rememberExportImageSeasonMonths,
-  rememberRegionDateWithoutImagery,
   type PolygonExportImageResult,
   type VegetationIndiceType,
 } from "../../../gis/agri-polygon-api-source";
 import { stripUniqueidBraces } from "../../../data/agri-uniqueid-sql";
 import { buildGraffPolygonRasterCacheKey } from "../../../data/agri-graff-stats";
-import { setVegetationOverlayContext } from "../../../gis/agri-vegetation-overlay-prefetch";
 import { graffLog } from "./graff-log";
-import { asThrownObject, describeThrown, thrownMessage, thrownStatus } from "./graff-guards";
+import {
+  addVegetationMediaLayer,
+  applyHoverSample,
+  handleOverlayFailure,
+  recordOverlaySuccess,
+  resolveInitialDate,
+  resolveOverlayExtent,
+  rewriteUnservableDate,
+  shouldSkipOverlay,
+  waitForWalkDate,
+  VEGETATION_IMAGE_LAYER_ID,
+  hasActiveVegetationOverlay,
+  releaseIdleSurfaceLoading,
+  isDateStepContinue,
+  type OverlayCallContext,
+} from "./graff-raster-overlay-steps";
 import type { AgriGraffWidgetState } from "./widget";
 import type { GraffWidgetProps } from "./graff-state";
 
-export const VEGETATION_IMAGE_LAYER_ID = "agri-graff-vegetation-image-overlay";
+export {
+  VEGETATION_IMAGE_LAYER_ID,
+  hasActiveVegetationOverlay,
+  releaseIdleSurfaceLoading,
+  isDateStepContinue,
+};
 
 export type GraffPendingOverlayWalk = {
   uniqueid: string;
@@ -107,28 +110,121 @@ export type GraffSurfaceLoadingOwner = Pick<
   | "clearVegetationImageSurfaceLoading"
 >;
 
-/**
- * Drop the map loader unless an export-image fetch is in flight (that fetch
- * clears it itself). Use on every path that ends without fetching — a date
- * walk with no hit, a retry that gives up, a skipped date — otherwise the
- * loader stays up until the dashboard's 25 s safety timer.
- */
-export const releaseIdleSurfaceLoading = (
-  host: GraffSurfaceLoadingOwner,
-): void => {
-  if (host._vegetationOverlayPendingKey) return;
-  host.clearVegetationImageSurfaceLoading(host._vegetationImageRequestId);
+/** Fetch, georeference and draw the overlay for an already-resolved key. */
+const fetchAndDrawOverlay = async (
+  host: GraffRasterOverlayHost,
+  view: __esri.MapView | __esri.SceneView,
+  ctx: OverlayCallContext,
+  requestId: number,
+  date: string,
+  rasterKey: string,
+  stillCurrent: () => boolean,
+  prefetched?: PolygonExportImageResult | null,
+): Promise<void> => {
+  const { cleanId, regionId, indiceType } = ctx;
+  // Map-center spinner until MediaLayer is placed (or request fails/cancels).
+  host.beginVegetationImageSurfaceLoading();
+
+  graffLog("chartPoint:raster-api-request", {
+    requestId,
+    uniqueid: cleanId,
+    regionId,
+    rasterDate: date,
+    indiceType,
+    prefetched: Boolean(prefetched),
+  });
+  const result =
+    prefetched ||
+    (await fetchPolygonExportImageTiff({
+      uniqueid: cleanId,
+      regionId,
+      rasterDate: date,
+      indiceType,
+      stretch: "fixed",
+    }));
+
+  graffLog("chartPoint:raster-api-response", {
+    requestId,
+    uniqueid: cleanId,
+    rasterDate: date,
+    indiceType,
+    width: result.width,
+    height: result.height,
+    bbox: result.bbox,
+    epsgCode: result.epsgCode,
+    stillCurrent: stillCurrent(),
+  });
+
+  if (!stillCurrent()) {
+    graffLog("applyVegetationImageOverlay:SKIP-stale-selection", {
+      uniqueid: cleanId,
+      rasterDate: ctx.requestedDate,
+      currentSelecteduniqueid: host.state.selecteduniqueid,
+    });
+    return;
+  }
+
+  const viewSr = view.spatialReference;
+  const { extent, epsgCode, nativeSr } = await resolveOverlayExtent(result, viewSr);
+  addVegetationMediaLayer(
+    host,
+    view.map,
+    result.canvas,
+    extent,
+    `Vegetation ${indiceType.toUpperCase()} ${date}`,
+  );
+
+  if (!stillCurrent()) {
+    host.removeVegetationImageOverlay();
+    return;
+  }
+
+  const { hasFloatValues, hasRgba } = applyHoverSample(
+    host,
+    view,
+    result,
+    extent,
+    viewSr || nativeSr,
+    indiceType,
+    date,
+  );
+
+  host.setState({ polygonImageLoading: false, polygonImageError: null });
+
+  graffLog("applyVegetationImageOverlay:added", {
+    uniqueid: cleanId,
+    rasterDate: date,
+    indiceType,
+    width: result.width,
+    height: result.height,
+    bbox: result.bbox,
+    epsgCode,
+    overlayWkId: extent.spatialReference?.wkid ?? null,
+    hasHoverValues: hasFloatValues,
+    hasRgbaHover: hasRgba && !hasFloatValues,
+  });
+  recordOverlaySuccess(host, ctx, rasterKey, date);
 };
 
-/**
- * True when an overlay is already drawn or loading for the current
- * selection. A late date-walk result must not replace it — that is a date
- * the user (or an earlier path) already chose.
- */
-export const hasActiveVegetationOverlay = (
-  host: GraffSurfaceLoadingOwner,
-): boolean =>
-  Boolean(host._vegetationOverlayAppliedKey || host._vegetationOverlayPendingKey);
+/** Resolve the final date; null when the call must end without fetching. */
+const resolveOverlayDate = async (
+  host: GraffRasterOverlayHost,
+  ctx: OverlayCallContext,
+  hasPrefetched: boolean,
+): Promise<string | null> => {
+  const initialDate = resolveInitialDate(host, ctx);
+  const listedForPolygon = ctx.advertisedDates.includes(initialDate);
+  const rewritten = rewriteUnservableDate(host, ctx, initialDate);
+  if (!isDateStepContinue(rewritten)) return null;
+  const walked = await waitForWalkDate(
+    host,
+    ctx,
+    rewritten.date,
+    hasPrefetched,
+    listedForPolygon,
+  );
+  return isDateStepContinue(walked) ? walked.date : null;
+};
 
 export const applyGraffVegetationImageOverlay = async (
   host: GraffRasterOverlayHost,
@@ -155,116 +251,21 @@ export const applyGraffVegetationImageOverlay = async (
   }
 
   const cleanId = stripUniqueidBraces(uniqueid);
-  const cropId = host.resolveCropIdForUniqueid(cleanId);
-  const advertisedDates =
-    host._polygonAvailableDatesUniqueid === cleanId
-      ? host.state.polygonAvailableDates || []
-      : [];
-  let normalizedDate =
-    host.resolveAgainstAvailableDates(rasterDate, advertisedDates) ||
-    String(rasterDate || "").slice(0, 10);
+  const ctx: OverlayCallContext = {
+    uniqueid,
+    cleanId,
+    regionId,
+    cropId: host.resolveCropIdForUniqueid(cleanId),
+    advertisedDates:
+      host._polygonAvailableDatesUniqueid === cleanId
+        ? host.state.polygonAvailableDates || []
+        : [],
+    indiceType,
+    requestedDate: rasterDate,
+  };
 
-  // Rewrite out-of-season / known-missing dates BEFORE the HTTP call so the
-  // network tab does not show a cascade of 400s for every table row.
-  const seasonMonths = getExportImageSeasonMonths(cleanId, cropId);
-  const dateMonth = Number(String(normalizedDate).slice(5, 7));
-  // The polygon's own index dates are proof the API can serve that scene.
-  // A season learned from another crop must not hide a listed date.
-  const listedForPolygon = advertisedDates.includes(normalizedDate);
-  const needsRewrite =
-    !listedForPolygon &&
-    ((seasonMonths.length > 0 && !seasonMonths.includes(dateMonth)) ||
-      isRegionDateWithoutImagery(regionId, normalizedDate));
-  if (needsRewrite) {
-    const rewritten = pickExportRasterDate(
-      advertisedDates.length
-        ? advertisedDates
-        : host._latestRasterDateByUniqueid.has(cleanId)
-          ? [host._latestRasterDateByUniqueid.get(cleanId)]
-          : [],
-      {
-        uniqueid: cleanId,
-        cropId,
-        regionId,
-        exclude: [normalizedDate],
-      },
-    );
-    if (rewritten && rewritten !== normalizedDate) {
-      graffLog(
-        "applyVegetationImageOverlay:rewrite-unservable-date",
-        {
-          uniqueid: cleanId,
-          from: normalizedDate,
-          to: rewritten,
-          cropId,
-          seasonMonths,
-        },
-      );
-      normalizedDate = rewritten;
-    } else if (seasonMonths.length > 0 && !seasonMonths.includes(dateMonth)) {
-      // Season known but no alternative yet — fetch dates then retry, skip
-      // the doomed September request entirely.
-      graffLog(
-        "applyVegetationImageOverlay:SKIP-out-of-season",
-        {
-          uniqueid: cleanId,
-          rasterDate: normalizedDate,
-          cropId,
-          seasonMonths,
-        },
-      );
-      void host.retryOverlayWithUsableDate(
-        cleanId,
-        regionId,
-        normalizedDate,
-        indiceType,
-      );
-      return;
-    }
-  }
-
-  // An unverified date while the dates→TIFF walk is still probing this
-  // polygon: wait for the walk instead of racing a parallel export-image
-  // that the series date (04-30 in the index table, no regional scene)
-  // would turn into a 400. Skip when caller already handed us the walk TIFF,
-  // or when the date is in the polygon's own list (a day the user picked) —
-  // waiting there stalled date switches by up to 8 s and then swapped the
-  // chosen day for the walk's date.
-  if (
-    !prefetched &&
-    !listedForPolygon &&
-    !host._verifiedOverlayDates.has(`${cleanId}|${normalizedDate}`) &&
-    !isRegionDateWithImagery(regionId, normalizedDate)
-  ) {
-    const walkDate = await host.awaitPendingOverlayWalk(cleanId);
-    if (!host._isMounted) return;
-    if (stripUniqueidBraces(host.state.selecteduniqueid) !== cleanId) return;
-    if (walkDate) {
-      if (walkDate !== normalizedDate) {
-        graffLog(
-          "applyVegetationImageOverlay:use-walk-date",
-          {
-            uniqueid: cleanId,
-            from: normalizedDate,
-            to: walkDate,
-            indiceType,
-          },
-        );
-        normalizedDate = walkDate;
-      }
-    } else if (
-      walkDate === null &&
-      isRegionDateWithoutImagery(regionId, normalizedDate)
-    ) {
-      // Walk finished without a hit and proved this date missing too.
-      graffLog(
-        "applyVegetationImageOverlay:SKIP-walk-no-imagery",
-        { uniqueid: cleanId, rasterDate: normalizedDate, indiceType },
-      );
-      host.clearVegetationImageSurfaceLoading(host._vegetationImageRequestId);
-      return;
-    }
-  }
+  const normalizedDate = await resolveOverlayDate(host, ctx, Boolean(prefetched));
+  if (normalizedDate === null) return;
 
   const rasterKey = buildGraffPolygonRasterCacheKey({
     uniqueid: cleanId,
@@ -272,69 +273,7 @@ export const applyGraffVegetationImageOverlay = async (
     rasterDate: normalizedDate,
     indiceType,
   });
-
-  // Early available-dates path and series path often request the same key —
-  // do not cancel an in-flight/already-drawn overlay for a redundant call.
-  if (
-    host._vegetationOverlayAppliedKey === rasterKey &&
-    host._vegetationImageLayer
-  ) {
-    graffLog("applyVegetationImageOverlay:SKIP-already-applied", {
-      uniqueid: cleanId,
-      rasterDate: normalizedDate,
-      indiceType,
-    });
-    host.clearVegetationImageSurfaceLoading(host._vegetationImageRequestId);
-    host.setState({ polygonImageLoading: false, polygonImageError: null });
-    return;
-  }
-  if (
-    host.state.polygonImageLoading &&
-    host._vegetationOverlayPendingKey === rasterKey
-  ) {
-    graffLog("applyVegetationImageOverlay:SKIP-in-flight", {
-      uniqueid: cleanId,
-      rasterDate: normalizedDate,
-      indiceType,
-    });
-    return;
-  }
-
-  // Avoid requests for dates the polygon pipeline never produced — before
-  // bumping requestId so we don't cancel an early valid overlay.
-  if (
-    advertisedDates.length > 0 &&
-    !advertisedDates.includes(normalizedDate)
-  ) {
-    graffLog(
-      "applyVegetationImageOverlay:SKIP-unavailable-date",
-      {
-        uniqueid: cleanId,
-        rasterDate: normalizedDate,
-        requestedDate: String(rasterDate || "").slice(0, 10),
-        indiceType,
-        keptExistingOverlay: Boolean(
-          host._vegetationOverlayAppliedKey ||
-            host._vegetationOverlayPendingKey,
-        ),
-      },
-    );
-    releaseIdleSurfaceLoading(host);
-    return;
-  }
-
-  if (host._missingVegetationRasterKeys.has(rasterKey)) {
-    graffLog(
-      "applyVegetationImageOverlay:SKIP-known-missing",
-      {
-        uniqueid: cleanId,
-        rasterDate: normalizedDate,
-        indiceType,
-      },
-    );
-    releaseIdleSurfaceLoading(host);
-    return;
-  }
+  if (shouldSkipOverlay(host, ctx, rasterKey, normalizedDate)) return;
 
   // Bumping requestId orphans any previous in-flight finally cleanup — every
   // exit path below MUST clear the map surface loader while still current.
@@ -348,291 +287,32 @@ export const applyGraffVegetationImageOverlay = async (
     requestedDate: rasterDate,
     normalizedDate,
     indiceType,
-    advertisedDateCount: advertisedDates.length,
+    advertisedDateCount: ctx.advertisedDates.length,
     currentSelecteduniqueid: host.state.selecteduniqueid,
   });
 
-  // The requestId counter alone only catches a NEWER applyVegetationImageOverlay
-  // call superseding an older one — it says nothing about whether the
-  // polygon this fetch was FOR is still even selected. Checking
-  // selecteduniqueid directly closes that gap.
+  // The requestId counter alone only catches a NEWER call superseding an
+  // older one — it says nothing about whether the polygon this fetch was FOR
+  // is still selected. Checking selecteduniqueid directly closes that gap.
   const stillCurrent = (): boolean => {
-    if (!host._isMounted || requestId !== host._vegetationImageRequestId)
-      { return false; }
-    const currentClean = stripUniqueidBraces(host.state.selecteduniqueid);
-    return currentClean === cleanId;
+    if (!host._isMounted || requestId !== host._vegetationImageRequestId) return false;
+    return stripUniqueidBraces(host.state.selecteduniqueid) === cleanId;
   };
 
   try {
-    // Map-center spinner until MediaLayer is placed (or request fails/cancels).
-    host.beginVegetationImageSurfaceLoading();
-
-    graffLog("chartPoint:raster-api-request", {
+    await fetchAndDrawOverlay(
+      host,
+      activeMapView.view,
+      ctx,
       requestId,
-      uniqueid: cleanId,
-      regionId,
-      rasterDate: normalizedDate,
-      indiceType,
-      prefetched: Boolean(prefetched),
-    });
-    const result =
-      prefetched ||
-      (await fetchPolygonExportImageTiff({
-        uniqueid: cleanId,
-        regionId,
-        rasterDate: normalizedDate,
-        indiceType,
-        stretch: "fixed",
-      }));
-
-    graffLog("chartPoint:raster-api-response", {
-      requestId,
-      uniqueid: cleanId,
-      rasterDate: normalizedDate,
-      indiceType,
-      width: result.width,
-      height: result.height,
-      bbox: result.bbox,
-      epsgCode: result.epsgCode,
-      stillCurrent: stillCurrent(),
-    });
-
-    if (!stillCurrent()) {
-      graffLog(
-        "applyVegetationImageOverlay:SKIP-stale-selection",
-        {
-          uniqueid: cleanId,
-          rasterDate,
-          currentSelecteduniqueid: host.state.selecteduniqueid,
-        },
-      );
-      return;
-    }
-
-    const [minX, minY, maxX, maxY] = result.bbox;
-    if (
-      ![minX, minY, maxX, maxY].every((n) => Number.isFinite(n)) ||
-      !(maxX > minX) ||
-      !(maxY > minY) ||
-      !(result.width > 0) ||
-      !(result.height > 0)
-    ) {
-      throw new Error("GeoTIFF georeference/bbox invalid");
-    }
-
-    // Never treat projected-metre coords as the view SR (Web Mercator) —
-    // that misplaces/stretches the MediaLayer until it looks broken.
-    const absMax = Math.max(
-      Math.abs(minX),
-      Math.abs(minY),
-      Math.abs(maxX),
-      Math.abs(maxY),
+      normalizedDate,
+      rasterKey,
+      stillCurrent,
+      prefetched,
     );
-    let epsgCode = result.epsgCode;
-    if (
-      (epsgCode == null || !Number.isFinite(epsgCode)) &&
-      absMax <= 180
-    ) {
-      epsgCode = 4326;
-    }
-    if (epsgCode == null || !Number.isFinite(epsgCode)) {
-      throw new Error(
-        "GeoTIFF CRS (EPSG) topilmadi — indeks rasmini joylashtirib bo‘lmadi.",
-      );
-    }
-
-    const nativeSr = new SpatialReference({ wkid: Number(epsgCode) });
-    let overlayExtent = new Extent({
-      xmin: minX,
-      ymin: minY,
-      xmax: maxX,
-      ymax: maxY,
-      spatialReference: nativeSr,
-    });
-
-    // MediaLayer stretches linearly in the view SR. Project first so small
-    // field rasters keep a stable aspect instead of being warped through
-    // on-the-fly reprojection of native CRS corners.
-    const viewSr = activeMapView.view.spatialReference;
-    if (
-      viewSr?.wkid &&
-      Number(viewSr.wkid) !== Number(nativeSr.wkid)
-    ) {
-      try {
-        await projection.load();
-        const projected = projection.project(
-          overlayExtent,
-          viewSr,
-        ) as __esri.Extent;
-        if (
-          projected &&
-          Number.isFinite(projected.xmin) &&
-          Number.isFinite(projected.ymin) &&
-          projected.xmax > projected.xmin &&
-          projected.ymax > projected.ymin
-        ) {
-          overlayExtent = projected;
-        }
-      } catch {
-        /* keep native extent; ArcGIS may still reproject */
-      }
-    }
-
-    const imageElement = new ImageElement({
-      image: result.canvas,
-      georeference: new ExtentAndRotationGeoreference({
-        extent: overlayExtent,
-      }),
-    });
-
-    host.removeVegetationImageOverlay();
-
-    const mediaLayer = new MediaLayer({
-      id: VEGETATION_IMAGE_LAYER_ID,
-      source: [imageElement],
-      title: `Vegetation ${indiceType.toUpperCase()} ${normalizedDate}`,
-      opacity: 1,
-    });
-    activeMapView.view.map.add(mediaLayer);
-    host._vegetationImageLayer = mediaLayer;
-
-    // Attach as soon as the layer is on the map — do not wait for layerView
-    // or extra animation frames (first paint latency).
-    try {
-      void mediaLayer.load();
-    } catch {
-      /* draw can finish without load() acknowledgement */
-    }
-
-    if (!stillCurrent()) {
-      host.removeVegetationImageOverlay();
-      return;
-    }
-
-    const hasFloatValues =
-      !!result.values &&
-      result.values.length === result.width * result.height;
-    const hasRgba =
-      !!result.rgba &&
-      result.rgba.length === result.width * result.height * 4;
-
-    if (hasFloatValues || hasRgba) {
-      const hoverRange = host.resolveHoverIndexRange(
-        indiceType,
-        normalizedDate,
-        result,
-      );
-      host._vegetationRasterSample = {
-        values: hasFloatValues ? result.values : null,
-        rgba: hasFloatValues ? null : result.rgba,
-        indexMin: hoverRange.indexMin,
-        indexMax: hoverRange.indexMax,
-        width: result.width,
-        height: result.height,
-        xmin: overlayExtent.xmin,
-        ymin: overlayExtent.ymin,
-        xmax: overlayExtent.xmax,
-        ymax: overlayExtent.ymax,
-        spatialReference: overlayExtent.spatialReference || viewSr || nativeSr,
-      };
-      host.attachVegetationRasterHover(activeMapView.view);
-    } else {
-      host._vegetationRasterSample = null;
-    }
-
-    host.setState({ polygonImageLoading: false, polygonImageError: null });
-
-    graffLog("applyVegetationImageOverlay:added", {
-      uniqueid: cleanId,
-      rasterDate: normalizedDate,
-      indiceType,
-      width: result.width,
-      height: result.height,
-      bbox: result.bbox,
-      epsgCode,
-      overlayWkId: overlayExtent.spatialReference?.wkid ?? null,
-      hasHoverValues: hasFloatValues,
-      hasRgbaHover: hasRgba && !hasFloatValues,
-    });
-    host._vegetationOverlayAppliedKey = rasterKey;
-    if (host._vegetationOverlayPendingKey === rasterKey) {
-      host._vegetationOverlayPendingKey = "";
-    }
-    host._lastSuccessfulOverlayDate = normalizedDate;
-    host._lastSuccessfulOverlayIndex = indiceType;
-    host._lastSuccessfulOverlayRegionId = regionId;
-    host._lastSuccessfulOverlayYear = host.resolveCurrentYear() ?? null;
-    host._latestRasterDateByUniqueid.set(cleanId, normalizedDate);
-    host.markOverlayDateVerified(cleanId, normalizedDate);
-    setVegetationOverlayContext({
-      regionId,
-      year: host.resolveCurrentYear(),
-      lastDate: normalizedDate,
-      lastIndex: indiceType,
-    });
   } catch (err: unknown) {
     if (!stillCurrent()) return;
-    const status = Number(thrownStatus(err));
-    // 400 = date not servable for this polygon/crop, 404 = no raster at all.
-    // Both mean "never ask for this key again"; a valid date comes from the
-    // available-dates path (season-filtered) below.
-    const dateRejected =
-      status === 400 ||
-      status === 404 ||
-      /HTTP\s+40[04]/i.test(describeThrown(err));
-    if (dateRejected) {
-      host._missingVegetationRasterKeys.add(rasterKey);
-      host.removeVegetationImageOverlay();
-    }
-    const outOfSeason = isExportImageOutOfSeasonError(err);
-    const noImagery = isExportImageNoImageryError(err);
-    if (outOfSeason) {
-      const months = parseExportImageSeasonMonths(err);
-      const parsedCrop = parseExportImageCropId(err);
-      if (months.length) {
-        rememberExportImageSeasonMonths(
-          cleanId,
-          months,
-          parsedCrop ?? cropId,
-        );
-      }
-    } else if (noImagery) {
-      rememberRegionDateWithoutImagery(regionId, normalizedDate);
-    }
-    if (outOfSeason || noImagery) {
-      void host.retryOverlayWithUsableDate(
-        cleanId,
-        regionId,
-        normalizedDate,
-        indiceType,
-      );
-    }
-    const httpErr = asThrownObject(err);
-    graffLog("applyVegetationImageOverlay:FAILED", {
-      uniqueid,
-      rasterDate: normalizedDate,
-      indiceType,
-      status: httpErr?.status ?? null,
-      statusText: httpErr?.statusText || null,
-      contentType: httpErr?.contentType || null,
-      responseText: httpErr?.responseText || null,
-      responseUrl: httpErr?.url || null,
-      guessedDate: advertisedDates.length === 0,
-      error: describeThrown(err),
-    });
-    // A guessed date, an out-of-season date, or a day the region has no
-    // scene for is expected to fail — the retry supplies a servable date,
-    // so don't flash an error banner for it.
-    const wasGuess =
-      outOfSeason ||
-      noImagery ||
-      (dateRejected && advertisedDates.length === 0);
-    host.setState({
-      polygonImageLoading: false,
-      polygonImageError: wasGuess
-        ? null
-        : thrownMessage(err) || "Расм юклана олмади",
-    });
+    handleOverlayFailure(host, ctx, rasterKey, normalizedDate, err);
   } finally {
     // A failed/stale fetch used to leave its pending key behind, which made
     // later skip paths think a fetch was still running and keep the loader.

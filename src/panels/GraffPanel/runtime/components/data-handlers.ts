@@ -8,6 +8,9 @@ import { graffRegionalFiltersChanged } from "../../../../data/agri-graff-date";
 import type { VegetationIndiceType } from "../../../../gis/agri-polygon-api-source";
 import { graffLog } from "../graff-log";
 
+/** Debounce window that coalesces rapid filter changes into a single refetch. */
+const REFETCH_DEBOUNCE_MS = 150;
+
 export const fetchFilterOptions = (host: GraffWidgetHost): Promise<void> => {
   if (host._filterOptionsPromise) return host._filterOptionsPromise;
   const run = host.fetchFilterOptionsOnce().finally(() => {
@@ -569,7 +572,7 @@ export const handleResetAll = (host: GraffWidgetHost) => {
 
 export const refetchDebounced = (host: GraffWidgetHost) => {
   if (host._debounceTimer) clearTimeout(host._debounceTimer);
-  host._debounceTimer = setTimeout(() => { host.refetchNow(); }, 150);
+  host._debounceTimer = setTimeout(() => { host.refetchNow(); }, REFETCH_DEBOUNCE_MS);
 };
 
 export const refetchNow = (host: GraffWidgetHost) => {

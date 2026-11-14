@@ -5,6 +5,8 @@ import { JimuMapViewComponent } from "jimu-arcgis";
 import { TriangleAlert, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import AgriChartLoader from "../../../../shared/AgriChartLoader";
 import { agriNoDataLabel } from "../../../../shared/agriNoDataLabel";
+import { pickLabel } from "../../../../shared/agri-i18n";
+import { GRAFF_PANEL_MESSAGES } from "./render-panel-messages";
 
 export function render(host: GraffWidgetHost) {
   const {
@@ -26,100 +28,24 @@ export function render(host: GraffWidgetHost) {
   } = host.state;
 
   const uniqueIdHeader = "UID";
-  const vhHeaderLabel =
-    language === "en" ? "Status" : language === "ru"
-      ? "Состояние"
-      : language === "uz_lat"
-        ? "Holat"
-        : "Ҳолат";
+  const vhHeaderLabel = pickLabel(GRAFF_PANEL_MESSAGES.vhHeader, language);
+  const viloyatLabel = pickLabel(GRAFF_PANEL_MESSAGES.viloyat, language);
+  const tumanLabel = pickLabel(GRAFF_PANEL_MESSAGES.tuman, language);
+  const regionLabel = pickLabel(GRAFF_PANEL_MESSAGES.region, language);
+  const districtLabel = pickLabel(GRAFF_PANEL_MESSAGES.district, language);
+  const yilLabel = pickLabel(GRAFF_PANEL_MESSAGES.yil, language);
+  const turiLabel = pickLabel(GRAFF_PANEL_MESSAGES.turi, language);
+  const maydonLabel = pickLabel(GRAFF_PANEL_MESSAGES.maydon, language);
+  const nameLabel = pickLabel(GRAFF_PANEL_MESSAGES.name, language);
+  const shapeLengLabel = pickLabel(GRAFF_PANEL_MESSAGES.shapeLeng, language);
+  const globalIdLabel = pickLabel(GRAFF_PANEL_MESSAGES.globalId, language);
+  const fNameLabel = pickLabel(GRAFF_PANEL_MESSAGES.fName, language);
+  const fInnLabel = pickLabel(GRAFF_PANEL_MESSAGES.fInn, language);
+  const fCadLabel = pickLabel(GRAFF_PANEL_MESSAGES.fCad, language);
+  const yldLabel = pickLabel(GRAFF_PANEL_MESSAGES.yld, language);
+  const numericIdLabel = pickLabel(GRAFF_PANEL_MESSAGES.numericId, language);
+  const tableTitle = pickLabel(GRAFF_PANEL_MESSAGES.tableTitle, language);
 
-  const viloyatLabel =
-    language === "en" ? "Region" : language === "ru"
-      ? "Область"
-      : language === "uz_lat"
-        ? "Viloyat"
-        : "Вилоят";
-  const tumanLabel =
-    language === "en" ? "District" : language === "ru" ? "Район" : language === "uz_lat" ? "Tuman" : "Туман";
-  const regionLabel =
-    language === "en" ? "Region" : language === "ru"
-      ? "Регион"
-      : language === "uz_lat"
-        ? "Region"
-        : "Регион";
-  const districtLabel =
-    language === "en" ? "District" : language === "ru" ? "Район" : language === "uz_lat" ? "Tuman" : "Туман";
-  const yilLabel =
-    language === "en" ? "Year" : language === "ru" ? "Год" : language === "uz_lat" ? "Yil" : "Йил";
-  const turiLabel =
-    language === "en" ? "Crop type" : language === "ru"
-      ? "Тип посева"
-      : language === "uz_lat"
-        ? "Ekin turi"
-        : "Экин тури";
-  const maydonLabel =
-    language === "en" ? "Area" : language === "ru"
-      ? "Площадь"
-      : language === "uz_lat"
-        ? "Maydon"
-        : "Майдон";
-  const nameLabel =
-    language === "en" ? "Name" : language === "ru" ? "Имя" : language === "uz_lat" ? "Nom" : "Ном";
-  const shapeLengLabel =
-    language === "en" ? "Boundary length" : language === "ru"
-      ? "Длина границы"
-      : language === "uz_lat"
-        ? "Chegara uzunligi"
-        : "Чегара узунлиғи";
-  const globalIdLabel =
-    language === "en" ? "Global ID" : language === "ru"
-      ? "Глобальный ID"
-      : language === "uz_lat"
-        ? "Global ID"
-        : "Глобал ID";
-  const fNameLabel =
-    language === "en" ? "Farmer name" : language === "ru"
-      ? "Название фермера"
-      : language === "uz_lat"
-        ? "Fermer nomi"
-        : "Фермер номи";
-  const fInnLabel =
-    language === "en"
-      ? "TIN"
-      : language === "ru"
-        ? "ИНН"
-        : language === "uz_lat"
-          ? "STIR"
-          : "СТИР";
-  const fCadLabel =
-    language === "en" ? "Cadastral number" : language === "ru"
-      ? "Кадастровый номер"
-      : language === "uz_lat"
-        ? "Kadastr raqami"
-        : "Кадастр рақами";
-  const yldLabel =
-    language === "en" ? "Yield" : language === "ru"
-      ? "Урожайность"
-      : language === "uz_lat"
-        ? "Hosildorlik"
-        : "Ҳосилдорлик";
-  const numericIdLabel =
-    language === "en" ? "Numeric ID" : language === "ru"
-      ? "Числовой ID"
-      : language === "uz_lat"
-        ? "Raqamli ID"
-        : "Рақамли ID";
-  const tableTitle =
-    language === "en"
-      ? "TABLE"
-      : language === "ru"
-        ? "ТАБЛИЦА"
-        : language === "uz_lat"
-          ? "JADVAL"
-          : "ЖАДВАЛ";
-
-  const uiText = (en: string, ru: string, uzLat: string, uzCyr: string) =>
-    language === "en" ? en : language === "ru" ? ru : language === "uz_lat" ? uzLat : uzCyr;
   const themeClass = isDarkTheme ? "dark-theme" : "light-theme";
   const regionalInteraction = host.isRegionalInteractionEnabled();
   const isInitializing =
@@ -152,9 +78,9 @@ export function render(host: GraffWidgetHost) {
     Math.ceil((totalRecordCount || 0) / pageSize) || 1,
   );
   const safePage = Math.min(Math.max(1, currentPage || 1), totalPages);
-  const paginationTotalLabel = uiText("Total", "Всего", "Jami", "Жами");
-  const paginationPageLabel = uiText("Page", "Страница", "Sahifa", "Саҳифа");
-  const paginationRowsLabel = uiText("Rows", "Строк", "Qator", "Қатор");
+  const paginationTotalLabel = pickLabel(GRAFF_PANEL_MESSAGES.paginationTotal, language);
+  const paginationPageLabel = pickLabel(GRAFF_PANEL_MESSAGES.paginationPage, language);
+  const paginationRowsLabel = pickLabel(GRAFF_PANEL_MESSAGES.paginationRows, language);
 
   const hasActiveSearch = isSearchActive && Boolean(searchText.trim());
   const needYear =
@@ -207,8 +133,8 @@ export function render(host: GraffWidgetHost) {
             {configuredFields.length === 0 && !isInitializing ? (
               <div className="kadastr-status-error">
             <TriangleAlert className="agri-empty-state-icon" strokeWidth={1.7} aria-hidden="true" />
-                <h3>{uiText("Widget fields are required", "Требуются поля виджета", "Widget maydonlari talab qilinadi", "Виджет майдонлари талаб қилинади")}</h3>
-                <p>{uiText("Select widget fields in Settings.", "Выберите поля виджета в настройках.", "Widget maydonlarini sozlamalarda tanlang.", "Виджет майдонларини созламаларда танланг.")}</p>
+                <h3>{pickLabel(GRAFF_PANEL_MESSAGES.fieldsRequiredTitle, language)}</h3>
+                <p>{pickLabel(GRAFF_PANEL_MESSAGES.fieldsRequiredHint, language)}</p>
               </div>
             ) : isInitializing ? (
               <div className="kadastr-status-loading-container">
@@ -218,13 +144,13 @@ export function render(host: GraffWidgetHost) {
               <div className="kadastr-status-error">
             <TriangleAlert className="agri-empty-state-icon" strokeWidth={1.7} aria-hidden="true" />
                 <p>
-                  {host.localizeRuntimeMessage(error) || uiText("Could not connect to the map. Try again.", "Не удалось подключиться к карте. Попробуйте снова.", "Xaritaga ulana olmadi. Qayta urinib ko'ring.", "Харитага улана олмади. Қайта уриниб кўринг.")}
+                  {host.localizeRuntimeMessage(error) || pickLabel(GRAFF_PANEL_MESSAGES.connectFailed, language)}
                 </p>
                 <button
                   onClick={host.retryMapConnection}
                   className="kadastr-status-retry-button"
                 >
-                  {uiText("Reconnect", "Подключиться снова", "Qayta ulanish", "Қайта уланиш")}
+                  {pickLabel(GRAFF_PANEL_MESSAGES.reconnect, language)}
                 </button>
               </div>
             ) : error ? (
@@ -237,7 +163,7 @@ export function render(host: GraffWidgetHost) {
                   }}
                   className="kadastr-status-retry-button"
                 >
-                  {uiText("Retry", "Повторить", "Qayta urinish", "Қайта уриниш")}
+                  {pickLabel(GRAFF_PANEL_MESSAGES.retry, language)}
                 </button>
               </div>
             ) : needYear ||
