@@ -4,6 +4,7 @@
  * Only cell values are written; district sheets copy the template row style when
  * the viloyat has more/fewer tumans than the Andijon sample.
  */
+import { asObjectRecord } from "./layer-like";
 import {
   loadXlsxPopulate,
   type PopulateSheet,
@@ -21,6 +22,7 @@ import {
   viloyatTitleName,
 } from "./place-key";
 import { TUMAN_XISOBOT_B64, VILOYAT_XISOBOT_B64 } from "./templates-b64";
+import { safeReportFileName } from "./report-filename";
 import type {
   CropAreaRow,
   ReportDataBundle,
@@ -47,6 +49,15 @@ function cellVal(sheet: PopulateSheet, row: number, col: number): unknown {
   }
 }
 
+/** Strings starting with these characters could be run as formulas by Excel. */
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+
+function guardFormula(value: string | number): string | number {
+  return typeof value === "string" && FORMULA_TRIGGER.test(value)
+    ? `'${value}`
+    : value;
+}
+
 export function setVal(
   sheet: PopulateSheet,
   row: number,
@@ -58,7 +69,11 @@ export function setVal(
     cell.value(undefined);
     return;
   }
-  cell.value(typeof value === "number" && !Number.isFinite(value) ? 0 : value);
+  cell.value(
+    typeof value === "number" && !Number.isFinite(value)
+      ? 0
+      : guardFormula(value),
+  );
 }
 
 /** xlsx-populate keeps the parsed XML on private `_node` fields. */
@@ -533,7 +548,7 @@ function sheetByName(wb: PopulateWorkbook, ...names: string[]): PopulateSheet | 
  * relationship, which Excel reports as a corrupt file.
  */
 export function dropOrphanParts(wb: PopulateWorkbook): void {
-  const w = wb as unknown as PopulateWorkbookInternals;
+  const w: PopulateWorkbookInternals = asObjectRecord(wb) ?? {};
   const asNode = (n: unknown): XmlNode | undefined => n as XmlNode | undefined;
   const isExternal = (raw: unknown): boolean => {
     const n = asNode(raw);
@@ -619,12 +634,12 @@ export async function fillReportWorkbook(bundle: ReportDataBundle): Promise<{
   }
   const buffer = await workbookBuffer(wb);
 
-  const safeVil = (bundle.scope.viloyat || "Respublika").replace(
-    /[\\/:*?"<>|]/g,
-    "_",
-  );
   const filename = isDistrict
-    ? `Tuman_xisobot_${safeVil}_${bundle.scope.yil}.xlsx`
-    : `Viloyat_xisobot_${bundle.scope.yil}.xlsx`;
+    ? safeReportFileName([
+        "Tuman_xisobot",
+        bundle.scope.viloyat || "Respublika",
+        bundle.scope.yil,
+      ])
+    : safeReportFileName(["Viloyat_xisobot", bundle.scope.yil]);
   return { filename, buffer };
 }

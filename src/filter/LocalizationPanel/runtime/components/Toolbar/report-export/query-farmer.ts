@@ -2,6 +2,7 @@
  * Fermer report rows: farmer × crop SUM(areaha) from agri_crop, with AVG(yld)
  * from Agri_table_data matched by INN / name × crop.
  */
+import { requireLayerLike } from "./layer-like";
 import { buildTumanEqualsSql } from "../../../../../../data/agri-sql";
 import {
   getAgriTableDataLayer,
@@ -79,7 +80,7 @@ async function queryTableFarmerYields(
   const tuman = String(scope.tuman || "").trim();
   if (!tuman) return out;
   const { layer } = await getAgriTableDataLayer();
-  const L = layer as unknown as LayerLike;
+  const L = requireLayerLike(layer);
   const yld = layerField(L, "yld");
   const turi = layerField(L, "turi");
   const tumanField = layerField(L, "tuman");
@@ -151,7 +152,7 @@ export async function queryFarmerRows(scope: ReportScope): Promise<FarmerRow[]> 
     getAgriCropPlanLayer(),
     queryAgriRegionDistrictMappings(),
   ]);
-  const L = layer as unknown as LayerLike;
+  const L = requireLayerLike(layer);
   const area = layerField(L, "areaha", "maydon");
   const plant = layerField(L, "plant_name", "turi");
   const district = layerField(L, "district", "tuman");

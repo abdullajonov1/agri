@@ -3,6 +3,7 @@
  * Row 1 is the header; row 2's styles are copied to every data row.
  */
 import { loadXlsxPopulate } from "../../../../../../vendor/xlsx-populate-shim";
+import { safeReportFileName } from "./report-filename";
 import {
   b64ToUint8,
   getStyleId,
@@ -62,9 +63,12 @@ export async function fillFermerWorkbook(
   }
 
   const buffer = await workbookBuffer(wb);
-  const safe = (s: string) => s.replace(/[\\/:*?"<>|]/g, "_");
   return {
-    filename: `Fermer_xisobot_${safe(String(scope.tuman || ""))}_${scope.yil}.xlsx`,
+    filename: safeReportFileName([
+      "Fermer_xisobot",
+      String(scope.tuman || ""),
+      scope.yil,
+    ]),
     buffer,
   };
 }

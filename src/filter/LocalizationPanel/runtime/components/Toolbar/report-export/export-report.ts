@@ -4,6 +4,9 @@ import { fillReportWorkbook } from "./fill-workbook";
 import { queryFarmerRows } from "./query-stats";
 import type { ReportExportResult, ReportScope } from "./types";
 
+/** Wait after the download click before revoking the blob URL so the browser can start the download. */
+const OBJECT_URL_REVOKE_DELAY_MS = 1500;
+
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -12,7 +15,7 @@ function triggerDownload(blob: Blob, filename: string): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  window.setTimeout(() => { URL.revokeObjectURL(url); }, 1500);
+  window.setTimeout(() => { URL.revokeObjectURL(url); }, OBJECT_URL_REVOKE_DELAY_MS);
 }
 
 async function buildFile(scope: ReportScope): Promise<{ filename: string; buffer: ArrayBuffer }> {

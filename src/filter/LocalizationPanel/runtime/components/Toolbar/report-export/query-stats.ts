@@ -1,3 +1,4 @@
+import { requireLayerLike } from "./layer-like";
 import {
   queryAgriRegionDistrictMappings,
   queryAgriTuriCropMappings,
@@ -65,7 +66,7 @@ async function queryCropAreas(
     getAgriTableDataLayer(),
     queryAgriRegionDistrictMappings(),
   ]);
-  const L = layer as unknown as LayerLike;
+  const L = requireLayerLike(layer);
   const turi = layerField(L, "turi");
   const area = layerField(L, "maydon");
   if (!turi || !area) return [];
@@ -306,7 +307,7 @@ export async function queryReserveAreas(scope: ReportScope): Promise<ReserveArea
     getAgriReserveLandLayer(),
     queryAgriRegionDistrictMappings(),
   ]);
-  const L = layer as unknown as LayerLike;
+  const L = requireLayerLike(layer);
   const idMap = await cropIdToReserveColumn(L);
   const turi = layerField(L, "turi");
   const cropId = layerField(L, "crop_id");
@@ -380,7 +381,7 @@ export async function queryUnusedAreas(scope: ReportScope): Promise<UnusedAreaRo
   ]);
   const rows = await queryCountArea(
     "unused",
-    layer as unknown as LayerLike,
+    requireLayerLike(layer),
     scope,
     mappings,
   );
@@ -406,7 +407,7 @@ export async function queryPlanAreas(
     getAgriCropPlanLayer(),
     queryAgriRegionDistrictMappings(),
   ]);
-  const L = layer as unknown as LayerLike;
+  const L = requireLayerLike(layer);
   const area = layerField(L, "areaha", "maydon");
   const plant = layerField(L, "plant_name", "turi");
   if (!area || !plant) {
