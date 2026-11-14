@@ -10,3 +10,6 @@ dist/
 
 # Local test reports
 dist-report/
+
+# Portal package lives on the main branch, built by scripts/publish-agri.sh
+/widgets/

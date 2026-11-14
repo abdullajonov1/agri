@@ -43,6 +43,7 @@ PROD_SRC="$EXB_CLIENT/dist-prod/$DIST_REL"
 CHUNKS_SRC="$EXB_CLIENT/dist/widgets/chunks"
 PROD_CHUNKS="$EXB_CLIENT/dist-prod/widgets/chunks"
 WORK="${TMPDIR:-/tmp}/agri-publish-$$"
+trap 'rm -rf "$WORK"' EXIT
 REPO="abdullajonov1/agri"
 PAGES_URL="https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.json"
 VERSION="$(cd "$ROOT" && node -p "JSON.parse(require('fs').readFileSync('manifest.json','utf8')).version")"
@@ -123,6 +124,8 @@ needed_chunks() {
 needed_chunks
 echo "Chunks copied: $(wc -l < "$WORK/.chunks")"
 rm -f "$WORK/.chunks"
+node "$ROOT/scripts/check-published-chunks.mjs" "$WORK/widgets/Agro_widgetV6/dist" "$WORK/widgets/chunks" \
+  ||{ echo "Published chunk check failed; aborting before commit."; exit 1; }
 
 # Mirror ExB widget source so the agri repo stays a usable clone target.
 cp -r "$ROOT/src" "$WORK/src"
@@ -147,40 +150,8 @@ if [ -f "$ROOT/package.json" ]; then cp "$ROOT/package.json" "$WORK/package.json
 if [ -f "$ROOT/tsconfig.json" ]; then cp "$ROOT/tsconfig.json" "$WORK/tsconfig.json"; fi
 if [ -f "$ROOT/.gitignore" ]; then cp "$ROOT/.gitignore" "$WORK/.gitignore"; fi
 
-cat > "$WORK/widgets/Agro_widgetV6/manifest.json" <<EOF
-{
-  "name": "Agro_widgetV6",
-  "label": "Space Agro Monitoring V$VERSION",
-  "type": "widget",
-  "version": "$VERSION",
-  "exbVersion": "1.16.0",
-  "author": "abdullajonov1",
-  "description": "Agri portal package $VERSION (built $(date -u +%Y-%m-%dT%H:%MZ)). Stable URL: $PAGES_URL. Source: https://github.com/abdullajonov1/agri",
-  "copyright": "",
-  "license": "",
-  "properties": {
-    "supportAutoSize": false
-  },
-  "translatedLocales": [
-    "en",
-    "uz",
-    "ru"
-  ],
-  "defaultSize": {
-    "width": 1920,
-    "height": 920
-  },
-  "supports": {
-    "map": true
-  },
-  "dependency": [
-    "jimu-arcgis"
-  ],
-  "supportInlineEditing": true,
-  "hasSettingPage": true,
-  "useDataSources": true
-}
-EOF
+node "$ROOT/scripts/make-portal-manifest.mjs" "$ROOT/manifest.json" "$(date -u +%Y-%m-%dT%H:%MZ)" "$PAGES_URL" \
+  > "$WORK/widgets/Agro_widgetV6/manifest.json"
 
 # Pages from repo root
 touch "$WORK/.nojekyll"

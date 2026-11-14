@@ -20,6 +20,37 @@ Then `npm start` in the ExB client.
 
 Do **not** register the raw GitHub source URL as a custom widget — Portal needs `widgets/Agro_widgetV6` + `widgets/chunks`.
 
+## Development
+
+Install the git hooks once per clone (from the widget folder):
+
+```bash
+bash scripts/install-hooks.sh
+```
+
+This runs `git config core.hooksPath scripts/git-hooks`.
+
+Run tests from `client/` with the widget's own Jest config (the root jest config does not work for this widget):
+
+```bash
+npx jest -c your-extensions/widgets/agri-main/jest.config.js your-extensions/widgets/agri-main/src
+```
+
+Type check (from the widget folder):
+
+```bash
+npx tsc -p tsconfig.check.json --noEmit
+```
+
+Release (from the widget folder):
+
+```bash
+bash scripts/release-agri.sh            # keep manifest version
+bash scripts/release-agri.sh patch      # or: patch | x.y.z
+```
+
+Then in Portal use the manifest URL `https://abdullajonov1.github.io/agri/widgets/Agro_widgetV6/manifest.json`, and go to **Custom widgets → Agro_widgetV6 → Update**.
+
 ## Source layout (`src/`)
 
 | Folder | What lives there |

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Agro_widgetV5 pre-commit gate. Install once: git config core.hooksPath scripts/git-hooks
+# agri-main pre-commit gate. Install once: git config core.hooksPath scripts/git-hooks
 # Skip in an emergency: git commit --no-verify
 set -e
 WIDGET_DIR="$(git rev-parse --show-toplevel)"
