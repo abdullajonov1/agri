@@ -1,7 +1,10 @@
 import type { DataSource, IMUseDataSource } from "jimu-core";
 import type { PopupSettingHost } from "../popup-setting-host";
 import type { State } from "../agri-popup-setting";
+import { agroV5Log } from "../../gis/agri-debug-log";
 import * as ds from "./popup-data-sources";
+
+jest.mock("../../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 type StatePatch = Partial<State>;
 type StateUpdater = StatePatch | ((prev: State) => StatePatch);
@@ -125,6 +128,16 @@ describe("popup-data-sources lifecycle", () => {
     ds.cleanupDataSources(host);
     expect(mgr.destroyDataSource).toHaveBeenCalledTimes(2);
     expect(host.ownedDataSourceIds).toEqual([]);
+  });
+
+  test("cleanupDataSources traces the destroy error", () => {
+    const { host, mgr } = makeHost();
+    host.ownedDataSourceIds = ["a"];
+    mgr.destroyDataSource.mockImplementationOnce(() => {
+      throw new Error("gone");
+    });
+    ds.cleanupDataSources(host);
+    expect(agroV5Log).toHaveBeenCalledWith("popupDs:destroy-failed", { id: "a", error: "gone" });
   });
 });
 

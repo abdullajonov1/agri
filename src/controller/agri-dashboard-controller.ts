@@ -38,6 +38,7 @@ import { getAgriTableDataLayer } from "../gis/agri-table-data-source";
 import { getAgriVegetationIndicesLayer } from "../gis/agri-vegetation-data-source";
 import { ensureLayerLoaded } from "../types/agri-layer";
 import { isPlainRecord } from "../shared/agri-plain-object";
+import { agroV5Log } from "../gis/agri-debug-log";
 
 const readErrorMessageField = (e: unknown): unknown =>
   e instanceof Error ? e.message : isPlainRecord(e) ? e.message : undefined;
@@ -350,8 +351,9 @@ export function createDashboardController(): DashboardController {
       if (gen !== generation) return;
       try {
         await ensureLayerLoaded(layer);
-      } catch {
+      } catch (e: unknown) {
         /* load failure is non-fatal: the stats queries below may still succeed */
+        agroV5Log("dashboardController:layer-load-failed", { error: e instanceof Error ? e.message : String(e) });
       }
       if (gen !== generation) return;
 

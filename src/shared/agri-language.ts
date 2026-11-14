@@ -2,6 +2,8 @@
  * Shared language + theme helpers for Agri dashboard panels.
  */
 
+import { agroV5Log } from "../gis/agri-debug-log";
+
 export type AgriLanguage = "uz_cyr" | "uz_lat" | "ru" | "en";
 
 export const AGRI3_LANG_PREF_KEY_V3 = "agri3_lang_initialized_uz_lat_v3";
@@ -12,7 +14,8 @@ export function ensureAgri3UzLatLanguageDefault(): void {
     localStorage.setItem("app_lang", "uz_lat");
     localStorage.setItem("agro_lang", "uz_lat");
     localStorage.setItem(AGRI3_LANG_PREF_KEY_V3, "1");
-  } catch {
+  } catch (e: unknown) {
+    agroV5Log("language:default-storage-failed", { error: e instanceof Error ? e.message : String(e) });
     /* ignore storage errors */
   }
 }
@@ -38,7 +41,8 @@ export function resolveInitialLanguage(): AgriLanguage {
       localStorage.getItem("agri_app_lang") ||
       localStorage.getItem("agro_lang");
     return normalizeLanguage(fromUrl || fromStorage);
-  } catch {
+  } catch (e: unknown) {
+    agroV5Log("language:resolve-failed", { error: e instanceof Error ? e.message : String(e) });
     return "uz_lat";
   }
 }
@@ -51,7 +55,8 @@ export function detectIsDarkTheme(): boolean {
     const dom = document.documentElement.getAttribute("data-theme");
     if (dom === "light") return false;
     if (dom === "dark") return true;
-  } catch {
+  } catch (e: unknown) {
+    agroV5Log("language:theme-detect-failed", { error: e instanceof Error ? e.message : String(e) });
     /* ignore */
   }
   return true;

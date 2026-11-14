@@ -1,15 +1,14 @@
 /** @jsx jsx */
 import { jsx, React } from "jimu-core";
+import { type VegetationIndiceType } from "../gis/agri-polygon-api-source";
 import {
-  fetchPolygonAvailableDates,
-  fetchPolygonExportImageTiff,
-  type VegetationIndiceType,
-} from "../gis/agri-polygon-api-source";
-import { agroV5Log } from "../gis/agri-debug-log";
-import {
-  getVegetationOverlayContext,
-  VEGETATION_OVERLAY_APPLIED_EVENT,
-} from "../gis/agri-vegetation-overlay-prefetch";
+  useAvailableDates,
+  useCompareDocumentEvents,
+  useCompareImage,
+  type ImageStatus,
+  type MonthCursor,
+} from "./field-compare-hooks";
+import FieldCompareCalendar from "./field-compare-calendar";
 
 export type CompareLanguage = "uz_lat" | "uz_cyr" | "ru" | "en";
 
@@ -18,7 +17,7 @@ interface Props {
   onOpenChange?: (open: boolean) => void;
 }
 
-interface Copy {
+export interface Copy {
   open: string;
   title: string;
   pickField: string;
@@ -87,60 +86,6 @@ const COPY: Record<CompareLanguage, Copy> = {
   },
 };
 
-const INDICES: readonly VegetationIndiceType[] = ["ndvi", "savi", "rvi", "ci", "evi", "ndre", "ndwi"];
-const POLYGON_SOURCES = ["AgriPopup", "AgriGraffWidget", "AgriGraff10", "AgriFilter"];
-
-function readRecord(event: Event): Record<string, unknown> {
-  const detail = (event as CustomEvent<unknown>).detail;
-  if (!detail || typeof detail !== "object") return {};
-  return detail as Record<string, unknown>;
-}
-
-function readRegion(value: unknown): number | null {
-  const region = Number(value);
-  return Number.isFinite(region) ? region : null;
-}
-
-function readIndex(value: unknown): VegetationIndiceType {
-  const key = String(value || "").trim().toLowerCase();
-  return INDICES.includes(key as VegetationIndiceType)
-    ? (key as VegetationIndiceType)
-    : "ndvi";
-}
-
-function readYmd(value: unknown): string | null {
-  const text = String(value || "").trim().slice(0, 10);
-  return /^(\d{4})-(\d{2})-(\d{2})$/.test(text) ? text : null;
-}
-
-function readDates(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((item) => readYmd(item)).filter((item): item is string => Boolean(item));
-}
-
-function ymdParts(ymd: string): { year: number; month: number } | null {
-  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(ymd);
-  if (!match) return null;
-  return { year: Number(match[1]), month: Number(match[2]) };
-}
-
-function monthCells(year: number, month: number): Array<string | null> {
-  const first = new Date(year, month - 1, 1);
-  const lead = (first.getDay() + 6) % 7;
-  const count = new Date(year, month, 0).getDate();
-  const cells: Array<string | null> = [];
-  for (let index = 0; index < lead; index += 1) cells.push(null);
-  for (let day = 1; day <= count; day += 1) {
-    cells.push(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
-  }
-  return cells;
-}
-
-function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
-  const date = new Date(year, month - 1 + delta, 1);
-  return { year: date.getFullYear(), month: date.getMonth() + 1 };
-}
-
 export default function FieldComparePanel(props: Props): JSX.Element {
   const copy = COPY[props.language] || COPY.uz_lat;
   const [open, setOpen] = React.useState(false);
@@ -150,12 +95,12 @@ export default function FieldComparePanel(props: Props): JSX.Element {
   const [pinnedDate, setPinnedDate] = React.useState<string | null>(null);
   const [indexKey, setIndexKey] = React.useState<VegetationIndiceType>("ndvi");
   const [knownDates, setKnownDates] = React.useState<string[]>([]);
-  const [cursor, setCursor] = React.useState(() => {
+  const [cursor, setCursor] = React.useState<MonthCursor>(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
   });
   const [imageUrl, setImageUrl] = React.useState("");
-  const [imageStatus, setImageStatus] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [imageStatus, setImageStatus] = React.useState<ImageStatus>("idle");
   const displayDate = pinnedDate;
   const known = React.useMemo(() => new Set(knownDates), [knownDates]);
   const mapDateRef = React.useRef<string | null>(null);
@@ -172,170 +117,14 @@ export default function FieldComparePanel(props: Props): JSX.Element {
   onOpenChangeRef.current = props.onOpenChange;
   openRef.current = open;
 
-  React.useEffect(() => {
-    const clearField = (): void => {
-      seededRef.current = false;
-      userPickedRef.current = false;
-      overlaySeededRef.current = false;
-      mapDateRef.current = null;
-      indexDatesRef.current = false;
-      uniqueidRef.current = "";
-      setUniqueid("");
-      setMapDate(null);
-      setPinnedDate(null);
-      setKnownDates([]);
-      setImageUrl("");
-      setImageStatus("idle");
-    };
-    const reveal = (): void => {
-      if (openRef.current) return;
-      openRef.current = true;
-      setOpen(true);
-      document.dispatchEvent(new CustomEvent("agriFieldCompareToggled", {
-        detail: { open: true },
-        bubbles: true,
-      }));
-      onOpenChangeRef.current?.(true);
-    };
-    const onSelection = (event: Event): void => {
-      const detail = readRecord(event);
-      const mentionsPolygon = Object.prototype.hasOwnProperty.call(detail, "polygonMode")
-        || Object.prototype.hasOwnProperty.call(detail, "uniqueid");
-      const source = String(detail.source || "");
-      if (!mentionsPolygon || !POLYGON_SOURCES.includes(source)) return;
-      const nextId = String(detail.uniqueid || "").replace(/[{}]/g, "").trim();
-      if (detail.polygonMode !== true || !nextId) {
-        clearField();
-        return;
-      }
-      const context = getVegetationOverlayContext();
-      const region = readRegion(detail.regionId) ?? readRegion(context.regionId);
-      if (nextId === uniqueidRef.current) {
-        if (region != null) setRegionId(region);
-        reveal();
-        return;
-      }
-      seededRef.current = false;
-      userPickedRef.current = false;
-      overlaySeededRef.current = false;
-      indexDatesRef.current = false;
-      uniqueidRef.current = nextId;
-      setKnownDates([]);
-      setUniqueid(nextId);
-      setRegionId(region);
-      setPinnedDate(null);
-      setImageUrl("");
-      reveal();
-    };
-    const onDate = (event: Event): void => {
-      const detail = readRecord(event);
-      const nextDate = readYmd(detail.date);
-      if (nextDate) mapDateRef.current = nextDate;
-      setMapDate(nextDate);
-      setRegionId((current) => current ?? readRegion(getVegetationOverlayContext().regionId));
-      const advertised = readDates(detail.availableDates);
-      if (advertised.length && uniqueidRef.current) {
-        indexDatesRef.current = true;
-        setKnownDates(advertised.slice().sort());
-      }
-      // The graph date moves the map. The popup keeps the date it was
-      // seeded with when the field was selected, until its own calendar changes it.
-      if (!seededRef.current && nextDate && uniqueidRef.current) {
-        seededRef.current = true;
-        if (detail.indexKey) setIndexKey(readIndex(detail.indexKey));
-        setPinnedDate(nextDate);
-        const parts = ymdParts(nextDate);
-        if (parts) setCursor(parts);
-      }
-    };
-    // The map overlay may draw a different date than the chart picked (the
-    // chart date can have no scene). Follow the overlay once per polygon so
-    // this panel shows the same image and reuses the same cached request.
-    const onOverlayApplied = (event: Event): void => {
-      const detail = readRecord(event);
-      const appliedId = String(detail.uniqueid || "").replace(/[{}]/g, "").trim();
-      const appliedDate = readYmd(detail.date);
-      if (!appliedId || appliedId !== uniqueidRef.current || !appliedDate) return;
-      if (userPickedRef.current || overlaySeededRef.current) return;
-      overlaySeededRef.current = true;
-      seededRef.current = true;
-      if (detail.indexKey) setIndexKey(readIndex(detail.indexKey));
-      setPinnedDate(appliedDate);
-      const parts = ymdParts(appliedDate);
-      if (parts) setCursor(parts);
-    };
-    const onIndicators = (event: Event): void => {
-      if (readRecord(event).open !== true) return;
-      setOpen(false);
-      onOpenChangeRef.current?.(false);
-    };
-    document.addEventListener("widgetSelectionChanged", onSelection);
-    document.addEventListener("graffDateIndexSelectionChanged", onDate);
-    document.addEventListener(VEGETATION_OVERLAY_APPLIED_EVENT, onOverlayApplied);
-    document.addEventListener("agriIndicatorsDrawerToggled", onIndicators);
-    document.addEventListener("agriLandLayersToggled", onIndicators);
-    return () => {
-      document.removeEventListener("widgetSelectionChanged", onSelection);
-      document.removeEventListener("graffDateIndexSelectionChanged", onDate);
-      document.removeEventListener(VEGETATION_OVERLAY_APPLIED_EVENT, onOverlayApplied);
-      document.removeEventListener("agriIndicatorsDrawerToggled", onIndicators);
-      document.removeEventListener("agriLandLayersToggled", onIndicators);
-    };
-  }, []);
-
-  React.useEffect(() => {
-    if (!uniqueid || regionId == null) return undefined;
-    const year = ymdParts(mapDate || "")?.year ?? getVegetationOverlayContext().year;
-    if (year == null || indexDatesRef.current) return undefined;
-    let cancelled = false;
-    void fetchPolygonAvailableDates(uniqueid, regionId, year)
-      .then((dates) => {
-        if (cancelled || indexDatesRef.current) return;
-        setKnownDates(readDates(dates).slice().sort());
-      })
-      .catch((error: unknown) => {
-        agroV5Log("field-compare available dates failed", {
-          uniqueid,
-          regionId,
-          year,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [uniqueid, regionId, mapDate]);
-
-  React.useEffect(() => {
-    if (!open || !uniqueid || regionId == null || !displayDate) {
-      if (!open) return undefined;
-      setImageUrl("");
-      setImageStatus(uniqueid ? "idle" : "idle");
-      return undefined;
-    }
-    let cancelled = false;
-    setImageStatus("loading");
-    void fetchPolygonExportImageTiff({
-      uniqueid,
-      regionId,
-      rasterDate: displayDate,
-      indiceType: indexKey,
-      stretch: "fixed",
-    })
-      .then((result) => {
-        if (cancelled) return;
-        setImageUrl(result.canvas.toDataURL("image/png"));
-        setImageStatus("ready");
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setImageUrl("");
-        setImageStatus("error");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, uniqueid, regionId, displayDate, indexKey]);
+  useCompareDocumentEvents({
+    setOpen, setUniqueid, setRegionId, setMapDate, setPinnedDate, setIndexKey,
+    setKnownDates, setCursor, setImageUrl, setImageStatus,
+    mapDateRef, seededRef, userPickedRef, overlaySeededRef, uniqueidRef,
+    indexDatesRef, onOpenChangeRef, openRef,
+  });
+  useAvailableDates({ uniqueid, regionId, mapDate, indexDatesRef, setKnownDates });
+  useCompareImage({ open, uniqueid, regionId, displayDate, indexKey, setImageUrl, setImageStatus });
 
   const toggle = (): void => {
     setOpen((current) => {
@@ -350,8 +139,6 @@ export default function FieldComparePanel(props: Props): JSX.Element {
       return next;
     });
   };
-
-  const cells = monthCells(cursor.year, cursor.month);
 
   return (
     <React.Fragment>
@@ -394,79 +181,18 @@ export default function FieldComparePanel(props: Props): JSX.Element {
           {imageUrl && imageStatus !== "loading" ? <img src={imageUrl} alt="" /> : null}
           {displayDate ? <strong>{displayDate}</strong> : null}
         </div>
-        <div className="agri-dashboard-compare-calendar">
-          <div className="agri-dashboard-compare-month">
-            <button
-              type="button"
-              aria-label={copy.prev}
-              onClick={() => { setCursor((current) => shiftMonth(current.year, current.month, -1)); }}
-            >
-              ‹
-            </button>
-            <span>{copy.months[cursor.month - 1]} {cursor.year}</span>
-            <button
-              type="button"
-              aria-label={copy.next}
-              onClick={() => { setCursor((current) => shiftMonth(current.year, current.month, 1)); }}
-            >
-              ›
-            </button>
-          </div>
-          <div className="agri-dashboard-compare-weekdays">
-            {copy.weekdays.map((day) => <span key={day}>{day}</span>)}
-          </div>
-          <div className="agri-dashboard-compare-days">
-            {cells.map((ymd, index) => {
-              if (!ymd) return <span key={`empty-${index}`} />;
-              const hasScene = known.has(ymd);
-              const selected = ymd === displayDate;
-              const isMap = ymd === mapDate;
-              const className = [
-                "agri-dashboard-compare-day",
-                hasScene ? "has-scene" : "",
-                selected ? "is-selected" : "",
-                isMap && !selected ? "is-map" : "",
-              ].filter(Boolean).join(" ");
-              return (
-                <button
-                  key={ymd}
-                  type="button"
-                  className={className}
-                  data-date={ymd}
-                  disabled={!hasScene}
-                  aria-pressed={selected}
-                  onClick={() => {
-                    if (!hasScene) return;
-                    seededRef.current = true;
-                    userPickedRef.current = true;
-                    setPinnedDate(ymd);
-                  }}
-                >
-                  {Number(ymd.slice(-2))}
-                </button>
-              );
-            })}
-          </div>
-          <div className="agri-dashboard-compare-legend">
-            <i />
-            <span>{copy.legend}</span>
-            {pinnedDate && mapDate && pinnedDate !== mapDate ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!mapDate) return;
-                  seededRef.current = true;
-                  userPickedRef.current = true;
-                  setPinnedDate(mapDate);
-                  const parts = ymdParts(mapDate);
-                  if (parts) setCursor(parts);
-                }}
-              >
-                {copy.mapDate}
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <FieldCompareCalendar
+          copy={copy}
+          cursor={cursor}
+          setCursor={setCursor}
+          known={known}
+          displayDate={displayDate}
+          pinnedDate={pinnedDate}
+          mapDate={mapDate}
+          seededRef={seededRef}
+          userPickedRef={userPickedRef}
+          setPinnedDate={setPinnedDate}
+        />
       </div>
     </React.Fragment>
   );

@@ -13,25 +13,23 @@ import minusLight from "./assets/MinusLight.svg";
 import expandLight from "./assets/ExpandLight.svg";
 import compressLight from "./assets/CompressLight.svg";
 import basemapIcon from "./assets/basemap.svg";
-import {
-  readAgriAdminBordersVisible,
-  setAgriAdminBordersVisible,
-} from "../gis/agri-admin-boundary-layer";
+import { readAgriAdminBordersVisible } from "../gis/agri-admin-boundary-layer";
 import { isUseDataSourceLike } from "../shared/agri-type-guards";
-import { installAgriCorsGuard, recreateDataSource } from "../shared/agri-cors-guard";
 import FieldComparePanel from "./field-compare-panel";
 import MapLandLayersPanel from "./map-land-layers-panel";
+import { dispatchMapSettingsRequest } from "./embedded-agri-map-setup";
 import {
-  type AgriMapInitContext,
-  disposeAgriMap,
-  dispatchMapSettingsRequest,
-  initializeAgriMap,
-  readSelectedRegionEvent,
-  readThemeEvent,
-  syncFullscreenState,
-  toggleFullscreen as toggleMapFullscreen,
-  zoomViewBy,
-} from "./embedded-agri-map-setup";
+  type MapLanguage,
+  useAgriMapInit,
+  useAutomaticBasemap,
+  useBasemapMenuOpenClass,
+  useFullscreenSync,
+  useLatestCallbackRefs,
+  useMapControlHandlers,
+  useMapLanguage,
+  useRootDataSourceRetry,
+  useThemeAndRegionListeners,
+} from "./embedded-agri-map-hooks";
 
 interface Props {
   mapWidgetId: string;
@@ -43,17 +41,6 @@ interface Props {
   onError?: (message: string) => void;
 }
 
-
-type MapLanguage = "uz_lat" | "uz_cyr" | "ru" | "en";
-
-function normalizeMapLanguage(raw: unknown): MapLanguage {
-  const value = String(raw || "").trim().toLowerCase().replace(/-/g, "_");
-  if (value === "en" || value === "english") return "en";
-  if (value === "ru" || value === "russian") return "ru";
-  if (value.startsWith("uz_cyr")) return "uz_cyr";
-  if (value === "uz" || value.startsWith("uz_lat")) return "uz_lat";
-  return "uz_lat";
-}
 function resolveInitialDarkTheme(): boolean {
   try {
     const saved = String(localStorage.getItem("agri_v11_app_theme") || "").toLowerCase();
@@ -143,34 +130,13 @@ export default function EmbeddedAgriMap(props: Props) {
   const [bordersVisible, setBordersVisible] = React.useState<boolean>(() =>
     readAgriAdminBordersVisible(),
   );
-  const [language, setLanguage] = React.useState<MapLanguage>(() => {
-    try {
-      const fromUrl = new URLSearchParams(window.location.search).get("lang");
-      const fromStorage = localStorage.getItem("app_lang") || localStorage.getItem("agri_app_lang");
-      return normalizeMapLanguage(fromUrl || fromStorage);
-    } catch {
-      return "uz_lat";
-    }
-  });
+  const language = useMapLanguage();
   const basemapText = BASEMAP_TEXT[language];
   const fullscreenText = isFullscreen
     ? basemapText.exitFullscreen
     : basemapText.enterFullscreen;
 
-  React.useEffect(() => {
-    const handleLanguageChange = (event: Event): void => {
-      const detail = (event as CustomEvent)?.detail || {};
-      setLanguage(normalizeMapLanguage(detail.lang || detail.language || detail.code));
-    };
-    document.addEventListener("languageChanged", handleLanguageChange);
-    return () => { document.removeEventListener("languageChanged", handleLanguageChange); };
-  }, []);
-
-  React.useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle("agri-basemap-menu-open", basemapMenuOpen);
-    return () => { root.classList.remove("agri-basemap-menu-open"); };
-  }, [basemapMenuOpen]);
+  useBasemapMenuOpenClass(basemapMenuOpen);
   // Only the WebMap the settings connect is opened (render-panel resolves it:
   // the WebMap picked in "Select data", or the WebMap of the picked layers).
   const effectiveRootDataSourceId = String(webMapDataSourceId || "").trim();
@@ -187,24 +153,16 @@ export default function EmbeddedAgriMap(props: Props) {
       ? DataSourceManager.getInstance().getDataSource(effectiveRootDataSourceId) || null
       : null,
   );
-  // One retry per WebMap: a failure caused by the JS API's host-wide proxy
-  // fallback (see agri-cors-guard) succeeds once the guard removed the rule.
-  const retriedRootIdRef = React.useRef("");
-  const retryRootDataSource = async (): Promise<void> => {
-    const id = effectiveRootDataSourceId;
-    if (id && retriedRootIdRef.current !== id) {
-      retriedRootIdRef.current = id;
-      await installAgriCorsGuard();
-      try {
-        setRootDataSource(await recreateDataSource(id));
-        return;
-      } catch {
-        /* still failing — report below */
-      }
-    }
-    onLoadingChangeRef.current?.(false);
-    onErrorRef.current?.("Web Map ma’lumot manbasini yaratib bo‘lmadi");
-  };
+  const { onViewReadyRef, onLoadingChangeRef, onErrorRef } = useLatestCallbackRefs(
+    onViewReady,
+    onLoadingChange,
+    onError,
+  );
+  const retryRootDataSource = useRootDataSourceRetry(
+    effectiveRootDataSourceId,
+    setRootDataSource,
+    { onLoadingChangeRef, onErrorRef },
+  );
   const containerRef = React.useRef<HTMLDivElement>(null);
   const viewRef = React.useRef<__esri.MapView | null>(null);
   const mapRef = React.useRef<__esri.Map | null>(null);
@@ -217,104 +175,32 @@ export default function EmbeddedAgriMap(props: Props) {
   const automaticBasemapRef = React.useRef(automaticBasemapId);
   automaticBasemapRef.current = automaticBasemapId;
 
-  React.useEffect(() => {
-    const handleTheme = (event: Event): void => {
-      setIsDarkTheme(readThemeEvent(event));
-    };
-    const handleFilter = (event: Event): void => {
-      setHasSelectedRegion(readSelectedRegionEvent(event));
-    };
-    document.addEventListener("agriV11ThemeToggled", handleTheme);
-    document.addEventListener("masterFilterChanged", handleFilter);
-    return () => {
-      document.removeEventListener("agriV11ThemeToggled", handleTheme);
-      document.removeEventListener("masterFilterChanged", handleFilter);
-    };
-  }, []);
-
-  React.useEffect(() => {
-    const map = viewRef.current?.map || mapRef.current;
-    if (!map || viewRef.current?.destroyed) return;
-    if (String(map.basemap?.id || map.basemap || "") !== automaticBasemapId) {
-      map.basemap = automaticBasemapId;
-    }
-    setActiveBasemapId(automaticBasemapId);
-    setBasemapMenuOpen(false);
-  }, [automaticBasemapId]);
-
-  React.useEffect(() => {
-    const syncState = (): void => {
-      syncFullscreenState(containerRef.current, viewRef, setIsFullscreen);
-    };
-
-    document.addEventListener("fullscreenchange", syncState);
-    document.addEventListener(
-      "webkitfullscreenchange",
-      syncState as EventListener,
-    );
-    syncState();
-
-    return () => {
-      document.removeEventListener("fullscreenchange", syncState);
-      document.removeEventListener(
-        "webkitfullscreenchange",
-        syncState as EventListener,
-      );
-    };
-  }, []);
-  const zoomBy = React.useCallback((delta: number): void => {
-    zoomViewBy(viewRef.current, delta);
-  }, []);
-
-  const toggleFullscreen = React.useCallback(async (): Promise<void> => {
-    await toggleMapFullscreen(containerRef.current, () => { setBasemapMenuOpen(false); });
-  }, []);
-
-  const selectBasemap = React.useCallback((basemapId: string): void => {
-    const view = viewRef.current;
-    if (!view?.map || view.destroyed) return;
-    view.map.basemap = basemapId;
-    setActiveBasemapId(basemapId);
-    setBasemapMenuOpen(false);
-  }, []);
-
-  const toggleBordersVisible = React.useCallback((): void => {
-    const next = !bordersVisible;
-    setBordersVisible(next);
-    void setAgriAdminBordersVisible(viewRef.current, next);
-  }, [bordersVisible]);
-
-  const onViewReadyRef = React.useRef(onViewReady);
-  const onLoadingChangeRef = React.useRef(onLoadingChange);
-  const onErrorRef = React.useRef(onError);
-  React.useEffect(() => {
-    onViewReadyRef.current = onViewReady;
-    onLoadingChangeRef.current = onLoadingChange;
-    onErrorRef.current = onError;
-  }, [onViewReady, onLoadingChange, onError]);
-
-  React.useEffect(() => {
-    const ctx: AgriMapInitContext = {
-      mapWidgetId,
-      dataSourceId: effectiveRootDataSourceId,
-      rootDataSource,
-      session: { disposed: false, view: null, jimuMapViewId: "" },
-      containerRef,
-      viewRef,
-      mapRef,
-      jimuMapViewRef,
-      automaticBasemapRef,
-      onViewReadyRef,
-      onLoadingChangeRef,
-      onErrorRef,
-      setActiveBasemapId,
-      setReadyView,
-    };
-    void initializeAgriMap(ctx);
-    return () => { disposeAgriMap(ctx); };
-    // Intentionally omit onLoadingChange/onViewReady/onError — parent passes
-    // inline lambdas; including them remounts the map every setState (infinite loop).
-  }, [mapWidgetId, effectiveRootDataSourceId, rootDataSource]);
+  useThemeAndRegionListeners(setIsDarkTheme, setHasSelectedRegion);
+  useAutomaticBasemap(automaticBasemapId, viewRef, mapRef, setActiveBasemapId, setBasemapMenuOpen);
+  useFullscreenSync(containerRef, viewRef, setIsFullscreen);
+  const { zoomBy, toggleFullscreen, selectBasemap, toggleBordersVisible } = useMapControlHandlers(
+    containerRef,
+    viewRef,
+    bordersVisible,
+    setBordersVisible,
+    setActiveBasemapId,
+    setBasemapMenuOpen,
+  );
+  useAgriMapInit({
+    mapWidgetId,
+    dataSourceId: effectiveRootDataSourceId,
+    rootDataSource,
+    containerRef,
+    viewRef,
+    mapRef,
+    jimuMapViewRef,
+    automaticBasemapRef,
+    onViewReadyRef,
+    onLoadingChangeRef,
+    onErrorRef,
+    setActiveBasemapId,
+    setReadyView,
+  });
 
   return (
     <React.Fragment>

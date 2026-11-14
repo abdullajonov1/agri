@@ -3,6 +3,7 @@
  * Keeps retry/poll limits in one place so dashboard + embedded panels stay aligned.
  */
 import type * as JimuArcgis from "jimu-arcgis";
+import { agroV5Log } from "../gis/agri-debug-log";
 type JimuMapView = JimuArcgis.JimuMapView;
 
 /** Dashboard shell: poll until MapView exists (~10.2 s max). */
@@ -35,7 +36,8 @@ export function resolveJimuMapView(mapWidgetId: string): JimuMapView | null {
     if (active?.view) return active;
     const all = group?.getAllJimuMapViews?.() || [];
     return (all.find((jmv: JimuMapView) => !!jmv?.view) as JimuMapView) || null;
-  } catch {
+  } catch (e: unknown) {
+    agroV5Log("mapConnection:resolve-view-failed", { mapWidgetId: id, error: e instanceof Error ? e.message : String(e) });
     return null;
   }
 }

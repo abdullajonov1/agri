@@ -9,6 +9,7 @@ import {
   loadArcGISJSAPIModules,
 } from "jimu-arcgis";
 import { looksLikeRegionYearLayerHaystack } from "../gis/feature-layer-data";
+import { agroV5Log } from "../gis/agri-debug-log";
 
 /** MapView exposes `resize()` at runtime although it is not in the public typings. */
 export type ResizableMapView = __esri.MapView & { resize?: () => void };
@@ -76,7 +77,8 @@ export async function toggleFullscreen(
       }
     }
     onToggled();
-  } catch {
+  } catch (e: unknown) {
+    agroV5Log("embeddedMap:fullscreen-blocked", { error: e instanceof Error ? e.message : String(e) });
     /* Fullscreen may be blocked by the browser or iframe policy. */
   }
 }
@@ -326,7 +328,10 @@ export async function initializeAgriMap(ctx: AgriMapInitContext): Promise<void> 
     const ds = resolveWebMapDataSource(ctx.rootDataSource, ctx.dataSourceId);
     // WebMap data source not created yet: the rootDataSource effect re-runs this.
     if (!ds) return;
-    try { await ds.ready?.(); } catch { /* WebMap loads from the portal item */ }
+    try { await ds.ready?.(); } catch (e: unknown) {
+      agroV5Log("embeddedMap:ds-ready-failed", { error: e instanceof Error ? e.message : String(e) });
+      /* WebMap loads from the portal item */
+    }
 
     const created = await createAgriMap(ctx, ds);
     if (!created) return;

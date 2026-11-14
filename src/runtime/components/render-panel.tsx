@@ -1,55 +1,23 @@
 /** @jsx jsx */
 /** @jsxFrag React.Fragment */
 import type { DashboardWidgetHost } from "../dashboard-host";
-import { getAppStore, AppMode, ReactDOM, React, jsx } from "jimu-core";
-import AgriMapIndicatorDrawer from "../AgriMapIndicatorDrawer";
-import DateIndexPanel from "../../panels/DateIndexPanel/runtime/widget";
-import PopupPanel from "../../panels/PopupPanel/runtime/widget";
+import { getAppStore, AppMode, React, jsx } from "jimu-core";
 import LocalizationPanel from "../../filter/LocalizationPanel";
 import RegionPanel from "../../panels/RegionPanel";
-import EmbeddedAgriMap from "../embedded-agri-map";
-import AgriGraffReserveSwap from "../agri-graff-reserve-swap";
-import AgriReserveLock from "../agri-reserve-lock";
-import AgriChartLoader from "../../shared/AgriChartLoader";
-import { TriangleAlert } from "lucide-react";
-import { agriNoDataLabel } from "../../shared/agriNoDataLabel";
-import PiePanel from "../../panels/PiePanel";
-import GraffPanel from "../../panels/GraffPanel";
-import BarPanel from "../../panels/BarPanel";
 import { getConnectedWebMapId, toMutableUseDataSources } from "./dashboard-config";
+import {
+  renderChartsRow,
+  renderDashboardNotice,
+  renderDateIndexPortal,
+  renderIndicatorPortal,
+  renderMapSlot,
+  renderPopupPortal,
+} from "./render-panel-parts";
 
 /** Data source type from the app config ("WEB_MAP", …), undefined if unknown. */
 function readAppDataSourceType(dataSourceId: string): string | undefined {
   const type = getAppStore().getState().appConfig?.dataSources?.[dataSourceId]?.type;
   return type ? String(type) : undefined;
-}
-
-/** Full-size message shown instead of the dashboard (design mode / no map). */
-function renderDashboardNotice(title: string, message: string) {
-  return (
-    <div
-      className="agri-dashboard-v3"
-      role="status"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: 240,
-        height: "100%",
-        padding: 24,
-        background: "#1d2031",
-        color: "#e8edf7",
-        textAlign: "center",
-      }}
-    >
-      <div>
-        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-          {title}
-        </div>
-        <div style={{ fontSize: 13, opacity: 0.78 }}>{message}</div>
-      </div>
-    </div>
-  );
 }
 
 export function render(host: DashboardWidgetHost) {
@@ -126,48 +94,17 @@ export function render(host: DashboardWidgetHost) {
     baseConfig,
   );
 
-  const indicatorPortal = mapIndicatorTarget
-    ? ReactDOM.createPortal(
-        <AgriMapIndicatorDrawer
-          overlayRef={host.indicatorOverlayRef}
-          panelRef={host.indicatorPanelRef}
-          phase={host.state.indicatorsAnimPhase}
-          onToggle={host.toggleIndicatorsDrawer}
-          indicatorProps={indicatorChildProps.indicator}
-          yieldProps={indicatorChildProps.yield}
-          unusedLandProps={indicatorChildProps.unused}
-          reserveLandProps={indicatorChildProps.reserve}
-        />,
-        mapIndicatorTarget,
-      )
-    : null;
-
-  const dateIndexPortal = mapIndicatorTarget
-    ? ReactDOM.createPortal(
-        <div
-          ref={host.dateIndexOverlayRef}
-          className="agri-dashboard-date-index-overlay agri-dashboard-indicator-overlay--compact"
-          aria-label="Selected date and index indicator"
-        >
-          <DateIndexPanel
-            {...host.childProps("date-index", baseConfig)}
-          />
-        </div>,
-        mapIndicatorTarget,
-      )
-    : null;
-
-  const popupPortal = portalTarget
-    ? ReactDOM.createPortal(
-        <div
-          className="agri-dashboard-agri-host"
-          aria-label="Polygon attribute popup"
-        >
-          <PopupPanel {...host.childProps("popup", popupConfig)} />
-        </div>,
-        portalTarget,
-      )
-    : null;
+  const indicatorPortal = renderIndicatorPortal(
+    host,
+    mapIndicatorTarget,
+    indicatorChildProps,
+  );
+  const dateIndexPortal = renderDateIndexPortal(
+    host,
+    mapIndicatorTarget,
+    baseConfig,
+  );
+  const popupPortal = renderPopupPortal(host, portalTarget, popupConfig);
 
   const rowFr = host.getRowFrValues();
 
@@ -203,98 +140,17 @@ export function render(host: DashboardWidgetHost) {
             </div>
           </aside>
 
-          <section
-            ref={host.mapSlotRef}
-            className={`agri-dashboard-map-slot ${activeMapId ? "has-map" : "is-empty"}${showMapLoader ? " is-loading" : ""}`}
-            aria-label="Map area"
-          >
-            {false && (
-              <div className="agri-dashboard-map-slot-placeholder">
-                <span
-                  className="agri-dashboard-map-slot-icon"
-                  aria-hidden="true"
-                >
-                  🗺
-                </span>
-                <span className="agri-dashboard-map-slot-label">Xarita</span>
-                <span className="agri-dashboard-map-slot-hint">
-                  Sahifaga Map widget qo&apos;shing — u avtomatik shu joyni
-                  egallaydi
-                </span>
-              </div>
-            )}
-            <EmbeddedAgriMap
-              mapWidgetId={activeMapId}
-              webMapDataSourceId={webMapDataSourceId}
-              webMapUseDataSource={webMapUseDataSource}
-              featureUseDataSources={featureUseDataSources}
-              onViewReady={() => {
-                host.embeddedMapReady = true;
-                host.setMapLoading(false);
-                host.setState({ mapError: "" });
-                host.scheduleMapSlotLayout(true);
-                host.forceUpdate();
-              }}
-              onLoadingChange={(mapLoading) => {
-                if (!mapLoading) {
-                  host.embeddedMapReady = true;
-                }
-                host.setMapLoading(mapLoading);
-              }}
-              onError={(mapError) => { host.setState({ mapError }); }}
-            />
-            {!!host.state.mapError && (
-              <div className="agri-dashboard-map-error" role="alert">
-                {host.state.mapError}
-              </div>
-            )}
-            {showMapLoader && (
-              <div
-                className="agri-dashboard-map-loading-overlay"
-                aria-live="polite"
-                aria-label="Map loading"
-              >
-                <AgriChartLoader />
-              </div>
-            )}
-            {!showMapLoader && host.state.mapNoData && (
-              <div
-                className="agri-dashboard-map-no-data"
-                role="status"
-                aria-live="polite"
-              >
-                <div className="agri-dashboard-map-no-data-card">
-                  <TriangleAlert
-                    className="agri-empty-state-icon"
-                    strokeWidth={1.7}
-                    aria-hidden="true"
-                  />
-                  <div className="agri-dashboard-map-no-data-title">
-                    {agriNoDataLabel(host.getUiLanguage())}
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
+          {renderMapSlot({
+            host,
+            activeMapId,
+            showMapLoader,
+            webMapDataSourceId,
+            webMapUseDataSource,
+            featureUseDataSources,
+          })}
         </div>
 
-        <div className="agri-dashboard-bottom-row" aria-label="Charts">
-          <div className="agri-dashboard-widget-slot">
-            <AgriReserveLock>
-              <PiePanel {...host.childProps("pie", baseConfig)} />
-            </AgriReserveLock>
-          </div>
-          <div className="agri-dashboard-widget-slot">
-            <AgriGraffReserveSwap>
-              <GraffPanel {...host.childProps("graff", baseConfig)} />
-            </AgriGraffReserveSwap>
-          </div>
-          <div className="agri-dashboard-widget-slot">
-            <AgriReserveLock>
-              <BarPanel {...host.childProps("bar", baseConfig)} />
-            </AgriReserveLock>
-          </div>
-        </div>
+        {renderChartsRow(host, baseConfig)}
       </div>
 
       {indicatorPortal}

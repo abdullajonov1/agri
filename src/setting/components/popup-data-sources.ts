@@ -14,6 +14,7 @@ import {
   shouldReplaceField,
   type SchemaFieldLike,
 } from "./popup-field-utils";
+import { agroV5Log } from "../../gis/agri-debug-log";
 
 /** Layer shape read while discovering popup fields. */
 export interface FieldBearingLayer {
@@ -65,8 +66,9 @@ export const releaseOwnedDataSources = (host: PopupSettingHost) => {
   for (const id of host.ownedDataSourceIds) {
     try {
       host.dsMgr.destroyDataSource(id);
-    } catch {
+    } catch (e: unknown) {
       // Best-effort cleanup: the data source may already be destroyed by Builder.
+      agroV5Log("popupDs:destroy-failed", { id, error: e instanceof Error ? e.message : String(e) });
     }
   }
   host.ownedDataSourceIds = [];
@@ -117,7 +119,8 @@ const ensureLayerLoaded = async (layer: FieldBearingLayer): Promise<void> => {
     if (typeof layer.load === "function" && !layer.loaded) {
       await layer.load();
     }
-  } catch {
+  } catch (e: unknown) {
+    agroV5Log("popupDs:layer-load-failed", { error: e instanceof Error ? e.message : String(e) });
     // Load failure leaves `fields` empty; the next candidate is tried instead.
   }
 };
@@ -188,7 +191,8 @@ export const extractFieldsFromDs = async (host: PopupSettingHost) => {
         if (token !== host.fieldsExtractToken) return;
         addFields(host.fieldsFromSchemaObject(schema?.fields || {}));
       }
-    } catch {
+    } catch (e: unknown) {
+      agroV5Log("popupDs:schema-fetch-failed", { error: e instanceof Error ? e.message : String(e) });
       // Schema fetch is optional; cached schema and layer fields are used next.
     }
 
@@ -201,7 +205,8 @@ export const extractFieldsFromDs = async (host: PopupSettingHost) => {
       const layer = await host.resolveLayerFromDataSource(ds);
       if (token !== host.fieldsExtractToken) return;
       addFields(host.fieldsFromLayer(layer));
-    } catch {
+    } catch (e: unknown) {
+      agroV5Log("popupDs:layer-resolve-failed", { error: e instanceof Error ? e.message : String(e) });
       // Layer resolution is optional; schema fields above are kept.
     }
   }

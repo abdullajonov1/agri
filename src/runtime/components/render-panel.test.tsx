@@ -181,4 +181,29 @@ describe("render (dashboard shell)", () => {
     expect(portal.querySelector("[data-testid=popup]")).not.toBeNull();
     portal.remove();
   });
+
+  test("only the popup-open class is set when the popup is not pinned", () => {
+    const { host } = makeHost({ mapPopupOpen: true });
+    const { container } = rtlRender(<>{render(host)}</>);
+    const root = container.querySelector(".agri-dashboard-v3") as HTMLElement;
+    expect(root.className).toBe("agri-dashboard-v3 agri-popup-open");
+  });
+
+  test("no popup classes by default and no loader or no-data card without flags", () => {
+    const { host } = makeHost();
+    const { container } = rtlRender(<>{render(host)}</>);
+    expect((container.querySelector(".agri-dashboard-v3") as HTMLElement).className).toBe("agri-dashboard-v3");
+    expect(container.querySelector(".agri-dashboard-map-loading-overlay")).toBeNull();
+    expect(container.querySelector(".agri-dashboard-map-no-data")).toBeNull();
+    expect(container.querySelector(".agri-dashboard-map-error")).toBeNull();
+  });
+
+  test("shows a not-connected notice when no web map is configured", () => {
+    const { host } = makeHost();
+    (host.props as unknown as Record<string, unknown>).useDataSources = [];
+    stubMember(host, "toPlainConfig", () => ({}));
+    rtlRender(<>{render(host)}</>);
+    expect(screen.getByRole("status").textContent).toContain("Xarita ulanmagan");
+    expect(screen.queryByTestId("map")).toBeNull();
+  });
 });
