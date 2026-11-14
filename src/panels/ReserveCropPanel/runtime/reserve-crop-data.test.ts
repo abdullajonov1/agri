@@ -20,6 +20,10 @@ const mockMappings = jest.fn();
 jest.mock("../../../gis/agri-table-data-source", () => ({
   queryAgriTuriCropMappings: (): Promise<unknown[]> => mockMappings() as Promise<unknown[]>,
 }));
+const mockLog = jest.fn();
+jest.mock("../../../gis/agri-debug-log", () => ({
+  agroV5Log: (...args: unknown[]): void => { mockLog(...args); },
+}));
 jest.mock("jimu-arcgis", () => ({ loadArcGISJSAPIModules: jest.fn() }));
 jest.mock("../../../shared/agri-access-config", () => ({
   ...jest.requireActual("../../../shared/agri-access-config"),
@@ -95,6 +99,7 @@ describe("queryReserveCropRows", () => {
     mockMappings.mockRejectedValue(new Error("down"));
     await expect(queryReserveCropRows(SCOPE)).resolves.toMatchObject([{ crop: "Boshqa", maydon: 5 }]);
     expect(mockMappings).toHaveBeenCalledTimes(1);
+    expect(mockLog).toHaveBeenCalledWith("reserveCrop:crop-names-failed", { error: "down" });
   });
 
   it("does not query without a year", async () => {

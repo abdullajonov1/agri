@@ -25,6 +25,7 @@ jest.mock("../../../../data/agri-bootstrap", () => ({
 jest.mock("../../../../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
 
 import * as helpers from "./chart-helpers";
+import { agroV5Log } from "../../../../gis/agri-debug-log";
 import type { PieWidgetHost } from "../pie-host";
 
 type PieState = PieWidgetHost["state"];
@@ -116,6 +117,17 @@ describe("theme", () => {
     localStorage.setItem("agri_v11_app_theme", "light");
     helpers.initializeTheme(host);
     expect(host.state.isDarkTheme).toBe(false);
+  });
+
+  test("initializeTheme falls back to dark and logs when storage throws", () => {
+    const host = makeHost();
+    const spy = jest.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    helpers.initializeTheme(host);
+    spy.mockRestore();
+    expect(host.state.isDarkTheme).toBe(true);
+    expect(agroV5Log).toHaveBeenCalledWith("pie:theme-init-failed", { error: "blocked" });
   });
 
   test("handleThemeToggled prefers event detail then storage", () => {

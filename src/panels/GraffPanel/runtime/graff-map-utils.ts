@@ -5,6 +5,7 @@ import Color from "esri/Color";
 import SimpleFillSymbol from "esri/symbols/SimpleFillSymbol";
 import SimpleLineSymbol from "esri/symbols/SimpleLineSymbol";
 import SimpleMarkerSymbol from "esri/symbols/SimpleMarkerSymbol";
+import { graffDebugCatch } from "./graff-log";
 
 /**
  * Builder data-source resolution may expose only a subset of regional map
@@ -54,16 +55,16 @@ export const clearMapSelectionGraphics = (
 ) => {
   try {
     view?.graphics?.removeAll?.();
-  } catch {
-    /* ignore */
+  } catch (err) {
+    graffDebugCatch("clearMapSelectionGraphics:graphics", err);
   }
   try {
     const layer = view?.map?.findLayerById?.(
       "agri-polygon-highlight",
     ) as __esri.GraphicsLayer | null | undefined;
     layer?.removeAll?.();
-  } catch {
-    /* ignore */
+  } catch (err) {
+    graffDebugCatch("clearMapSelectionGraphics:highlight", err);
   }
 };
 

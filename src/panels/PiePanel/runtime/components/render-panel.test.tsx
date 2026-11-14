@@ -21,6 +21,8 @@ jest.mock("../../../../shared/agriNoDataLabel", () => ({
   agriNoDataLabel: (lang: string): string => `NODATA-${lang}`,
 }));
 
+import { renderToStaticMarkup } from "react-dom/server";
+import * as fs from "fs";
 import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
 import { React } from "jimu-core";
 import type { PieWidgetHost } from "../pie-host";
@@ -219,5 +221,34 @@ describe("renderRadarPieChart", () => {
     const ref = React.createRef<HTMLDivElement>();
     rtlRender(renderRadarPieChart({ _pieChartRef: ref } as unknown as PieWidgetHost, []));
     expect(ref.current?.className).toBe("land-category-echart");
+  });
+});
+
+describe("Pie render static markup", () => {
+  const dump = (name: string, html: string): void => {
+    if (process.env.PIE_DUMP) fs.writeFileSync(`${process.env.PIE_DUMP}/${name}.html`, html);
+  };
+  it.each(["en", "uz_lat"] as const)("loading state (%s)", (language) => {
+    const html = renderToStaticMarkup(render(makeHost({ language, connectionStatus: "connecting" })));
+    dump(`loading-${language}`, html);
+    expect(html).toContain("land-category-loading-container");
+    expect(html).not.toContain("category-legend");
+  });
+  it.each(["en", "ru"] as const)("empty state (%s)", (language) => {
+    const html = renderToStaticMarkup(render(makeHost({ language, categoryData: { categories: [], totalValue: 0 } })));
+    dump(`empty-${language}`, html);
+    expect(html).toContain(`NODATA-${language}`);
+  });
+  it.each(["en", "uz_cyr"] as const)("data state with legend (%s)", (language) => {
+    const html = renderToStaticMarkup(render(makeHost({ language, selectedCategories: ["wheat", "corn"] })));
+    dump(`data-${language}`, html);
+    expect(html).toContain("legend-item-selected");
+    expect(html).toContain("land-category-pie-center-label--multi");
+    expect(html).toContain("Name corn");
+  });
+  it("refresh state dims the legend", () => {
+    const html = renderToStaticMarkup(render(makeHost({ loading: true })));
+    dump("refresh-en", html);
+    expect(html).toContain("opacity:0.35");
   });
 });

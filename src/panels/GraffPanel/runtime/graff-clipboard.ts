@@ -1,6 +1,8 @@
 /**
  * Clipboard helper for GraffPanel table rows (no widget state).
  */
+import { graffDebugCatch } from "./graff-log";
+
 export const copyUniqueIdToClipboard = async (raw: string): Promise<boolean> => {
   const value = String(raw || "").trim();
   if (!value) return false;
@@ -19,7 +21,8 @@ export const copyUniqueIdToClipboard = async (raw: string): Promise<boolean> => 
     const ok = document.execCommand("copy");
     document.body.removeChild(textarea);
     return ok;
-  } catch {
+  } catch (err) {
+    graffDebugCatch("copyUniqueId", err);
     return false;
   }
 };

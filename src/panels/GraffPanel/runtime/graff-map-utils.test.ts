@@ -9,6 +9,9 @@ jest.mock("esri/Color", () => ({
   },
 }));
 
+jest.mock("./graff-log", () => ({ graffLog: jest.fn(), graffDebugCatch: jest.fn() }));
+
+import { graffDebugCatch } from "./graff-log";
 import {
   buildSelectionSymbol,
   clearMapSelectionGraphics,
@@ -79,6 +82,8 @@ describe("clearMapSelectionGraphics", () => {
       },
     } as unknown as __esri.MapView;
     expect(() => clearMapSelectionGraphics(view)).not.toThrow();
+    expect(graffDebugCatch).toHaveBeenCalledWith("clearMapSelectionGraphics:graphics", expect.any(Error));
+    expect(graffDebugCatch).toHaveBeenCalledWith("clearMapSelectionGraphics:highlight", expect.any(Error));
     expect(() => clearMapSelectionGraphics(null)).not.toThrow();
     expect(() => clearMapSelectionGraphics()).not.toThrow();
   });

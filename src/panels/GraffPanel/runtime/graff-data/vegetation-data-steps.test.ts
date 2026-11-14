@@ -9,7 +9,12 @@ jest.mock("../../../../gis/agri-polygon-api-source", () => ({
 jest.mock("../../../../store/agri-dashboard-store", () => ({ patchDashboardPack: jest.fn() }));
 jest.mock("../../../../data/agri-stats-store", () => ({ getGraffPolygonSeriesCached: jest.fn() }));
 
-import { isRefineNoop, scopeRowsToAvailableDates, toVegetationIndexRows } from "./vegetation-data-steps";
+import {
+  isRefineNoop,
+  isVegetationIndexRow,
+  scopeRowsToAvailableDates,
+  toVegetationIndexRows,
+} from "./vegetation-data-steps";
 import type { VegetationIndex } from "../graff-state";
 
 const row = (raster_date: string): VegetationIndex => ({ raster_date, ndvi: 0.5 }) as VegetationIndex;
@@ -49,9 +54,37 @@ describe("isRefineNoop", () => {
   });
 });
 
+describe("isVegetationIndexRow", () => {
+  test("accepts any object row, including epoch-number raster_date from ArcGIS", () => {
+    expect(isVegetationIndexRow({ raster_date: "2024-05-01", ndvi: 0.4 })).toBe(true);
+    expect(isVegetationIndexRow({ raster_date: 1714521600000, ndvi: 0.4 })).toBe(true);
+    expect(isVegetationIndexRow({ ndvi: 0.4 })).toBe(true);
+  });
+
+  test("rejects non-objects and nullish values", () => {
+    expect(isVegetationIndexRow(null)).toBe(false);
+    expect(isVegetationIndexRow(undefined)).toBe(false);
+    expect(isVegetationIndexRow("2024-05-01")).toBe(false);
+  });
+});
+
 describe("toVegetationIndexRows", () => {
   test("returns the same rows typed as chart rows", () => {
     const rows = [{ raster_date: "2024-05-01", ndvi: 0.4 }];
     expect(toVegetationIndexRows(rows)).toEqual(rows);
+  });
+
+  test("keeps every object row (same identity and order), drops only non-objects", () => {
+    const first = { raster_date: "2024-05-02", ndvi: 0.3 };
+    const epoch = { raster_date: 1714521600000, ndvi: 0.5 };
+    const second = { raster_date: "2024-04-01", ndvi: 0.6 };
+    const out = toVegetationIndexRows([first, null, epoch, second, 42]);
+    expect(out).toEqual([first, epoch, second]);
+    expect(out[0]).toBe(first);
+    expect(out[1]).toBe(epoch);
+  });
+
+  test("returns an empty array for empty input", () => {
+    expect(toVegetationIndexRows([])).toEqual([]);
   });
 });

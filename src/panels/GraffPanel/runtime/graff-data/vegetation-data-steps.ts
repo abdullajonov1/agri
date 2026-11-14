@@ -8,7 +8,6 @@ import {
   resolveExportImageWithDateWalk,
   getExportImageSeasonMonths,
 } from "../../../../gis/agri-polygon-api-source";
-import type { VegetationPolygonSeriesRow } from "../../../../gis/agri-vegetation-data-source";
 import { patchDashboardPack } from "../../../../store/agri-dashboard-store";
 import type { VegetationIndex } from "../widget";
 import { getGraffPolygonSeriesCached } from "../../../../data/agri-stats-store";
@@ -44,12 +43,19 @@ interface WalkHit {
 }
 
 /**
+ * FeatureServer rows are attribute bags; `raster_date` may arrive as a string
+ * or as an epoch number (ArcGIS date field), and downstream date resolution
+ * handles both. Keep every object row — only non-objects are dropped.
+ */
+export const isVegetationIndexRow = (value: unknown): value is VegetationIndex =>
+  typeof value === "object" && value !== null;
+
+/**
  * FeatureServer rows are untyped attribute bags that carry the index fields;
  * this is the single place they are narrowed to the chart row shape.
  */
-export const toVegetationIndexRows = (
-  rows: readonly VegetationPolygonSeriesRow[],
-): VegetationIndex[] => rows as readonly unknown[] as VegetationIndex[];
+export const toVegetationIndexRows = (rows: readonly unknown[]): VegetationIndex[] =>
+  rows.filter(isVegetationIndexRow);
 
 /** Keep rows whose date resolves onto an available date; rewrite to that date. */
 export const scopeRowsToAvailableDates = (

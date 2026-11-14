@@ -1,4 +1,7 @@
 import { copyUniqueIdToClipboard } from "./graff-clipboard";
+import { graffDebugCatch } from "./graff-log";
+
+jest.mock("./graff-log", () => ({ graffLog: jest.fn(), graffDebugCatch: jest.fn() }));
 
 type ExecCommandHolder = { execCommand: (cmd: string) => boolean };
 
@@ -35,5 +38,6 @@ describe("copyUniqueIdToClipboard", () => {
     const writeText = jest.fn((): Promise<void> => Promise.reject(new Error("denied")));
     setClipboard({ writeText });
     await expect(copyUniqueIdToClipboard("id1")).resolves.toBe(false);
+    expect(graffDebugCatch).toHaveBeenCalledWith("copyUniqueId", expect.any(Error));
   });
 });

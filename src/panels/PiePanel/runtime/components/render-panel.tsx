@@ -1,15 +1,19 @@
 import type { PieChartDatum, PieWidgetHost } from "../pie-host";
-import type { CssVarStyle } from "../../../panel-filter-detail";
 import { React, DataSourceComponent } from "jimu-core";
 
 import { JimuMapViewComponent } from "jimu-arcgis";
-import { TriangleAlert } from "lucide-react";
-import { Button } from "jimu-ui";
 import AgriChartLoader from "../../../../shared/AgriChartLoader";
-import { agriNoDataLabel } from "../../../../shared/agriNoDataLabel";
 import { areaUnitLabel } from "../../../../shared/agri-area-unit";
 import { pickLabel } from "../../../../shared/agri-i18n";
 import { CROP_TYPE_TITLE } from "../../../panel-messages";
+import {
+  renderBlockingLoader,
+  renderFetchError,
+  renderLegend,
+  renderMapFailure,
+  renderNoData,
+  renderPieCenter,
+} from "./render-panel-parts";
 
 export const renderRadarPieChart = (host: PieWidgetHost, _chartData: PieChartDatum[], _containerWidth: number = 300, _containerHeight: number = 300): JSX.Element => {
   return (
@@ -70,15 +74,6 @@ export function render(host: PieWidgetHost) {
     { statusIndicator = "failed"; }
 
   const showDebugInfo = false; // ✅ Disabled debug panel
-
-  const formatAreaValue = (value: number) => {
-    const safe = Number.isFinite(value) ? value : 0;
-    const digits = safe >= 100 ? 0 : safe >= 10 ? 1 : 2;
-    return safe.toLocaleString("ru-RU", {
-      maximumFractionDigits: digits,
-      minimumFractionDigits: 0,
-    }).replace(/,/g, ".");
-  };
 
   const sliceInteractive = !!(lockedViloyat || viloyat || "").trim();
   const isIpadLayout = host.isIpadLayout();
@@ -172,40 +167,13 @@ export function render(host: PieWidgetHost) {
         </div>
 
         {mapLoadingStatus === "failed" && connectionStatus !== "connected" ? (
-          <div className="land-category-error">
-            <TriangleAlert className="agri-empty-state-icon" strokeWidth={1.7} aria-hidden="true" />
-            <p>
-              {error || "Харитага уланишда хатолик. Қайта уриниб кўринг."}
-            </p>
-            <Button
-              onClick={host.retryMapConnection}
-              type="primary"
-              size="sm"
-            >
-              Қайта уланиш
-            </Button>
-          </div>
+          renderMapFailure(host, error)
         ) : error ? (
-          <div className="land-category-error">
-            <TriangleAlert className="agri-empty-state-icon" strokeWidth={1.7} aria-hidden="true" />
-            <p>{error}</p>
-            <Button
-              onClick={() => { host.fetchCategoryData(); }}
-              type="primary"
-              size="sm"
-            >
-              Қайта уриниш
-            </Button>
-          </div>
+          renderFetchError(host, error)
         ) : showBlockingLoader ? (
-          <div className="land-category-loading-container">
-            <AgriChartLoader />
-          </div>
+          renderBlockingLoader()
         ) : showNoData ? (
-          <div className="land-category-no-data">
-            <TriangleAlert className="agri-empty-state-icon" strokeWidth={1.7} aria-hidden="true" />
-            <h3>{agriNoDataLabel(language)}</h3>
-          </div>
+          renderNoData(language)
         ) : (
           <div
             className={`land-category-main-content${
@@ -220,93 +188,22 @@ export function render(host: PieWidgetHost) {
             >
               <div className="land-category-echart-stage">
               {host.renderRadarPieChart(chartData, 400, 400)}
-              {!showRefreshLoader ? (
-                (() => {
-                  const center = host.getPieCenterContent(chartData);
-                  const isMultiLabel =
-                    selectedCategories.length > 1 &&
-                    center.label !== host.getCenterAllLabel();
-                  return (
-                    <div className="land-category-pie-center" aria-hidden="true">
-                      {center.showPercent ? (
-                        <p className="land-category-pie-center-value">
-                          {host.formatCenterPercent(center.percent)}
-                        </p>
-                      ) : null}
-                      <p className="land-category-pie-center-area">
-                        {host.formatCenterArea(center.area)}
-                      </p>
-                      <p
-                        key={center.label}
-                        title={center.label}
-                        className={`land-category-pie-center-label land-category-pie-center-label--muted land-category-pie-center-line--enter${
-                          isMultiLabel
-                            ? " land-category-pie-center-label--multi"
-                            : ""
-                        }`}
-                      >
-                        {center.label}
-                      </p>
-                    </div>
-                  );
-                })()
-              ) : null}
+              {!showRefreshLoader
+                ? renderPieCenter(host, chartData, selectedCategories)
+                : null}
               </div>
             </div>
 
-            {isIpadLayout ? null : (
-            <div
-              className="category-legend"
-              style={{
-                // Always allow scroll; only clicks are gated by sliceInteractive.
-                pointerEvents: showRefreshLoader ? "none" : "auto",
-                opacity: showRefreshLoader ? 0.35 : 1,
-              }}
-              aria-disabled={showRefreshLoader}
-            >
-              <div className="category-legend-inner">
-              {chartData.map((entry, index) => {
-                const accentColor = host.getCropColor(
-                  entry.rawKey || entry.name,
-                  index,
-                );
-
-                return (
-                  <button
-                    type="button"
-                    key={entry.rawKey || entry.name}
-                    className={`legend-item ${selectedCategories.some((selected) => host.normalizeName(selected) === host.normalizeName(entry.rawKey || entry.name)) ? "legend-item-selected" : ""}`}
-                    onClick={() =>
-                      { sliceInteractive &&
-                      host.handleSliceClick(entry, index); }
-                    }
-                    disabled={!sliceInteractive}
-                    style={
-                      {
-                        cursor: sliceInteractive ? "pointer" : "default",
-                        pointerEvents: sliceInteractive ? "auto" : "none",
-                        "--legend-accent": accentColor,
-                      } as React.CSSProperties & CssVarStyle
-                    }
-                  >
-                    <div
-                      className="legend-color"
-                      style={{ backgroundColor: accentColor }}
-                    />
-                    <span className="legend-label" title={entry.name}>
-                      {entry.name}
-                    </span>
-                    <span className="legend-value">
-                      <span className="legend-area-value">
-                        {`${formatAreaValue(Number(entry.value) || 0)} ${areaUnit}`}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-              </div>
-            </div>
-            )}
+            {isIpadLayout
+              ? null
+              : renderLegend({
+                  host,
+                  chartData,
+                  selectedCategories,
+                  sliceInteractive,
+                  showRefreshLoader,
+                  areaUnit,
+                })}
           </div>
         )}
       </div>

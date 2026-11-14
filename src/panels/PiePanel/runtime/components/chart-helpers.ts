@@ -56,7 +56,8 @@ export const initializeTheme = (host: PieWidgetHost) => {
     const isDarkTheme =
       savedTheme !== null ? savedTheme === "dark" : true;
     host.setState({ isDarkTheme });
-  } catch {
+  } catch (err) {
+    agroV5Log("pie:theme-init-failed", { error: errorMessage(err) });
     host.setState({ isDarkTheme: true });
   }
 };
@@ -73,7 +74,8 @@ export const handleThemeToggled = (host: PieWidgetHost, event: Event) => {
     const isDarkTheme =
       savedTheme !== null ? savedTheme === "dark" : true;
     host.setState({ isDarkTheme });
-  } catch {
+  } catch (err) {
+    agroV5Log("pie:theme-toggle-failed", { error: errorMessage(err) });
     host.setState({ isDarkTheme: true });
   }
 };
