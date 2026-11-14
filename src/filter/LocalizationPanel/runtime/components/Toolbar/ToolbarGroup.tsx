@@ -1,7 +1,9 @@
 import { React } from "jimu-core";
 import ReactDOM from "react-dom";
 import { getAccountDisplayInfo } from "../../../../../shared/getAccountDisplayInfo";
+import { pickLabel } from "../../../../../shared/agri-i18n";
 import type { GeoWidgetState } from "../../widget";
+import { TOOLBAR_GROUP_MESSAGES } from "./toolbar-group-messages";
 import {
   BellIcon,
   CalendarIcon,
@@ -33,35 +35,13 @@ export type ToolbarGroupProps = Pick<
 export const ToolbarGroup = (props: ToolbarGroupProps) => {
   const { openToolbarMenu, language, isDarkTheme, connectionStatus } = props;
 
-  const yilLabel =
-    language === "en" ? "Year" : language === "ru" ? "Год" : language === "uz_lat" ? "Yil" : "Йил";
-
-  const indexInfoLabel =
-    language === "en"
-      ? "About indices"
-      : language === "ru"
-        ? "Инфо про индексы"
-      : language === "uz_lat"
-        ? "Indekslar haqida"
-        : "Индекслар ҳақида";
-
-  const langLabel =
-    language === "en" ? "Language" : language === "ru" ? "Язык" : language === "uz_lat" ? "Til" : "Тил";
-
-  const themeLabel =
-    language === "en" ? "Theme" : language === "ru" ? "Тема" : language === "uz_lat" ? "Tema" : "Тема";
-
-  const logoutLabel =
-    language === "en" ? "Log out" : language === "ru" ? "Выйти" : language === "uz_lat" ? "Chiqish" : "Чиқиш";
-
-  const excelLabel =
-    language === "en"
-      ? "Download Excel report"
-      : language === "ru"
-        ? "Скачать Excel-отчёт"
-        : language === "uz_lat"
-          ? "Excel hisobotni yuklash"
-          : "Excel ҳисоботни юклаш";
+  const yilLabel = pickLabel(TOOLBAR_GROUP_MESSAGES.year, language);
+  const indexInfoLabel = pickLabel(TOOLBAR_GROUP_MESSAGES.indexInfo, language);
+  const langLabel = pickLabel(TOOLBAR_GROUP_MESSAGES.language, language);
+  const themeLabel = pickLabel(TOOLBAR_GROUP_MESSAGES.theme, language);
+  const logoutLabel = pickLabel(TOOLBAR_GROUP_MESSAGES.logout, language);
+  const excelLabel = pickLabel(TOOLBAR_GROUP_MESSAGES.excel, language);
+  const notificationsLabel = pickLabel(TOOLBAR_GROUP_MESSAGES.notifications, language);
 
   return (
     <div className="agri-v20-toolbar-group">
@@ -87,24 +67,8 @@ export const ToolbarGroup = (props: ToolbarGroupProps) => {
           type="button"
           className={`agri-v20-toolbar-btn ${openToolbarMenu === "notifications" ? "is-active" : ""}`}
           onClick={() => { props.toggleToolbarMenu("notifications"); }}
-          data-tooltip={
-            language === "en"
-              ? "Notifications"
-              : language === "ru"
-                ? "Уведомления"
-                : language === "uz_lat"
-                  ? "Bildirishnomalar"
-                  : "Билдиришномалар"
-          }
-          aria-label={
-            language === "en"
-              ? "Notifications"
-              : language === "ru"
-                ? "Уведомления"
-                : language === "uz_lat"
-                  ? "Bildirishnomalar"
-                  : "Билдиришномалар"
-          }
+          data-tooltip={notificationsLabel}
+          aria-label={notificationsLabel}
           aria-pressed={openToolbarMenu === "notifications"}
         >
           <BellIcon />

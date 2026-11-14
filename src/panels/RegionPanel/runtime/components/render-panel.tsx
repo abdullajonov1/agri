@@ -10,6 +10,18 @@ import { Button } from "jimu-ui";
 import { agriNoDataLabel } from "../../../../shared/agriNoDataLabel";
 import { AgriRegionBarChart } from "../AgriRegionBarChart";
 import { translateAgriPlaceForDisplay } from "../../../../shared/agri-place-display";
+import { pickLabel } from "../../../../shared/agri-i18n";
+import {
+  BACK_BUTTON,
+  BREADCRUMB_BY_DISTRICTS,
+  BREADCRUMB_BY_REGIONS,
+  COUNT_FILTER_LABEL,
+  MAP_ERROR_FALLBACK,
+  RETRY_BUTTON,
+  SORT_ASCENDING,
+  SORT_DESCENDING,
+  UNIT_LABEL,
+} from "./render-panel-messages";
 
 function translateForDisplay(
   text: string,
@@ -82,13 +94,7 @@ export function render(host: RegionWidgetHost) {
 
   const breadcrumb =
     currentView === "viloyat"
-      ? language === "en"
-        ? "By regions"
-        : language === "ru"
-          ? "Статистика по областям"
-          : language === "uz_lat"
-            ? "Viloyatlar kesimida"
-            : "Вилоят кесимида"
+      ? pickLabel(BREADCRUMB_BY_REGIONS, language)
       : `${translateForDisplay(
           (selectedViloyatForDrillDown ?? "").replace(
             /\s*viloyat(?:i)?$/i,
@@ -96,17 +102,9 @@ export function render(host: RegionWidgetHost) {
           ),
           language,
           "region",
-        )} - ${
-          language === "en"
-            ? "by districts"
-            : language === "ru"
-            ? "по районам"
-            : language === "uz_lat"
-              ? "tumanlar kesimida"
-              : "туманлар кесимида"
-        }`;
+        )} - ${pickLabel(BREADCRUMB_BY_DISTRICTS, language)}`;
 
-  const unitLabel = language === "en" ? "ha" : language === "uz_lat" ? "ga" : "га";
+  const unitLabel = pickLabel(UNIT_LABEL, language);
 
   // Scale bars to the largest row: max maydon = 100% of the track.
   // (Previously axis was inflated for value-label reserve, leaving a large
@@ -119,55 +117,21 @@ export function render(host: RegionWidgetHost) {
 
   const chartViewKey = `${currentView}:${selectedViloyatForDrillDown ?? ""}:${sortMode}:${effectiveDisplayCount}`;
 
-  const countFilterLabel =
-    language === "en"
-      ? "Row count"
-      : language === "ru"
-      ? "Количество строк"
-      : language === "uz_lat"
-        ? "Qatorlar soni"
-        : "Қаторлар сони";
+  const countFilterLabel = pickLabel(COUNT_FILTER_LABEL, language);
 
-  const sortTitle =
-    sortMode === "value_asc"
-      ? language === "en"
-        ? "Ascending"
-        : language === "ru"
-        ? "По возрастанию"
-        : language === "uz_lat"
-          ? "O'sish"
-          : "Ўсиш"
-      : language === "en"
-        ? "Descending"
-        : language === "ru"
-        ? "По убыванию"
-        : language === "uz_lat"
-          ? "Kamayish"
-          : "Камайиш";
+  const sortTitle = pickLabel(
+    sortMode === "value_asc" ? SORT_ASCENDING : SORT_DESCENDING,
+    language,
+  );
 
-  const backButtonText =
-    language === "en" ? "Back" : language === "ru" ? "Назад" : language === "uz_lat" ? "Orqaga" : "Орқага";
+  const backButtonText = pickLabel(BACK_BUTTON, language);
 
   const showBackButton =
     currentView === "tuman" || !!selectedRegion?.trim();
 
-  const retryButtonText =
-    language === "en"
-      ? "Reload"
-      : language === "ru"
-      ? "Перезагрузить"
-      : language === "uz_lat"
-        ? "Qayta yuklash"
-        : "Қайта юкла";
+  const retryButtonText = pickLabel(RETRY_BUTTON, language);
 
-  const mapErrorFallback =
-    language === "en"
-      ? "Could not connect to the map."
-      : language === "ru"
-      ? "Не удалось подключиться к карте."
-      : language === "uz_lat"
-        ? "Xaritaga ulana olmadik."
-        : "Харитага улана олмадик.";
+  const mapErrorFallback = pickLabel(MAP_ERROR_FALLBACK, language);
 
   return (
     <div

@@ -165,3 +165,103 @@ describe("RegionPanel render", () => {
     expect(card.getAttribute("data-region-size")).toBe("lg");
   });
 });
+
+describe("RegionPanel render labels per language", () => {
+  type Lang = AgriRegionState["language"];
+  const EXPECTED: Record<
+    string,
+    {
+      viloyat: string;
+      tumanSuffix: string;
+      unit: string;
+      asc: string;
+      desc: string;
+      back: string;
+      count: string;
+      retry: string;
+      fallback: string;
+    }
+  > = {
+    en: {
+      viloyat: "By regions",
+      tumanSuffix: "by districts",
+      unit: "ha",
+      asc: "Ascending",
+      desc: "Descending",
+      back: "Back",
+      count: "Row count",
+      retry: "Reload",
+      fallback: "Could not connect to the map.",
+    },
+    ru: {
+      viloyat: "Статистика по областям",
+      tumanSuffix: "по районам",
+      unit: "га",
+      asc: "По возрастанию",
+      desc: "По убыванию",
+      back: "Назад",
+      count: "Количество строк",
+      retry: "Перезагрузить",
+      fallback: "Не удалось подключиться к карте.",
+    },
+    uz_lat: {
+      viloyat: "Viloyatlar kesimida",
+      tumanSuffix: "tumanlar kesimida",
+      unit: "ga",
+      asc: "O'sish",
+      desc: "Kamayish",
+      back: "Orqaga",
+      count: "Qatorlar soni",
+      retry: "Qayta yuklash",
+      fallback: "Xaritaga ulana olmadik.",
+    },
+    uz_cyr: {
+      viloyat: "Вилоят кесимида",
+      tumanSuffix: "туманлар кесимида",
+      unit: "га",
+      asc: "Ўсиш",
+      desc: "Камайиш",
+      back: "Орқага",
+      count: "Қаторлар сони",
+      retry: "Қайта юкла",
+      fallback: "Харитага улана олмадик.",
+    },
+  };
+
+  it.each(Object.keys(EXPECTED))("renders exact viloyat-view text in %s", (lang) => {
+    const e = EXPECTED[lang];
+    const { container } = mount({ language: lang as Lang });
+    expect(container.querySelector(".agri-v11-regional-stats-header-title")?.textContent).toBe(e.viloyat);
+    expect(container.textContent).toContain(e.unit);
+    expect(container.querySelector(".agri-v11-regional-stats-sort-button")?.getAttribute("aria-label")).toBe(e.desc);
+    expect(container.querySelector(".agri-v11-regional-stats-sort-button")?.getAttribute("title")).toBe(e.desc);
+  });
+
+  it.each(Object.keys(EXPECTED))("renders exact tuman-view text in %s", (lang) => {
+    const e = EXPECTED[lang];
+    const { container } = mount({
+      language: lang as Lang,
+      currentView: "tuman",
+      selectedViloyatForDrillDown: "Andijon viloyati",
+      sortMode: "value_asc",
+    });
+    expect(container.querySelector(".agri-v11-regional-stats-header-title")?.textContent).toBe(
+      `Andijon|${lang}|region - ${e.tumanSuffix}`,
+    );
+    const sort = container.querySelector(".agri-v11-regional-stats-sort-button");
+    expect(sort?.getAttribute("aria-label")).toBe(e.asc);
+    expect(sort?.getAttribute("title")).toBe(e.asc);
+    const back = container.querySelector(".agri-v11-regional-stats-back-button");
+    expect(back?.getAttribute("aria-label")).toBe(e.back);
+    expect(back?.getAttribute("title")).toBe(e.back);
+    expect(container.querySelector("[role=listbox]")?.getAttribute("aria-label")).toBe(e.count);
+  });
+
+  it.each(Object.keys(EXPECTED))("renders exact error texts in %s", (lang) => {
+    const e = EXPECTED[lang];
+    const failed = mount({ language: lang as Lang, connectionStatus: "failed" });
+    expect(failed.container.querySelector(".agri-v11-regional-stats-error p")?.textContent).toBe(e.fallback);
+    const errored = mount({ language: lang as Lang, regionalError: "Boom" });
+    expect(errored.container.querySelector(".agri-v11-regional-stats-error button")?.textContent).toBe(e.retry);
+  });
+});
