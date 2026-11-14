@@ -17,6 +17,12 @@ export type ExportImagePriority = "high" | "low";
 export const MAX_ACTIVE_EXPORT_REQUESTS = 2;
 /** Queued hover prefetches kept; older ones are dropped. */
 const MAX_QUEUED_LOW = 1;
+/**
+ * Hover prefetch may hold at most this many slots, so a "high" request
+ * always has a free slot. A cold raster can take ~10 s on the server; two
+ * cold hover prefetches must never make the clicked field wait for a slot.
+ */
+const MAX_ACTIVE_LOW = 1;
 
 /** Rejection for a queued low-priority request replaced by a newer one. */
 export class ExportImageSupersededError extends Error {
@@ -30,19 +36,34 @@ interface LaneJob {
   key: string;
   start: () => void;
   drop: () => void;
+  isLow: boolean;
 }
 
 let active = 0;
+let activeLow = 0;
 let highQueue: readonly LaneJob[] = [];
 let lowQueue: readonly LaneJob[] = [];
 
+const takeNext = (): LaneJob | null => {
+  if (highQueue.length) {
+    const [next, ...rest] = highQueue;
+    highQueue = rest;
+    return next;
+  }
+  if (lowQueue.length && activeLow < MAX_ACTIVE_LOW) {
+    const [next, ...rest] = lowQueue;
+    lowQueue = rest;
+    return next;
+  }
+  return null;
+};
+
 const pump = (): void => {
   while (active < MAX_ACTIVE_EXPORT_REQUESTS) {
-    const next = highQueue[0] ?? lowQueue[0];
+    const next = takeNext();
     if (!next) return;
-    if (highQueue[0] === next) highQueue = highQueue.slice(1);
-    else lowQueue = lowQueue.slice(1);
     active += 1;
+    if (next.isLow) activeLow += 1;
     next.start();
   }
 };
@@ -64,11 +85,14 @@ export function scheduleExportImage<T>(
   return new Promise<T>((resolve, reject) => {
     const job: LaneJob = {
       key,
+      isLow: priority === "low",
       start: () => {
+        const ranLow = job.isLow;
         task()
           .then(resolve, reject)
           .finally(() => {
             active = Math.max(0, active - 1);
+            if (ranLow) activeLow = Math.max(0, activeLow - 1);
             pump();
           });
       },
@@ -85,6 +109,7 @@ export function promoteExportImage(key: string): void {
   const job = lowQueue.find((j) => j.key === key);
   if (!job) return;
   lowQueue = lowQueue.filter((j) => j !== job);
+  job.isLow = false;
   highQueue = [...highQueue, job];
   pump();
 }
@@ -92,6 +117,7 @@ export function promoteExportImage(key: string): void {
 /** Test helper: forget all queued work and counters. */
 export function resetExportImageLane(): void {
   active = 0;
+  activeLow = 0;
   highQueue = [];
   lowQueue = [];
 }

@@ -76,6 +76,22 @@ describe("export image lane", () => {
     expect(started).toContain("hover");
   });
 
+  test("hover prefetch holds at most one slot, so a click starts at once", async () => {
+    const slowHover = deferred();
+    const started: string[] = [];
+    void scheduleExportImage("hover1", "low", () => { started.push("hover1"); return slowHover.promise; });
+    void scheduleExportImage("hover2", "low", () => { started.push("hover2"); return Promise.resolve("h2"); });
+    await flush();
+    expect(started).toEqual(["hover1"]);
+    void scheduleExportImage("click", "high", () => { started.push("click"); return Promise.resolve("c"); });
+    await flush();
+    // hover2 waits: hover1 still holds the only low-priority slot.
+    expect(started).toEqual(["hover1", "click"]);
+    slowHover.resolve("h1");
+    await flush();
+    expect(started).toEqual(["hover1", "click", "hover2"]);
+  });
+
   test("a failing task frees its slot", async () => {
     const started: string[] = [];
     void scheduleExportImage("a", "high", () => Promise.reject(new Error("boom"))).catch(() => undefined);
