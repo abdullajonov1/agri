@@ -17,7 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const widgetRoot = path.resolve(__dirname, "..");
 const agriSqlPath = path.join(widgetRoot, "src", "shared", "agri-sql.ts");
 // Agro_widgetV5 → Agri3 → widgets → your-extensions → client
-const clientRoot = path.resolve(widgetRoot, "..", "..", "..", "..");
+const clientRoot = path.resolve(widgetRoot, "..", "..", ".."); // agri-main -> widgets -> your-extensions -> client
 const require = createRequire(path.join(clientRoot, "package.json"));
 const ts = require("typescript");
 

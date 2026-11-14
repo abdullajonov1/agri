@@ -12,7 +12,7 @@ import os from "node:os";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const widgetRoot = path.resolve(__dirname, "..");
-const clientRoot = path.resolve(widgetRoot, "..", "..", "..", "..");
+const clientRoot = path.resolve(widgetRoot, "..", "..", ".."); // agri-main -> widgets -> your-extensions -> client
 const require = createRequire(path.join(clientRoot, "package.json"));
 const ts = require("typescript");
 
@@ -43,7 +43,7 @@ function transpileTo(fileRel, outName) {
       `from ${JSON.stringify(pathToFileURL(stubJimu).href)}`,
     )
     .replace(
-      /from\s+["']\.\.\/shared\/agri-sql["']/g,
+      /from\s+["'](?:\.\.\/shared\/|\.\/)agri-sql["']/g,
       `from ${JSON.stringify(pathToFileURL(path.join(tmpDir, "agri-sql.mjs")).href)}`,
     )
     .replace(
