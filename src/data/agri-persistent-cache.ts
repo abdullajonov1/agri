@@ -8,6 +8,9 @@
  * Do NOT store huge uniqueid lists or FeatureLayer instances here.
  */
 
+import { getAppStore } from "jimu-core";
+import { agroV5Log } from "../gis/agri-debug-log";
+
 export const AGRI_PERSIST_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 const STORAGE_PREFIX = "agri_v5_pc:";
@@ -21,17 +24,50 @@ type PersistEnvelope<T> = {
   value: T;
 };
 
+/** Single console.warn site; text stays "[AgroV5] persistent cache <what>". */
+function warnCache(what: string, err: unknown): void {
+  // eslint-disable-next-line no-console
+  console.warn(`[AgroV5] persistent cache ${what}`, err);
+}
+
+function errorDetail(err: unknown): Record<string, unknown> {
+  return { error: err instanceof Error ? err.message : String(err) };
+}
+
 function storage(): Storage | null {
   try {
     if (typeof localStorage === "undefined") return null;
     return localStorage;
-  } catch {
+  } catch (err) {
+    agroV5Log("persistent cache storage unavailable", errorDetail(err));
     return null;
   }
 }
 
+const ANON_USER = "anon";
+
+/** Current Portal username (URI-encoded so it never contains ":"); never throws. */
+function userSegment(): string {
+  try {
+    const username = getAppStore().getState().user?.username;
+    return encodeURIComponent(username || ANON_USER);
+  } catch (err) {
+    agroV5Log("persistent cache user lookup failed", errorDetail(err));
+    return ANON_USER;
+  }
+}
+
 function fullKey(namespace: string, key: string): string {
-  return `${STORAGE_PREFIX}${namespace}:${key}`;
+  return `${STORAGE_PREFIX}${userSegment()}:${namespace}:${key}`;
+}
+
+/** True when a storage key belongs to the namespace, for any user. */
+function isNamespaceKey(storageKey: string, namespace: string): boolean {
+  if (!storageKey.startsWith(STORAGE_PREFIX)) return false;
+  const rest = storageKey.slice(STORAGE_PREFIX.length);
+  const sep = rest.indexOf(":");
+  if (sep < 0) return false;
+  return rest.slice(sep + 1).startsWith(`${namespace}:`);
 }
 
 function safeParse<T>(raw: string | null): PersistEnvelope<T> | null {
@@ -41,7 +77,8 @@ function safeParse<T>(raw: string | null): PersistEnvelope<T> | null {
     if (!parsed || typeof parsed !== "object") return null;
     if (typeof parsed.expiresAt !== "number") return null;
     return parsed;
-  } catch {
+  } catch (err) {
+    agroV5Log("persistent cache parse failed", errorDetail(err));
     return null;
   }
 }
@@ -65,8 +102,7 @@ export function pruneAgriPersistentCache(now = Date.now()): void {
       try {
         store.removeItem(key);
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn("[AgroV5] persistent cache prune failed", err);
+        warnCache("prune failed", err);
       }
       continue;
     }
@@ -82,8 +118,7 @@ export function pruneAgriPersistentCache(now = Date.now()): void {
       store.removeItem(meta.key);
       total -= meta.size;
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn("[AgroV5] persistent cache prune failed", err);
+      warnCache("prune failed", err);
     }
   }
 }
@@ -103,7 +138,8 @@ export function getAgriPersistentCache<T>(
       return null;
     }
     return env.value as T;
-  } catch {
+  } catch (err) {
+    agroV5Log("persistent cache read failed", errorDetail(err));
     return null;
   }
 }
@@ -126,7 +162,8 @@ export function setAgriPersistentCache<T>(
   let raw: string;
   try {
     raw = JSON.stringify(envelope);
-  } catch {
+  } catch (err) {
+    agroV5Log("persistent cache serialise failed", errorDetail(err));
     return false;
   }
   if (raw.length > MAX_ENTRY_CHARS) return false;
@@ -134,15 +171,16 @@ export function setAgriPersistentCache<T>(
     store.setItem(fk, raw);
     pruneAgriPersistentCache(now);
     return true;
-  } catch {
+  } catch (firstErr) {
+    agroV5Log("persistent cache write retry", errorDetail(firstErr));
     // Quota — prune and retry once.
     try {
       pruneAgriPersistentCache(now);
       store.setItem(fk, raw);
       return true;
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn("[AgroV5] persistent cache write failed", err);
+      warnCache("write failed", err);
+      agroV5Log("persistent cache write failed", errorDetail(err));
       return false;
     }
   }
@@ -157,23 +195,20 @@ export function removeAgriPersistentCache(
   try {
     store.removeItem(fullKey(namespace, key));
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn("[AgroV5] persistent cache remove failed", err);
+    warnCache("remove failed", err);
   }
 }
 
 export function clearAgriPersistentNamespace(namespace: string): void {
   const store = storage();
   if (!store) return;
-  const prefix = `${STORAGE_PREFIX}${namespace}:`;
   for (let i = store.length - 1; i >= 0; i--) {
     const key = store.key(i);
-    if (!key || !key.startsWith(prefix)) continue;
+    if (!key || !isNamespaceKey(key, namespace)) continue;
     try {
       store.removeItem(key);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn("[AgroV5] persistent cache namespace clear failed", err);
+      warnCache("namespace clear failed", err);
     }
   }
 }

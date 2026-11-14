@@ -1,5 +1,6 @@
 import {
   AGRI_PERSIST_TTL_MS,
+  clearAgriPersistentCache,
   clearAgriPersistentNamespace,
   getAgriPersistentCache,
   pruneAgriPersistentCache,
@@ -8,12 +9,70 @@ import {
   setAgriPersistentCache,
 } from "./agri-persistent-cache";
 
-const PREFIX = "agri_v5_pc:";
+import { agroV5Log } from "../gis/agri-debug-log";
+
+jest.mock("../gis/agri-debug-log", () => ({ agroV5Log: jest.fn() }));
+
+const mockState: { user?: { username?: string } | null; throws?: boolean } = {};
+jest.mock(
+  "jimu-core",
+  () => ({
+    getAppStore: () => {
+      if (mockState.throws) throw new Error("no store");
+      return { getState: () => ({ user: mockState.user }) };
+    },
+  }),
+  { virtual: true },
+);
+
+const PREFIX = "agri_v5_pc:alice:";
 
 describe("agri-persistent-cache", () => {
   beforeEach(() => {
-    localStorage.clear();
     jest.restoreAllMocks();
+    (agroV5Log as jest.Mock).mockClear();
+    localStorage.clear();
+    mockState.user = { username: "alice" };
+    mockState.throws = false;
+  });
+
+  describe("per-user scoping", () => {
+    test("a different user never reads another user's entries", () => {
+      setAgriPersistentCache("stats", "k", 1);
+      mockState.user = { username: "bob" };
+      expect(getAgriPersistentCache("stats", "k")).toBeNull();
+      setAgriPersistentCache("stats", "k", 2);
+      expect(localStorage.getItem("agri_v5_pc:bob:stats:k")).not.toBeNull();
+      mockState.user = { username: "alice" };
+      expect(getAgriPersistentCache("stats", "k")).toBe(1);
+    });
+
+    test("falls back to anon when no user or the store throws", () => {
+      mockState.user = null;
+      setAgriPersistentCache("stats", "k", 1);
+      expect(localStorage.getItem("agri_v5_pc:anon:stats:k")).not.toBeNull();
+      mockState.throws = true;
+      expect(getAgriPersistentCache("stats", "k")).toBe(1);
+    });
+
+    test("clearNamespace clears that namespace for every user", () => {
+      setAgriPersistentCache("a", "1", 1);
+      setAgriPersistentCache("b", "1", 2);
+      mockState.user = { username: "bob" };
+      setAgriPersistentCache("a", "1", 3);
+      clearAgriPersistentNamespace("a");
+      expect(localStorage.getItem("agri_v5_pc:alice:a:1")).toBeNull();
+      expect(localStorage.getItem("agri_v5_pc:bob:a:1")).toBeNull();
+      expect(localStorage.getItem("agri_v5_pc:alice:b:1")).not.toBeNull();
+    });
+
+    test("clearAgriPersistentCache removes all users' keys", () => {
+      setAgriPersistentCache("a", "1", 1);
+      mockState.user = { username: "bob" };
+      setAgriPersistentCache("a", "1", 3);
+      clearAgriPersistentCache();
+      expect(localStorage.length).toBe(0);
+    });
   });
 
   test("round-trips a JSON value under a namespaced key", () => {
@@ -94,6 +153,68 @@ describe("agri-persistent-cache", () => {
     clearAgriPersistentNamespace("a");
     expect(getAgriPersistentCache("a", "2")).toBeNull();
     expect(getAgriPersistentCache("b", "1")).toBe(3);
+  });
+
+  describe("failure logging", () => {
+    test("logs corrupt JSON and still returns null", () => {
+      localStorage.setItem(`${PREFIX}stats:bad`, "{not json");
+      expect(getAgriPersistentCache("stats", "bad")).toBeNull();
+      expect(agroV5Log).toHaveBeenCalledWith(
+        "persistent cache parse failed",
+        expect.any(Object),
+      );
+    });
+
+    test("logs a throwing getItem and returns null", () => {
+      jest.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+        throw new Error("denied");
+      });
+      expect(getAgriPersistentCache("stats", "k")).toBeNull();
+      expect(agroV5Log).toHaveBeenCalledWith(
+        "persistent cache read failed",
+        expect.any(Object),
+      );
+    });
+
+    test("logs unavailable storage and returns null/false", () => {
+      jest.spyOn(window, "localStorage", "get").mockImplementation(() => {
+        throw new Error("blocked");
+      });
+      expect(getAgriPersistentCache("stats", "k")).toBeNull();
+      expect(setAgriPersistentCache("stats", "k", 1)).toBe(false);
+      expect(agroV5Log).toHaveBeenCalledWith(
+        "persistent cache storage unavailable",
+        expect.any(Object),
+      );
+    });
+
+    test("warns with the same text and returns false when writes fail", () => {
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+      jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("quota");
+      });
+      expect(setAgriPersistentCache("stats", "k", 1)).toBe(false);
+      expect(warn).toHaveBeenCalledWith(
+        "[AgroV5] persistent cache write failed",
+        expect.any(Error),
+      );
+      expect(agroV5Log).toHaveBeenCalledWith(
+        "persistent cache write failed",
+        expect.any(Object),
+      );
+    });
+
+    test("warns with the same text when remove fails", () => {
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+      jest.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+        throw new Error("nope");
+      });
+      removeAgriPersistentCache("stats", "k");
+      expect(warn).toHaveBeenCalledWith(
+        "[AgroV5] persistent cache remove failed",
+        expect.any(Error),
+      );
+    });
   });
 
   describe("rememberAsync", () => {
