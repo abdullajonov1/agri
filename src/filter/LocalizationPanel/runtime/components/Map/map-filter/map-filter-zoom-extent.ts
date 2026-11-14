@@ -75,7 +75,8 @@ const querySublayerExtent = async (
     query.returnGeometry = true;
     const extent = (await detached.queryExtent(query))?.extent;
     return isEmptyMapExtent(extent) ? null : extent;
-  } catch {
+  } catch (err) {
+    debugCatch("zoom:sublayer-extent-failed", err);
     return null;
   }
 };

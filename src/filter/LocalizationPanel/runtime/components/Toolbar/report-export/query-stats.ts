@@ -1,4 +1,5 @@
 import { requireLayerLike } from "./layer-like";
+import { debugCatch } from "../../localization-log";
 import {
   queryAgriRegionDistrictMappings,
   queryAgriTuriCropMappings,
@@ -203,8 +204,9 @@ async function cropIdToReserveColumn(L: LayerLike): Promise<Map<string, string>>
     for (const row of await queryAgriTuriCropMappings()) {
       add(row.cropId, row.turi);
     }
-  } catch {
-    /* Agri_table map is optional — reserve-layer pairs still help */
+  } catch (err) {
+    // Agri_table map is optional — reserve-layer pairs still help
+    debugCatch("reportTuriCrop:agri-table-mappings-failed", err);
   }
   const turi = layerField(L, "turi");
   const cropId = layerField(L, "crop_id");
@@ -227,8 +229,9 @@ async function cropIdToReserveColumn(L: LayerLike): Promise<Map<string, string>>
         add(readStr(attrs, cropId.name), readStr(attrs, turi.name));
       }
       reportLog("reserve turi × crop_id pairs", { rows: features.length });
-    } catch {
-      /* ignore — keep whatever Agri_table provided */
+    } catch (err) {
+      // keep whatever Agri_table provided
+      debugCatch("reportTuriCrop:reserve-pairs-failed", err);
     }
   }
   return map;

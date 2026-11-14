@@ -1,5 +1,6 @@
 import type { LocalizationHost } from "../../host";
 import type { MapFilterLayerSyncHost } from "../map-host";
+import { debugCatch } from "../../localization-log";
 import { spatialWhereFromPrimarySync } from "../../../../../localization/map-filter-apply";
 import { ensureRegionYearMapImagesReady, unlockShownRegionYearFieldScales, refreshRegionYearMapExports, isMapImageOwnedLayer } from "../../../../../../gis/feature-layer-data";
 import { buildSpatialJoinWhere, queryAgriUniqueIdsForWhere } from "../../../../../../gis/agri-table-data-source";
@@ -75,8 +76,8 @@ export const revealRegionYearLayers = async (
     if (forceMapExportRefresh) {
       refreshRegionYearMapExports(host._lastShownRegionYearLayers);
     }
-  } catch {
-    /* best-effort; attribute-level data queries are unaffected */
+  } catch (err) {
+    debugCatch("revealRegionYearLayers:failed", err);
   }
   return true;
 };
@@ -87,7 +88,8 @@ const resolveSpatialWhere = async (primaryWhere: string): Promise<string> => {
   if (syncWhere != null) return syncWhere;
   try {
     return buildSpatialJoinWhere(await queryAgriUniqueIdsForWhere(primaryWhere));
-  } catch {
+  } catch (err) {
+    debugCatch("resolveSpatialWhere:failed", err);
     // While AGRI_UNIQUEID_QUERY_ENABLED=false the query returns []
     // (buildSpatialJoinWhere → "1=0") instead of reaching here.
     // On a real query failure, hide rather than leave the layer at
@@ -117,7 +119,7 @@ export const mirrorWhereOnSpatialLayers = async (
         sl.definitionExpression = spatialWhere;
       }
     });
-  } catch {
-    /* map visual sync is best-effort; data-side filtering is unaffected */
+  } catch (err) {
+    debugCatch("mirrorWhereOnSpatialLayers:failed", err);
   }
 };

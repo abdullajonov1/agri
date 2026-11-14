@@ -4,7 +4,7 @@ import type { VH_TO_NDVI_STATUS } from "../../../../../localization/vh-constants
 import { buildVhUniqueIdCacheKey } from "../../../../../localization/resolve-geo-codes";
 import { queryVegetationAvailableDates, queryVegetationUniqueIdsForStatus } from "../../../../../../gis/agri-vegetation-data-source";
 import { isVhYearSummaryScope } from "./vh-bar-prep";
-import { agriLog } from "../../localization-log";
+import { agriLog, debugCatch } from "../../localization-log";
 import { errorMessage } from "../../../../../../shared/agri-plain-object";
 
 /** Cap walk length so an empty year of dates cannot flood Network with PBF pages. */
@@ -146,7 +146,8 @@ export const resolveDateCandidates = async (
       if (host._isMounted && knownDates.length) {
         host.setState({ ndviDateOptions: knownDates });
       }
-    } catch {
+    } catch (err) {
+      debugCatch("vhBar:available-dates-failed", err);
       knownDates = [];
     }
   }
@@ -202,7 +203,8 @@ export const probeFallbackDates = async (
     }
     const fallback = buildFallbackDates(knownDates, host.state.yil, tried);
     return await probeDates(fetchIds, cropIds, fallback, districtNum, stillOk);
-  } catch {
+  } catch (err) {
+    debugCatch("vhBar:resolve-ids-failed", err);
     return { ids: [], date: null, stale: false };
   }
 };

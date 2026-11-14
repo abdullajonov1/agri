@@ -88,7 +88,8 @@ export const queryDistinctCropValues = async (
       .map((f) => featureAttributes(f)[field])
       .filter(isPresentValue)
       .map((v) => String(v));
-  } catch {
+  } catch (err) {
+    debugCatch("cropRenderer:distinct-stats-failed", err);
     try {
       const q2: __esri.QueryProperties = queryTarget.createQuery?.() ?? {};
       q2.where = where || "1=1";
@@ -101,7 +102,8 @@ export const queryDistinctCropValues = async (
         .map((f) => featureAttributes(f)[field])
         .filter(isPresentValue)
         .map((v) => String(v));
-    } catch {
+    } catch (err2) {
+      debugCatch("cropRenderer:distinct-fallback-failed", err2);
       distinctValues = [];
     }
   }
@@ -123,8 +125,8 @@ export const refreshCropLayer = (host: CropRendererHost, layer: AgriMapLayer): v
       return;
     }
     layer.refresh?.();
-  } catch {
-    /* ignore */
+  } catch (err) {
+    debugCatch("cropRenderer:refresh-failed", err);
   }
 };
 
