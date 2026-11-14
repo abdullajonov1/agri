@@ -17,5 +17,4 @@ export * from "./polygon-api/index-color";
 export * from "./polygon-api/export-image-errors";
 export * from "./polygon-api/export-image-knowledge";
 export * from "./polygon-api/export-date-pick";
-export * from "./polygon-api/tiff-decode";
 export * from "./polygon-api/export-image";

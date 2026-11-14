@@ -2,7 +2,7 @@ import type { RenderPanelHost } from "./shell-host";
 import logoImage from "../../../assets/uzcosmos logo white.svg";
 import { GraffSearchDropdown } from "../GraffSearch/GraffSearchDropdown";
 import { GraffSearchInput } from "../GraffSearch/GraffSearchInput";
-import { IndexInfoMenu } from "../Toolbar/IndexInfoMenu";
+import { IndexInfoMenuLazy } from "../Toolbar/IndexInfoMenuLazy";
 import { LanguageMenu } from "../Toolbar/LanguageMenu";
 import { NotificationsMenu } from "../Toolbar/NotificationsMenu";
 import { ToolbarGroup } from "../Toolbar/ToolbarGroup";
@@ -178,7 +178,7 @@ export function render(host: RenderPanelHost) {
               language={language}
               applyLanguage={host.applyLanguage}
             />
-            <IndexInfoMenu
+            <IndexInfoMenuLazy
               openToolbarMenu={openToolbarMenu}
               selectedIndexInfoKey={host.state.selectedIndexInfoKey}
               language={language}

@@ -35,8 +35,27 @@ import {
   syncExportImageKnowledgeFromStorage,
 } from "./export-image-knowledge";
 import { parseExportImageIndexHeaders } from "./index-color";
-import { decodeExportImageTiff } from "./tiff-decode";
 import { promoteExportImage, scheduleExportImage } from "./export-image-lane";
+
+type TiffDecodeModule = Awaited<ReturnType<typeof importTiffDecode>>;
+const importTiffDecode = () => import("./tiff-decode");
+let tiffDecodePromise: Promise<TiffDecodeModule> | null = null;
+
+/** Load the geotiff decode chunk on first use; retry once on a failed chunk load. */
+async function loadTiffDecode(): Promise<TiffDecodeModule> {
+  if (!tiffDecodePromise) {
+    tiffDecodePromise = importTiffDecode().catch(() =>
+      importTiffDecode(),
+    );
+  }
+  try {
+    return await tiffDecodePromise;
+  } catch (err: unknown) {
+    tiffDecodePromise = null;
+    agriPolygonApiLog("export-image:decoder-chunk-failed", { error: String(err) });
+    throw new Error("GeoTIFF dekoderini yuklab bo‘lmadi. Qayta urinib ko‘ring.");
+  }
+}
 
 /** Session cache: first click pays network+decode; repeats reuse the canvas. */
 const exportImageCache = new Map<string, Promise<PolygonExportImageResult>>();
@@ -291,5 +310,6 @@ async function fetchPolygonExportImageTiffUncached(
   // stretch values (RGB reverse on a 0..1 ramp often shows ~0.9 while true
   // field NDVI max is ~0.5).
   const indexHeaders = parseExportImageIndexHeaders(download.response.headers);
+  const { decodeExportImageTiff } = await loadTiffDecode();
   return decodeExportImageTiff(download.buffer, indexHeaders, params);
 }
