@@ -1,5 +1,6 @@
 /** @jsx jsx */
 import { jsx, React } from "jimu-core";
+import ReactDOM from "react-dom";
 import {
   fetchPolygonAvailableDates,
   type VegetationIndiceType,
@@ -15,6 +16,7 @@ import {
   type FieldSwipeController,
   type SwipeStatus,
 } from "./field-swipe/swipe-controller";
+import SwipeDateTags from "./field-swipe/SwipeDateTags";
 import { SWIPE_COPY, type SwipeCopy, type SwipeLanguage } from "./field-swipe/swipe-copy";
 
 export type CompareLanguage = SwipeLanguage;
@@ -26,6 +28,7 @@ interface Props {
 }
 
 const INDICES: readonly VegetationIndiceType[] = ["ndvi", "savi", "rvi", "ci", "evi", "ndre", "ndwi"];
+const DEFAULT_SWIPE_POSITION = 50;
 const POLYGON_SOURCES = ["AgriPopup", "AgriGraffWidget", "AgriGraff10", "AgriFilter"];
 
 function readRecord(event: Event): Record<string, unknown> {
@@ -163,6 +166,7 @@ export default function FieldComparePanel(props: Props): JSX.Element {
   });
   const [controller, setController] = React.useState<FieldSwipeController | null>(null);
   const [status, setStatus] = React.useState<SwipeStatus>("idle");
+  const [position, setPosition] = React.useState(DEFAULT_SWIPE_POSITION);
   const uniqueidRef = React.useRef("");
   const availableRef = React.useRef<string[]>([]);
   const indexDatesRef = React.useRef(false);
@@ -265,7 +269,10 @@ export default function FieldComparePanel(props: Props): JSX.Element {
       return undefined;
     }
     const next = createFieldSwipeController(props.view);
-    const unsubscribe = next.subscribe((state) => { setStatus(state.status); });
+    const unsubscribe = next.subscribe((state) => {
+      setStatus(state.status);
+      if (Number.isFinite(state.position)) setPosition(state.position);
+    });
     setController(next);
     return () => {
       unsubscribe();
@@ -298,8 +305,24 @@ export default function FieldComparePanel(props: Props): JSX.Element {
   const turnsOff = isActive && status !== "error" && !open;
   const buttonLabel = isActive && !open ? copy.close : copy.open;
 
+  const viewContainer = props.view?.container as HTMLElement | null | undefined;
+  const hasTags = isActive && status === "ready" && Boolean(mainDate && compareDate && viewContainer);
+
   return (
     <React.Fragment>
+      {hasTags && mainDate && compareDate && viewContainer
+        ? ReactDOM.createPortal(
+          <SwipeDateTags
+            mainDate={mainDate}
+            compareDate={compareDate}
+            position={position}
+            viewWidth={props.view?.width ?? 0}
+            mainLabel={copy.main}
+            compareLabel={copy.compare}
+          />,
+          viewContainer,
+        )
+        : null}
       <div className="agri-dashboard-compare-control">
         <button
           type="button"

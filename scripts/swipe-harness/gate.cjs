@@ -40,7 +40,7 @@ const fail = (scope, message) => failures.add(`${scope}: ${message}`)
 
 /** Static checks: sizes, text, contrast, wrapping, geometry, borders, popover. Runs inside the page. */
 function staticChecks(args) {
-  const { backdropColor, viewportName, mapHeight, scrollViewports } = args
+  const { backdropColor, viewportName, mapHeight, scrollViewports, expectTags } = args
   const out = []
   const rects = {}
   const map = document.querySelector('.harness-map')
@@ -100,7 +100,7 @@ function staticChecks(args) {
     })
     return acc
   }
-  const inScope = (el) => panelShown && panel.contains(el)
+  const inScope = (el) => (panelShown && panel.contains(el)) || !!el.closest('.agri-field-swipe-tag')
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
   const seen = new Set()
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -123,12 +123,17 @@ function staticChecks(args) {
 
   // wrapping and clipping
   const lineCount = (el) => {
-    const range = document.createRange()
-    range.selectNodeContents(el)
+    // visible text only: skip screen-reader-only labels (clipped 1px boxes)
     const tops = []
-    Array.from(range.getClientRects()).forEach((r) => {
-      if (r.width > 0 && !tops.some((t) => Math.abs(t - r.top) < 4)) tops.push(r.top)
-    })
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.parentElement && node.parentElement.closest('.agri-field-swipe-tag-sr')) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      Array.from(range.getClientRects()).forEach((r) => {
+        if (r.width > 1 && r.height > 1 && !tops.some((t) => Math.abs(t - r.top) < 4)) tops.push(r.top)
+      })
+    }
     return tops.length
   }
   const alertEl = document.querySelector('.agri-dashboard-compare-error')
@@ -160,6 +165,28 @@ function staticChecks(args) {
     inside('popover', rects.panel)
     if (stack.some((s) => hit(rects.panel, s))) out.push('popover overlaps the left button stack')
   }
+
+  // swipe date tags (active page only)
+  const tagEls = Array.from(document.querySelectorAll('.agri-field-swipe-tag'))
+  if (args.expectTags) {
+    const handle = document.querySelector('.harness-handle')
+    const handleRect = handle ? rectOf(handle) : null
+    if (!handleRect) out.push('harness handle circle missing')
+    ;['main', 'compare'].forEach((kind) => {
+      const tag = document.querySelector(`.agri-field-swipe-tag--${kind}`)
+      if (!tag || !isShown(tag)) {
+        out.push(`swipe tag ${kind} is missing or hidden`)
+        return
+      }
+      const r = rectOf(tag)
+      if (r.height > 30.5) out.push(`swipe tag ${kind} is ${r.height.toFixed(1)}px tall (>30px)`)
+      if (tag.scrollWidth > tag.clientWidth + 0.5) out.push(`swipe tag ${kind} text is clipped (scrollWidth ${tag.scrollWidth} > clientWidth ${tag.clientWidth})`)
+      if (lineCount(tag) > 1) out.push(`swipe tag ${kind} wraps to ${lineCount(tag)} lines`)
+      if (parseFloat(getComputedStyle(tag).fontSize) < 11.99) out.push(`swipe tag ${kind} text is under 12px`)
+      if (r.left < mapRect.left - 0.5 || r.top < mapRect.top - 0.5 || r.right > mapRect.right + 0.5 || r.bottom > mapRect.bottom + 0.5) out.push(`swipe tag ${kind} outside map box`)
+      if (handleRect && hit(r, handleRect)) out.push(`swipe tag ${kind} overlaps the 40px handle circle`)
+    })
+  } else if (tagEls.length > 0) out.push('swipe tags are rendered on a page that should not have them')
 
   // border / shadow duplicates, nearest decorated ancestor within scope
   const decor = (el) => {
@@ -266,7 +293,7 @@ async function runHarnessPages(browser) {
         await page.screenshot({ path: path.join(SHOTS_DIR, `${name}-${vp.name}-${theme}.png`) })
 
         for (const backdrop of BACKDROPS) {
-          const result = await page.evaluate(staticChecks, { backdropColor: backdrop.color, viewportName: vp.name, mapHeight: MAP_HEIGHT, scrollViewports: SCROLL_CHECK_VIEWPORTS })
+          const result = await page.evaluate(staticChecks, { backdropColor: backdrop.color, viewportName: vp.name, mapHeight: MAP_HEIGHT, scrollViewports: SCROLL_CHECK_VIEWPORTS, expectTags: name === 'active' })
           result.out.forEach((m) => fail(`${scope} (backdrop ${backdrop.name})`, m))
         }
 
