@@ -2,7 +2,8 @@
 import { jsx, React } from "jimu-core";
 
 export const SWIPE_TAG_MIN_SPACE = 104;
-const HANDLE_OFFSET_PX = 30;
+/** Gap between the divider line and each tag (tags sit at the top of the line, clear of the handle). */
+const LINE_GAP_PX = 8;
 const YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export function formatSwipeDate(ymd: string): string {
@@ -31,7 +32,7 @@ export default function SwipeDateTags(props: SwipeDateTagsProps): JSX.Element {
         <span
           className="agri-field-swipe-tag agri-field-swipe-tag--main"
           title={`${mainLabel}: ${mainDate}`}
-          style={{ right: `calc(${100 - position}% + ${HANDLE_OFFSET_PX}px)` }}
+          style={{ right: `calc(${100 - position}% + ${LINE_GAP_PX}px)` }}
         >
           <span className="agri-field-swipe-tag-sr">{mainLabel}: </span>
           {formatSwipeDate(mainDate)}
@@ -41,7 +42,7 @@ export default function SwipeDateTags(props: SwipeDateTagsProps): JSX.Element {
         <span
           className="agri-field-swipe-tag agri-field-swipe-tag--compare"
           title={`${compareLabel}: ${compareDate}`}
-          style={{ left: `calc(${position}% + ${HANDLE_OFFSET_PX}px)` }}
+          style={{ left: `calc(${position}% + ${LINE_GAP_PX}px)` }}
         >
           <span className="agri-field-swipe-tag-sr">{compareLabel}: </span>
           {formatSwipeDate(compareDate)}

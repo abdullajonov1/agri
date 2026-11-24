@@ -26,8 +26,8 @@ describe("SwipeDateTags", () => {
     expect(SWIPE_TAG_MIN_SPACE).toBe(104);
     expect(main(container)?.textContent).toBe("Main: 12.04.2026");
     expect(cmp(container)?.textContent).toBe("Compare: 28.04.2026");
-    expect(main(container)?.style.right).toBe("calc(50% + 30px)");
-    expect(cmp(container)?.style.left).toBe("calc(50% + 30px)");
+    expect(main(container)?.style.right).toBe("calc(50% + 8px)");
+    expect(cmp(container)?.style.left).toBe("calc(50% + 8px)");
     expect(container.querySelector(".agri-field-swipe-tag-sr")).not.toBeNull();
   });
   test("hides main tag when left side is too narrow", () => {
@@ -42,7 +42,7 @@ describe("SwipeDateTags", () => {
   });
   test("clamps position above 100", () => {
     const { container } = render(<SwipeDateTags {...base} position={150} />);
-    expect(main(container)?.style.right).toBe("calc(0% + 30px)");
+    expect(main(container)?.style.right).toBe("calc(0% + 8px)");
     expect(cmp(container)).toBeNull();
   });
   test("renders both when viewWidth is not positive", () => {

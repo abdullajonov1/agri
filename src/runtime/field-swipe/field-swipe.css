@@ -107,8 +107,8 @@
 
 .agri-field-swipe-tag {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  /* Top of the divider line, away from the handle in the middle. */
+  top: 14px;
   display: inline-flex;
   align-items: center;
   height: 26px;

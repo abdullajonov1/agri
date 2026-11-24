@@ -261,7 +261,7 @@ describe("FieldComparePanel", () => {
       setup();
       pickJune15();
       act(() => { notify({ status: "ready", position: 30 }); });
-      expect(tag("compare")?.style.left).toBe("calc(30% + 30px)");
+      expect(tag("compare")?.style.left).toBe("calc(30% + 8px)");
     });
 
     test("shows no tags while loading", () => {
