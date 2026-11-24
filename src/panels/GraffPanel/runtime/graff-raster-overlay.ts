@@ -1,10 +1,4 @@
 import { type React } from "jimu-core";
-import SpatialReference from "esri/geometry/SpatialReference";
-import Extent from "esri/geometry/Extent";
-import * as projection from "esri/geometry/projection";
-import ImageElement from "esri/layers/support/ImageElement";
-import ExtentAndRotationGeoreference from "esri/layers/support/ExtentAndRotationGeoreference";
-import MediaLayer from "esri/layers/MediaLayer";
 import {
   fetchPolygonExportImageTiff,
   getExportImageSeasonMonths,
@@ -20,6 +14,12 @@ import {
   type PolygonExportImageResult,
   type VegetationIndiceType,
 } from "../../../gis/agri-polygon-api-source";
+import {
+  VEGETATION_IMAGE_LAYER_ID,
+  createVegetationMediaLayer,
+  resolveOverlayExtent,
+  resolveResultEpsgCode,
+} from "../../../gis/polygon-api/vegetation-media-layer";
 import { stripUniqueidBraces } from "../../../data/agri-uniqueid-sql";
 import { buildGraffPolygonRasterCacheKey } from "../../../data/agri-graff-stats";
 import { setVegetationOverlayContext } from "../../../gis/agri-vegetation-overlay-prefetch";
@@ -28,7 +28,7 @@ import { asThrownObject, describeThrown, thrownMessage, thrownStatus } from "./g
 import type { AgriGraffWidgetState } from "./widget";
 import type { GraffWidgetProps } from "./graff-state";
 
-export const VEGETATION_IMAGE_LAYER_ID = "agri-graff-vegetation-image-overlay";
+export { VEGETATION_IMAGE_LAYER_ID };
 
 export type GraffPendingOverlayWalk = {
   uniqueid: string;
@@ -409,89 +409,17 @@ export const applyGraffVegetationImageOverlay = async (
       return;
     }
 
-    const [minX, minY, maxX, maxY] = result.bbox;
-    if (
-      ![minX, minY, maxX, maxY].every((n) => Number.isFinite(n)) ||
-      !(maxX > minX) ||
-      !(maxY > minY) ||
-      !(result.width > 0) ||
-      !(result.height > 0)
-    ) {
-      throw new Error("GeoTIFF georeference/bbox invalid");
-    }
-
-    // Never treat projected-metre coords as the view SR (Web Mercator) —
-    // that misplaces/stretches the MediaLayer until it looks broken.
-    const absMax = Math.max(
-      Math.abs(minX),
-      Math.abs(minY),
-      Math.abs(maxX),
-      Math.abs(maxY),
-    );
-    let epsgCode = result.epsgCode;
-    if (
-      (epsgCode == null || !Number.isFinite(epsgCode)) &&
-      absMax <= 180
-    ) {
-      epsgCode = 4326;
-    }
-    if (epsgCode == null || !Number.isFinite(epsgCode)) {
-      throw new Error(
-        "GeoTIFF CRS (EPSG) topilmadi — indeks rasmini joylashtirib bo‘lmadi.",
-      );
-    }
-
-    const nativeSr = new SpatialReference({ wkid: Number(epsgCode) });
-    let overlayExtent = new Extent({
-      xmin: minX,
-      ymin: minY,
-      xmax: maxX,
-      ymax: maxY,
-      spatialReference: nativeSr,
-    });
-
-    // MediaLayer stretches linearly in the view SR. Project first so small
-    // field rasters keep a stable aspect instead of being warped through
-    // on-the-fly reprojection of native CRS corners.
     const viewSr = activeMapView.view.spatialReference;
-    if (
-      viewSr?.wkid &&
-      Number(viewSr.wkid) !== Number(nativeSr.wkid)
-    ) {
-      try {
-        await projection.load();
-        const projected = projection.project(
-          overlayExtent,
-          viewSr,
-        ) as __esri.Extent;
-        if (
-          projected &&
-          Number.isFinite(projected.xmin) &&
-          Number.isFinite(projected.ymin) &&
-          projected.xmax > projected.xmin &&
-          projected.ymax > projected.ymin
-        ) {
-          overlayExtent = projected;
-        }
-      } catch {
-        /* keep native extent; ArcGIS may still reproject */
-      }
-    }
-
-    const imageElement = new ImageElement({
-      image: result.canvas,
-      georeference: new ExtentAndRotationGeoreference({
-        extent: overlayExtent,
-      }),
-    });
+    const overlayExtent = await resolveOverlayExtent(result, viewSr);
+    const epsgCode = resolveResultEpsgCode(result);
 
     host.removeVegetationImageOverlay();
 
-    const mediaLayer = new MediaLayer({
+    const mediaLayer = createVegetationMediaLayer({
+      canvas: result.canvas,
+      extent: overlayExtent,
       id: VEGETATION_IMAGE_LAYER_ID,
-      source: [imageElement],
       title: `Vegetation ${indiceType.toUpperCase()} ${normalizedDate}`,
-      opacity: 1,
     });
     activeMapView.view.map.add(mediaLayer);
     host._vegetationImageLayer = mediaLayer;
@@ -533,7 +461,7 @@ export const applyGraffVegetationImageOverlay = async (
         ymin: overlayExtent.ymin,
         xmax: overlayExtent.xmax,
         ymax: overlayExtent.ymax,
-        spatialReference: overlayExtent.spatialReference || viewSr || nativeSr,
+        spatialReference: overlayExtent.spatialReference || viewSr,
       };
       host.attachVegetationRasterHover(activeMapView.view);
     } else {
