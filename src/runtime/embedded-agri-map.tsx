@@ -684,6 +684,7 @@ export default function EmbeddedAgriMap(props: Props) {
         </div>
       <FieldComparePanel
         language={language}
+        view={readyView}
         onOpenChange={(open) => {
           if (open) setBasemapMenuOpen(false);
         }}
