@@ -1,4 +1,10 @@
 import { React } from "jimu-core";
+// Source uses `import ReactDOM from "react-dom"`; ts-jest emits no default
+// interop, so expose the CJS module as `default` for createPortal.
+jest.mock("react-dom", () => {
+  const actual = jest.requireActual<typeof import("react-dom")>("react-dom");
+  return { __esModule: true, ...actual, default: actual };
+});
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import FieldComparePanel from "./field-compare-panel";
 import { createFieldSwipeController } from "./field-swipe/swipe-controller";
@@ -20,9 +26,12 @@ const setCompare = jest.fn();
 const setPosition = jest.fn();
 const retry = jest.fn();
 const destroy = jest.fn();
-let notify: (state: { status: string }) => void = () => undefined;
+type SwipeState = { status: string; position?: number };
+let notify: (state: SwipeState) => void = () => undefined;
 
-const view = {} as unknown as __esri.MapView;
+const container = document.createElement("div");
+document.body.appendChild(container);
+const view = { container, width: 1000 } as unknown as __esri.MapView;
 const AVAILABLE = ["2026-06-01", "2026-06-15", "2026-06-20"];
 
 const selectField = (uniqueid = "{abc}"): void => {
@@ -65,7 +74,7 @@ describe("FieldComparePanel", () => {
       setPosition,
       retry,
       destroy,
-      subscribe: (fn: (state: { status: string }) => void) => {
+      subscribe: (fn: (state: SwipeState) => void) => {
         notify = fn;
         return () => undefined;
       },
@@ -234,5 +243,42 @@ describe("FieldComparePanel", () => {
     expect(screen.getByRole("button", { name: "Сравнить снимки" })).toBeTruthy();
     unmount();
     expect(destroy).toHaveBeenCalled();
+  });
+
+  describe("date tags", () => {
+    const tag = (kind: string): HTMLElement | null =>
+      container.querySelector(`.agri-field-swipe-tag--${kind}`);
+
+    test("shows both dates in the map view when ready", () => {
+      setup();
+      pickJune15();
+      act(() => { notify({ status: "ready", position: 50 }); });
+      expect(tag("main")?.textContent).toContain("01.06.2026");
+      expect(tag("compare")?.textContent).toContain("15.06.2026");
+    });
+
+    test("moves the compare tag with the swipe position", () => {
+      setup();
+      pickJune15();
+      act(() => { notify({ status: "ready", position: 30 }); });
+      expect(tag("compare")?.style.left).toBe("calc(30% + 30px)");
+    });
+
+    test("shows no tags while loading", () => {
+      setup();
+      pickJune15();
+      act(() => { notify({ status: "loading", position: 50 }); });
+      expect(tag("main")).toBeNull();
+      expect(tag("compare")).toBeNull();
+    });
+
+    test("removes the tags when comparison is turned off", () => {
+      setup();
+      pickJune15();
+      act(() => { notify({ status: "ready", position: 50 }); });
+      fireEvent.click(screen.getByRole("button", { name: "Close comparison" }));
+      expect(tag("main")).toBeNull();
+      expect(tag("compare")).toBeNull();
+    });
   });
 });

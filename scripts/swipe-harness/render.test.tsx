@@ -8,6 +8,12 @@ import * as fs from "fs";
 import * as path from "path";
 import FieldComparePanel from "../../src/runtime/field-compare-panel";
 
+// Source uses `import ReactDOM from "react-dom"`; ts-jest emits no default
+// interop, so expose the CJS module as `default` for createPortal.
+jest.mock("react-dom", () => {
+  const actual = jest.requireActual<typeof import("react-dom")>("react-dom");
+  return { __esModule: true, ...actual, default: actual };
+});
 jest.mock("../../src/gis/agri-polygon-api-source", () => ({
   fetchPolygonAvailableDates: jest.fn().mockResolvedValue([]),
 }));
@@ -23,8 +29,8 @@ jest.mock("../../src/runtime/field-swipe/swipe-controller", () => ({
     retry: jest.fn(),
     destroy: jest.fn(),
     // Each page decides the status the real panel receives.
-    subscribe: (listener: (state: { status: typeof mockStatus }) => void) => {
-      listener({ status: mockStatus });
+    subscribe: (listener: (state: { status: typeof mockStatus; position: number }) => void) => {
+      listener({ status: mockStatus, position: 50 });
       return () => undefined;
     },
   }),
@@ -50,7 +56,8 @@ html,body{margin:0;height:100%;background:#1b1c2a;font-family:system-ui,sans-ser
 html.light-theme body{background:#e8eef2}
 .harness-map{position:relative;width:1440px;max-width:100%;height:380px;margin:0 auto;overflow:hidden;
 background:linear-gradient(135deg,#7a9a6a 0%,#a7b98a 35%,#8aa7b8 70%,#5e7d94 100%)}
-.harness-divider{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#fff;opacity:.9}
+.harness-divider{position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:#fff;opacity:.9}
+.harness-handle{position:absolute;top:50%;left:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:#fff}
 `;
 
 const THEME_SCRIPT = "if(new URLSearchParams(location.search).get('theme')==='light'){document.documentElement.classList.add('light-theme')}";
@@ -61,7 +68,7 @@ const page = (title: string, body: string): string => `<!doctype html>
 ${STYLES.map((file) => `<link rel="stylesheet" href="${cssHref(file)}">`).join("\n")}
 <style>${PAGE_CSS}</style>
 <script>${THEME_SCRIPT}</script></head>
-<body><div class="agri-dashboard-map harness-map"><div class="harness-divider"></div>${body}</div></body></html>
+<body><div class="agri-dashboard-map harness-map"><div class="harness-divider"></div><div class="harness-handle"></div>${body}</div></body></html>
 `;
 
 const write = (name: string, html: string): void => {
@@ -69,10 +76,13 @@ const write = (name: string, html: string): void => {
   fs.writeFileSync(path.join(OUT_DIR, `${name}.html`), html, "utf8");
 };
 
+// The map-view container the date tags portal into; its markup is added to the map box.
+const MAP_VIEW_WIDTH = 1440;
+let viewHost: HTMLElement;
+
 const renderPanelWithPolygon = (): ReturnType<typeof render> => {
-  const result = render(
-    <FieldComparePanel language="en" view={{} as unknown as __esri.MapView} />,
-  );
+  const view = { container: viewHost, width: MAP_VIEW_WIDTH } as unknown as __esri.MapView;
+  const result = render(<FieldComparePanel language="en" view={view} />);
   act(() => {
     document.dispatchEvent(new CustomEvent("widgetSelectionChanged", {
       detail: { source: "AgriPopup", polygonMode: true, uniqueid: "{abc}", regionId: 4 },
@@ -98,14 +108,21 @@ const writeFromPanel = (
   mockStatus = status;
   const result = renderPanelWithPolygon();
   prepare(result);
-  const html = page(title, result.container.innerHTML);
+  const html = page(title, result.container.innerHTML + viewHost.innerHTML);
   result.unmount();
   write(name, html);
   return html;
 };
 
 describe("swipe render harness", () => {
-  afterEach(() => { mockStatus = "ready"; });
+  beforeEach(() => {
+    viewHost = document.createElement("div");
+    document.body.appendChild(viewHost);
+  });
+  afterEach(() => {
+    mockStatus = "ready";
+    viewHost.remove();
+  });
 
   test("writes the calendar popover page from the real panel", () => {
     const html = writeFromPanel("popover", "Calendar popover", "idle", () => undefined);
@@ -118,11 +135,14 @@ describe("swipe render harness", () => {
     expect(html).toContain("agri-dashboard-compare-button");
     expect(html).toContain("is-active");
     expect(html).not.toContain("agri-dashboard-compare-panel is-open");
+    expect(html).toContain("agri-field-swipe-tag--main");
+    expect(html).toContain("agri-field-swipe-tag--compare");
   });
 
   test("writes the loading page", () => {
     const html = writeFromPanel("loading", "Swipe loading", "loading", pickCompareDate);
     expect(html).toContain("is-loading");
+    expect(html).not.toContain("agri-field-swipe-tag");
   });
 
   test("writes the popover error page", () => {
