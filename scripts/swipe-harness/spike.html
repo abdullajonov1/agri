@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>MediaLayer Swipe spike</title>
+<link rel="stylesheet" href="https://js.arcgis.com/4.34/esri/themes/dark/main.css">
+<script src="https://js.arcgis.com/4.34/"></script>
+<style>html,body,#view{margin:0;height:100%}#status{position:absolute;top:8px;left:50px;z-index:5;background:#fff;color:#111;padding:4px 8px;font:13px sans-serif}</style>
+</head><body><div id="view"></div><div id="status">starting</div>
+<script>
+require(["esri/Map","esri/views/MapView","esri/layers/MediaLayer","esri/layers/support/ImageElement",
+"esri/layers/support/ExtentAndRotationGeoreference","esri/geometry/Extent","esri/geometry/Polygon",
+"esri/Graphic","esri/widgets/Swipe"],
+function(Map,MapView,MediaLayer,ImageElement,Georef,Extent,Polygon,Graphic,Swipe){
+  var extent=new Extent({xmin:69.2,ymin:41.2,xmax:69.4,ymax:41.4,spatialReference:{wkid:4326}});
+  var ring=[[69.24,41.25],[69.36,41.27],[69.33,41.36],[69.25,41.33],[69.24,41.25]];
+  function makeCanvas(color){
+    var c=document.createElement("canvas");c.width=256;c.height=256;
+    var g=c.getContext("2d");
+    g.beginPath();
+    ring.forEach(function(p,i){
+      var x=(p[0]-extent.xmin)/(extent.xmax-extent.xmin)*256;
+      var y=(extent.ymax-p[1])/(extent.ymax-extent.ymin)*256;
+      if(i){g.lineTo(x,y)}else{g.moveTo(x,y)}
+    });
+    g.closePath();g.fillStyle=color;g.fill();
+    return c;
+  }
+  function layer(id,color){
+    return new MediaLayer({id:id,title:id,opacity:1,source:[new ImageElement({
+      image:makeCanvas(color),georeference:new Georef({extent:extent})})]});
+  }
+  var a=layer("A","rgba(220,38,38,0.85)"),b=layer("B","rgba(37,99,235,0.85)");
+  var map=new Map({basemap:"osm"});map.addMany([a,b]);
+  var view=new MapView({container:"view",map:map,center:[69.3,41.3],zoom:11});
+  view.graphics.add(new Graphic({geometry:new Polygon({rings:[ring],spatialReference:{wkid:4326}}),
+    symbol:{type:"simple-fill",color:[0,0,0,0],outline:{color:[255,255,255],width:2}}}));
+  view.when(function(){
+    var swipe=new Swipe({view:view,leadingLayers:[a],trailingLayers:[b],direction:"horizontal",position:50});
+    view.ui.add(swipe);
+    Promise.all([view.whenLayerView(a),view.whenLayerView(b)]).then(function(lvs){
+      var clips=lvs.map(function(lv){return "clips" in lv});
+      document.getElementById("status").textContent="swipe ok; layerViews have clips: "+clips.join(",");
+      window.__spike={swipe:swipe,clips:clips};
+    }).catch(function(e){document.getElementById("status").textContent="error "+e});
+  });
+});
+</script></body></html>
