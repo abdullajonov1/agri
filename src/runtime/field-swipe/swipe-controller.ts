@@ -23,6 +23,8 @@ export type SwipeStatus = "idle" | "loading" | "ready" | "error";
 
 export interface SwipeControllerState {
   readonly status: SwipeStatus;
+  /** Swipe divider position, 0-100. */
+  readonly position: number;
 }
 
 export interface SwipeCompareParams {
@@ -74,16 +76,22 @@ export function createFieldSwipeController(
   let positionHandle: { remove: () => void } | null = null;
   let position = DEFAULT_POSITION;
   let destroyed = false;
+  let status: SwipeStatus = "idle";
 
   const layers = (): __esri.Collection<__esri.Layer> | null => view.map?.layers ?? null;
 
   const findMain = (): __esri.Layer | null =>
     layers()?.find((layer) => layer.id === VEGETATION_IMAGE_LAYER_ID) ?? null;
 
-  const setStatus = (next: SwipeStatus): void => {
+  const notify = (): void => {
     subscribers.forEach((fn) => {
-      fn({ status: next });
+      fn({ status, position });
     });
+  };
+
+  const setStatus = (next: SwipeStatus): void => {
+    status = next;
+    notify();
   };
 
   const removeCompareLayer = (): void => {
@@ -169,6 +177,7 @@ export function createFieldSwipeController(
       positionHandle = deps.watchPosition(swipe, (next) => {
         position = next;
         setSwipeCompareState({ position: next });
+        notify();
       });
     }
     setStatus("ready");
@@ -216,6 +225,7 @@ export function createFieldSwipeController(
       position = pct;
       if (swipe) swipe.position = pct;
       setSwipeCompareState({ position: pct });
+      notify();
     },
     retry() {
       if (destroyed || !params) return;
