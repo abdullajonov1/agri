@@ -16,7 +16,6 @@ import {
   type SwipeStatus,
 } from "./field-swipe/swipe-controller";
 import { SWIPE_COPY, type SwipeCopy, type SwipeLanguage } from "./field-swipe/swipe-copy";
-import SwipeDateBar from "./field-swipe/SwipeDateBar";
 
 export type CompareLanguage = SwipeLanguage;
 
@@ -25,9 +24,6 @@ interface Props {
   view?: __esri.MapView | null;
   onOpenChange?: (open: boolean) => void;
 }
-
-const MAIN_SIDE_POSITION = 85;
-const COMPARE_SIDE_POSITION = 15;
 
 const INDICES: readonly VegetationIndiceType[] = ["ndvi", "savi", "rvi", "ci", "evi", "ndre", "ndwi"];
 const POLYGON_SOURCES = ["AgriPopup", "AgriGraffWidget", "AgriGraff10", "AgriFilter"];
@@ -303,21 +299,30 @@ export default function FieldComparePanel(props: Props): JSX.Element {
     onOpenChangeRef.current?.(next);
   };
 
-  const barStatus = status === "error" ? "error" : status === "ready" ? "ready" : "loading";
+  const isLoading = isActive && status === "loading";
+  const hasError = isActive && status === "error";
+  const turnsOff = isActive && status !== "error" && !open;
+  const buttonLabel = isActive && !open ? copy.close : copy.open;
 
   return (
     <React.Fragment>
       <div className="agri-dashboard-compare-control">
         <button
           type="button"
-          className={`agri-dashboard-map-zoom-button agri-dashboard-compare-button${open || isActive ? " is-active" : ""}`}
-          aria-label={copy.open}
+          className={`agri-dashboard-map-zoom-button agri-dashboard-compare-button${open || isActive ? " is-active" : ""}${isLoading ? " is-loading" : ""}${hasError ? " has-error" : ""}`}
+          aria-label={buttonLabel}
           aria-expanded={open}
-          title={copy.open}
+          aria-pressed={isActive}
+          aria-busy={isLoading ? "true" : undefined}
+          title={buttonLabel}
           onPointerDown={(event) => { event.stopPropagation(); }}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
+            if (turnsOff) {
+              setCompareDate(null);
+              return;
+            }
             toggle();
           }}
         >
@@ -344,8 +349,15 @@ export default function FieldComparePanel(props: Props): JSX.Element {
         aria-hidden={!open}
         onPointerDown={(event) => { event.stopPropagation(); }}
       >
-        <div className="agri-dashboard-compare-title">{copy.title}</div>
         {!uniqueid ? <p>{copy.pickField}</p> : null}
+        {hasError ? (
+          <div className="agri-dashboard-compare-error" role="alert">
+            <span>{copy.error}</span>
+            <button type="button" className="agri-dashboard-compare-retry" onClick={() => { controller?.retry(); }}>
+              {copy.retry}
+            </button>
+          </div>
+        ) : null}
         <CompareCalendar
           copy={copy}
           cursor={cursor}
@@ -359,19 +371,6 @@ export default function FieldComparePanel(props: Props): JSX.Element {
           }}
         />
       </div>
-      {isActive && mainDate && compareDate ? (
-        <SwipeDateBar
-          language={props.language}
-          mainDate={mainDate}
-          compareDate={compareDate}
-          status={barStatus}
-          onClose={() => { setCompareDate(null); }}
-          onRetry={() => { controller?.retry(); }}
-          onFocusSide={(side) => {
-            controller?.setPosition(side === "main" ? MAIN_SIDE_POSITION : COMPARE_SIDE_POSITION);
-          }}
-        />
-      ) : null}
     </React.Fragment>
   );
 }
