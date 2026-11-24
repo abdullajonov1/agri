@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import EmbeddedAgriMap from "./embedded-agri-map";
 import { setAgriAdminBordersVisible } from "../gis/agri-admin-boundary-layer";
 import { installAgriCorsGuard, recreateDataSource } from "../shared/agri-cors-guard";
+import FieldComparePanel from "./field-compare-panel";
 
 interface FakeLayer {
   title: string;
@@ -61,7 +62,7 @@ jest.mock("../shared/agri-cors-guard", () => ({
 }));
 jest.mock("./field-compare-panel", () => ({
   __esModule: true,
-  default: () => null,
+  default: jest.fn(() => null),
 }));
 jest.mock("./map-land-layers-panel", () => ({
   __esModule: true,
@@ -202,6 +203,15 @@ describe("EmbeddedAgriMap", () => {
       document.dispatchEvent(new CustomEvent("languageChanged", { detail: { code: "uz_cyr" } }));
     });
     expect(screen.getByLabelText("Яқинлаштириш")).toBeTruthy();
+  });
+
+  test("passes the map view to the field compare panel", async () => {
+    const cb = mount();
+    const view = await readyView(cb);
+    expect(FieldComparePanel).toHaveBeenCalledWith(
+      expect.objectContaining({ view }),
+      expect.anything(),
+    );
   });
 
   test("builds a basemap-only map and reports readiness", async () => {
