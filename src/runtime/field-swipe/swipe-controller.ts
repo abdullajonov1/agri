@@ -12,6 +12,7 @@ import {
   resolveOverlayExtent,
 } from "../../gis/polygon-api/vegetation-media-layer";
 import { setSwipeCompareState } from "../../shared/agri-swipe-state";
+import "./field-swipe.css";
 
 export const SWIPE_COMPARE_LAYER_ID = "agri-field-swipe-compare-layer";
 const DEFAULT_POSITION = 50;

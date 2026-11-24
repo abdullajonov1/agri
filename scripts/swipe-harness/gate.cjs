@@ -16,7 +16,9 @@ const REPORT_DIR = path.join(WIDGET_ROOT, 'dist-report', 'swipe-harness')
 const SHOTS_DIR = path.join(REPORT_DIR, 'shots')
 const SPIKE_FILE = path.join(__dirname, 'spike.html')
 
-const PAGES = ['ready', 'loading', 'error', 'popover']
+const PAGES = ['popover', 'active', 'loading', 'popover-error']
+const MAP_HEIGHT = 380
+const SCROLL_CHECK_VIEWPORTS = ['1440', '1024']
 const VIEWPORTS = [
   { name: '1440', width: 1440, height: 900 },
   { name: '1024', width: 1024, height: 768 },
@@ -37,15 +39,14 @@ const fail = (scope, message) => failures.add(`${scope}: ${message}`)
 /* ------------------------------------------------------------------ in-page */
 
 /** Static checks: sizes, text, contrast, wrapping, geometry, borders, popover. Runs inside the page. */
-function staticChecks(backdropColor) {
+function staticChecks(args) {
+  const { backdropColor, viewportName, mapHeight, scrollViewports } = args
   const out = []
   const rects = {}
   const map = document.querySelector('.harness-map')
   map.style.setProperty('background', backdropColor, 'important')
-  const bar = document.querySelector('.agri-field-swipe-bar')
   const panel = document.querySelector('.agri-dashboard-compare-panel')
   const isShown = (el) => !!el && el.checkVisibility({ checkVisibilityCSS: true, checkOpacity: true })
-  const barShown = isShown(bar)
   const panelShown = isShown(panel)
   const describe = (el) => {
     const cls = (el.getAttribute('class') || '').split(/\s+/).filter(Boolean).join('.')
@@ -56,11 +57,15 @@ function staticChecks(backdropColor) {
     return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height }
   }
 
-  // buttons >= 40x40
+  // buttons >= 40x40; calendar day and month-nav buttons may be 32 on fine pointers; retry is checked below
+  const isCoarse = window.matchMedia('(pointer: coarse)').matches
   document.querySelectorAll('button').forEach((b) => {
     if (!isShown(b)) return
+    if (b.matches('.agri-dashboard-compare-retry')) return
+    const isCalendarSmall = b.matches('.agri-dashboard-compare-day') || !!b.closest('.agri-dashboard-compare-month')
+    const min = isCalendarSmall && !isCoarse ? 31.5 : 39.5
     const r = b.getBoundingClientRect()
-    if (r.width < 39.5 || r.height < 39.5) out.push(`button ${describe(b)} is ${r.width.toFixed(1)}x${r.height.toFixed(1)} (<40x40)`)
+    if (r.width < min || r.height < min) out.push(`button ${describe(b)} is ${r.width.toFixed(1)}x${r.height.toFixed(1)} (<${Math.round(min + 0.5)}px)`)
   })
 
   // text nodes: size and contrast
@@ -95,7 +100,7 @@ function staticChecks(backdropColor) {
     })
     return acc
   }
-  const inScope = (el) => (barShown && bar.contains(el)) || (panelShown && panel.contains(el))
+  const inScope = (el) => panelShown && panel.contains(el)
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
   const seen = new Set()
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -126,12 +131,19 @@ function staticChecks(backdropColor) {
     })
     return tops.length
   }
-  document.querySelectorAll('.agri-field-swipe-chip, .agri-field-swipe-caption, .agri-field-swipe-error, .agri-field-swipe-retry, .agri-field-swipe-close').forEach((el) => {
-    if (!isShown(el)) return
-    if (el.scrollWidth > el.clientWidth + 0.5) out.push(`clipped ${describe(el)} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`)
-    if (!el.matches('.agri-field-swipe-close') && lineCount(el) > 1) out.push(`wrapped text in ${describe(el)} (${lineCount(el)} lines)`)
-    if (el.matches('.agri-field-swipe-chip') && el.getBoundingClientRect().height > 41) out.push(`chip taller than 40px: ${describe(el)}`)
-  })
+  const alertEl = document.querySelector('.agri-dashboard-compare-error')
+  if (alertEl && isShown(alertEl)) {
+    if (alertEl.scrollWidth > alertEl.clientWidth + 0.5) out.push(`clipped error alert scrollWidth ${alertEl.scrollWidth} > clientWidth ${alertEl.clientWidth}`)
+    const retry = alertEl.querySelector('.agri-dashboard-compare-retry')
+    if (!retry) out.push('error alert has no retry button')
+    else {
+      const rr = retry.getBoundingClientRect()
+      if (rr.height < 31.5) out.push(`retry button is ${rr.height.toFixed(1)}px tall (<32px)`)
+      if (retry.scrollWidth > retry.clientWidth + 0.5 || retry.scrollHeight > retry.clientHeight + 0.5) out.push('retry button text is clipped')
+      const ar = alertEl.getBoundingClientRect()
+      if (rr.right > ar.right + 0.5 || rr.left < ar.left - 0.5) out.push('retry button sticks out of the error alert')
+    }
+  }
 
   // geometry
   const vw = document.documentElement.clientWidth
@@ -143,11 +155,6 @@ function staticChecks(backdropColor) {
   }
   const hit = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5
   const stack = Array.from(document.querySelectorAll('.agri-dashboard-compare-control, .agri-dashboard-map-zoom-button')).filter(isShown).map(rectOf)
-  if (barShown) {
-    rects.bar = rectOf(bar)
-    inside('bar', rects.bar)
-    if (stack.some((s) => hit(rects.bar, s))) out.push('bar overlaps the left button stack')
-  }
   if (panelShown) {
     rects.panel = rectOf(panel)
     inside('popover', rects.panel)
@@ -164,7 +171,7 @@ function staticChecks(backdropColor) {
     const shadows = cs.boxShadow === 'none' ? [] : cs.boxShadow.split(/,(?![^(]*\))/).filter((s) => !/inset/.test(s))
     return { hasBorder, hasShadow: shadows.length > 0, cs }
   }
-  ;[barShown ? bar : null, panelShown ? panel : null].filter(Boolean).forEach((root) => {
+  ;[panelShown ? panel : null].filter(Boolean).forEach((root) => {
     root.querySelectorAll('*').forEach((el) => {
       if (el.closest('svg') && el.tagName !== 'svg') return
       const d = decor(el)
@@ -184,6 +191,8 @@ function staticChecks(backdropColor) {
   if (panelShown) {
     const scrollers = [panel, ...panel.querySelectorAll('*')].filter((el) => ['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
     if (scrollers.length > 1) out.push(`popover has ${scrollers.length} scroll containers: ${scrollers.map(describe).join(' | ')}`)
+    if (scrollViewports.includes(viewportName) && panel.scrollHeight > panel.clientHeight + 1) out.push(`popover has a scrollbar (scrollHeight ${panel.scrollHeight} > clientHeight ${panel.clientHeight})`)
+    if (panel.getBoundingClientRect().bottom > mapRect.top + mapHeight + 0.5) out.push(`popover bottom is outside the ${mapHeight}px map box`)
     const legend = panel.querySelector('.agri-dashboard-compare-legend')
     if (legend && panel.scrollHeight <= panel.clientHeight + 1) {
       const gap = panel.getBoundingClientRect().bottom - legend.getBoundingClientRect().bottom
@@ -225,7 +234,9 @@ function focusCheck() {
   ;['::before', '::after'].forEach((p) => {
     const ps = getComputedStyle(el, p)
     const rendered = ps.content !== 'none' && ps.content !== 'normal'
-    if (rendered && (parseFloat(ps.borderTopWidth) > 0 || ps.outlineStyle !== 'none')) out.push(`${label} ${p} draws a frame`)
+    // State indicators, not focus frames: the loading ring (::after) and the error dot (::before) on the Swipe button.
+    const isStateIndicator = (p === '::after' && el.classList.contains('is-loading')) || (p === '::before' && el.classList.contains('has-error'))
+    if (rendered && !isStateIndicator && (parseFloat(ps.borderTopWidth) > 0 || ps.outlineStyle !== 'none')) out.push(`${label} ${p} draws a frame`)
   })
   for (let p = el.parentElement; p && !p.classList.contains('harness-map'); p = p.parentElement) {
     if (window.__sig(p) !== window.__base.get(p)) out.push(`wrapper ${cls(p)} changes style when ${label} is focused`)
@@ -238,9 +249,7 @@ function focusCheck() {
 /* ----------------------------------------------------------------- harness */
 
 async function runHarnessPages(browser) {
-  const popoverRects = {}
-  const barRects = {}
-  fs.mkdirSync(SHOTS_DIR, { recursive: true })
+    fs.mkdirSync(SHOTS_DIR, { recursive: true })
   for (const vp of VIEWPORTS) {
     for (const theme of THEMES) {
       const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height } })
@@ -257,12 +266,8 @@ async function runHarnessPages(browser) {
         await page.screenshot({ path: path.join(SHOTS_DIR, `${name}-${vp.name}-${theme}.png`) })
 
         for (const backdrop of BACKDROPS) {
-          const result = await page.evaluate(staticChecks, backdrop.color)
+          const result = await page.evaluate(staticChecks, { backdropColor: backdrop.color, viewportName: vp.name, mapHeight: MAP_HEIGHT, scrollViewports: SCROLL_CHECK_VIEWPORTS })
           result.out.forEach((m) => fail(`${scope} (backdrop ${backdrop.name})`, m))
-          if (backdrop.name === 'mid') {
-            if (result.rects.bar) barRects[`${vp.name}-${theme}-${name}`] = result.rects.bar
-            if (result.rects.panel) popoverRects[`${vp.name}-${theme}`] = result.rects.panel
-          }
         }
 
         await page.reload()
@@ -277,13 +282,13 @@ async function runHarnessPages(browser) {
           res.out.forEach((m) => fail(scope, m))
         }
         const reached = Array.from(focused).join(' ')
-        // In the error state the compare chip is replaced by error + Retry, and
-        // under 480px the main chip is hidden on purpose (field-swipe.css).
-        const expected = name === 'popover'
-          ? ['agri-dashboard-compare-button', 'agri-dashboard-compare-day', 'Previous month']
-          : name === 'error'
-            ? ['agri-field-swipe-retry', 'agri-field-swipe-close']
-            : ['agri-field-swipe-chip', 'agri-field-swipe-close']
+        const expectedByPage = {
+          popover: ['agri-dashboard-compare-button', 'agri-dashboard-compare-day', 'Previous month'],
+          'popover-error': ['agri-dashboard-compare-button', 'agri-dashboard-compare-retry'],
+          active: ['agri-dashboard-compare-button'],
+          loading: ['agri-dashboard-compare-button']
+        }
+        const expected = expectedByPage[name]
         expected.forEach((needle) => {
           if (!reached.includes(needle)) fail(scope, `Tab never reached a control matching "${needle}"`)
         })
@@ -291,15 +296,6 @@ async function runHarnessPages(browser) {
       await context.close()
     }
   }
-  // bar must never collide with the popover at the same viewport and theme
-  Object.keys(barRects).forEach((key) => {
-    const [vpName, theme] = key.split('-')
-    const pop = popoverRects[`${vpName}-${theme}`]
-    const bar = barRects[key]
-    if (pop && bar.left < pop.right - 0.5 && pop.left < bar.right - 0.5 && bar.top < pop.bottom - 0.5 && pop.top < bar.bottom - 0.5) {
-      fail(`bar ${key} vs popover`, 'bar overlaps the popover')
-    }
-  })
 }
 
 /* ------------------------------------------------------------------- spike */

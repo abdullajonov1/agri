@@ -1,14 +1,12 @@
 /**
- * Renders the REAL FieldComparePanel and SwipeDateBar and writes static pages
+ * Renders the REAL FieldComparePanel and writes static pages
  * to dist-report/swipe-harness/<state>.html for the browser gate (T10).
  */
 import { React } from "jimu-core";
 import { act, fireEvent, render } from "@testing-library/react";
-import { renderToStaticMarkup } from "react-dom/server";
 import * as fs from "fs";
 import * as path from "path";
 import FieldComparePanel from "../../src/runtime/field-compare-panel";
-import SwipeDateBar from "../../src/runtime/field-swipe/SwipeDateBar";
 
 jest.mock("../../src/gis/agri-polygon-api-source", () => ({
   fetchPolygonAvailableDates: jest.fn().mockResolvedValue([]),
@@ -16,15 +14,17 @@ jest.mock("../../src/gis/agri-polygon-api-source", () => ({
 jest.mock("../../src/gis/agri-vegetation-overlay-prefetch", () => ({
   getVegetationOverlayContext: () => ({ regionId: 4, year: 2026, lastIndex: "ndvi" }),
 }));
+let mockStatus: "idle" | "loading" | "ready" | "error" = "ready";
+
 jest.mock("../../src/runtime/field-swipe/swipe-controller", () => ({
   createFieldSwipeController: () => ({
     setCompare: jest.fn(),
     setPosition: jest.fn(),
     retry: jest.fn(),
     destroy: jest.fn(),
-    // The "ready" page must show the ready bar (dot, not spinner).
-    subscribe: (listener: (state: { status: "ready" }) => void) => {
-      listener({ status: "ready" });
+    // Each page decides the status the real panel receives.
+    subscribe: (listener: (state: { status: typeof mockStatus }) => void) => {
+      listener({ status: mockStatus });
       return () => undefined;
     },
   }),
@@ -48,10 +48,9 @@ const STYLES = [
 const PAGE_CSS = `
 html,body{margin:0;height:100%;background:#1b1c2a;font-family:system-ui,sans-serif}
 html.light-theme body{background:#e8eef2}
-.harness-map{position:relative;width:1440px;max-width:100%;height:720px;margin:0 auto;overflow:hidden;
+.harness-map{position:relative;width:1440px;max-width:100%;height:380px;margin:0 auto;overflow:hidden;
 background:linear-gradient(135deg,#7a9a6a 0%,#a7b98a 35%,#8aa7b8 70%,#5e7d94 100%)}
 .harness-divider{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#fff;opacity:.9}
-@media (max-width:480px){.harness-map{height:640px}}
 `;
 
 const THEME_SCRIPT = "if(new URLSearchParams(location.search).get('theme')==='light'){document.documentElement.classList.add('light-theme')}";
@@ -70,19 +69,6 @@ const write = (name: string, html: string): void => {
   fs.writeFileSync(path.join(OUT_DIR, `${name}.html`), html, "utf8");
 };
 
-const barMarkup = (status: "loading" | "ready" | "error"): string =>
-  renderToStaticMarkup(
-    <SwipeDateBar
-      language="en"
-      mainDate={MAIN_DATE}
-      compareDate={COMPARE_DATE}
-      status={status}
-      onClose={() => undefined}
-      onRetry={() => undefined}
-      onFocusSide={() => undefined}
-    />,
-  );
-
 const renderPanelWithPolygon = (): ReturnType<typeof render> => {
   const result = render(
     <FieldComparePanel language="en" view={{} as unknown as __esri.MapView} />,
@@ -99,30 +85,53 @@ const renderPanelWithPolygon = (): ReturnType<typeof render> => {
   return result;
 };
 
+const pickCompareDate = (result: ReturnType<typeof render>): void => {
+  fireEvent.click(result.container.querySelector(`[data-date="${COMPARE_DATE}"]`) as HTMLElement);
+};
+
+const writeFromPanel = (
+  name: string,
+  title: string,
+  status: typeof mockStatus,
+  prepare: (result: ReturnType<typeof render>) => void,
+): string => {
+  mockStatus = status;
+  const result = renderPanelWithPolygon();
+  prepare(result);
+  const html = page(title, result.container.innerHTML);
+  result.unmount();
+  write(name, html);
+  return html;
+};
+
 describe("swipe render harness", () => {
-  test.each(["loading", "error"] as const)("writes the %s date bar page", (status) => {
-    const html = page(`Swipe bar ${status}`, barMarkup(status));
-    write(status, html);
-    expect(html).toContain("agri-field-swipe-bar");
-  });
+  afterEach(() => { mockStatus = "ready"; });
 
   test("writes the calendar popover page from the real panel", () => {
-    const { container, unmount } = renderPanelWithPolygon();
-    const html = page("Calendar popover", container.innerHTML);
-    unmount();
-    write("popover", html);
+    const html = writeFromPanel("popover", "Calendar popover", "idle", () => undefined);
     expect(html).toContain("agri-dashboard-compare-panel is-open");
     expect(html).toContain(`data-date="${COMPARE_DATE}"`);
   });
 
-  test("writes the ready page with the real panel and the ready bar", () => {
-    const { container, unmount } = renderPanelWithPolygon();
-    fireEvent.click(container.querySelector(`[data-date="${COMPARE_DATE}"]`) as HTMLElement);
-    const panelHtml = container.innerHTML;
-    unmount();
-    const html = page("Swipe ready", panelHtml);
-    write("ready", html);
-    expect(html).toContain("agri-field-swipe-bar");
-    expect(html).toContain("agri-dashboard-compare-control");
+  test("writes the active page: ready, popover closed", () => {
+    const html = writeFromPanel("active", "Swipe active", "ready", pickCompareDate);
+    expect(html).toContain("agri-dashboard-compare-button");
+    expect(html).toContain("is-active");
+    expect(html).not.toContain("agri-dashboard-compare-panel is-open");
+  });
+
+  test("writes the loading page", () => {
+    const html = writeFromPanel("loading", "Swipe loading", "loading", pickCompareDate);
+    expect(html).toContain("is-loading");
+  });
+
+  test("writes the popover error page", () => {
+    const html = writeFromPanel("popover-error", "Swipe error", "error", (result) => {
+      pickCompareDate(result);
+      fireEvent.click(result.container.querySelector(".agri-dashboard-compare-button") as HTMLElement);
+    });
+    expect(html).toContain("agri-dashboard-compare-panel is-open");
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("agri-dashboard-compare-retry");
   });
 });
