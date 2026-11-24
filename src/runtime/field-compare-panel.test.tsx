@@ -23,7 +23,6 @@ const destroy = jest.fn();
 let notify: (state: { status: string }) => void = () => undefined;
 
 const view = {} as unknown as __esri.MapView;
-const OPEN_EN = "Compare snapshots";
 const AVAILABLE = ["2026-06-01", "2026-06-15", "2026-06-20"];
 
 const selectField = (uniqueid = "{abc}"): void => {
@@ -41,7 +40,8 @@ const chartDate = (date: string | null, indexKey = "ndvi", availableDates = AVAI
 const day = (ymd: string): HTMLButtonElement =>
   document.querySelector(`[data-date="${ymd}"]`) as HTMLButtonElement;
 
-const openButton = (): HTMLElement => screen.getByRole("button", { name: OPEN_EN });
+const openButton = (): HTMLElement =>
+  document.querySelector(".agri-dashboard-compare-button") as HTMLElement;
 
 const setup = (): void => {
   render(<FieldComparePanel language="en" view={view} />);
@@ -77,7 +77,7 @@ describe("FieldComparePanel", () => {
     expect(openButton().getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(openButton());
     expect(openButton().getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByText("Choose a comparison date")).toBeTruthy();
+    expect(document.querySelector(".agri-dashboard-compare-panel")?.className).toContain("is-open");
   });
 
   test("enables only available days and disables the chart date", () => {
@@ -106,7 +106,7 @@ describe("FieldComparePanel", () => {
       date: "2026-06-15",
       indexKey: "ndvi",
     });
-    expect(document.querySelector(".agri-field-swipe-bar")).not.toBeNull();
+    expect(document.querySelector(".agri-field-swipe-bar")).toBeNull();
     expect(day("2026-06-15").className).toContain("is-selected");
   });
 
@@ -143,18 +143,48 @@ describe("FieldComparePanel", () => {
     expect(document.querySelector(".agri-field-swipe-bar")).toBeNull();
   });
 
-  test("close button clears the comparison", () => {
+  test("active Swipe button turns comparison off without opening the popover", () => {
     setup();
     pickJune15();
-    fireEvent.click(screen.getByRole("button", { name: "Close comparison" }));
+    const button = screen.getByRole("button", { name: "Close comparison" });
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(button);
     expect(setCompare).toHaveBeenLastCalledWith(null);
+    expect(document.querySelector(".agri-dashboard-compare-panel")?.className).not.toContain("is-open");
     expect(document.querySelector(".agri-field-swipe-bar")).toBeNull();
+  });
+
+  test("loading status marks the button busy", () => {
+    setup();
+    pickJune15();
+    act(() => { notify({ status: "loading" }); });
+    const button = screen.getByRole("button", { name: "Close comparison" });
+    expect(button.className).toContain("is-loading");
+    expect(button.getAttribute("aria-busy")).toBe("true");
+  });
+
+  test("error status opens the popover with an alert and Retry", () => {
+    setup();
+    pickJune15();
+    act(() => { notify({ status: "error" }); });
+    const button = openButton();
+    expect(button.className).toContain("has-error");
+    fireEvent.click(button);
+    expect(document.querySelector(".agri-dashboard-compare-panel")?.className).toContain("is-open");
+    expect(screen.getByRole("alert")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalled();
+  });
+
+  test("popover has no visible title element", () => {
+    setup();
+    fireEvent.click(openButton());
+    expect(document.querySelector(".agri-dashboard-compare-title")).toBeNull();
   });
 
   test("polygon change clears the comparison and closes the popover", () => {
     setup();
     pickJune15();
-    fireEvent.click(openButton());
     act(() => { selectField("{def}"); });
     expect(openButton().getAttribute("aria-expanded")).toBe("false");
     expect(setCompare).toHaveBeenLastCalledWith(null);
@@ -170,20 +200,6 @@ describe("FieldComparePanel", () => {
       }));
     });
     expect(setCompare).toHaveBeenLastCalledWith(null);
-  });
-
-  test("bar chips move the divider and retry reaches the controller", () => {
-    setup();
-    pickJune15();
-    const chip = (side: string): Element =>
-      document.querySelector(`.agri-field-swipe-chip--${side}`) as Element;
-    fireEvent.click(chip("main"));
-    expect(setPosition).toHaveBeenLastCalledWith(85);
-    fireEvent.click(chip("compare"));
-    expect(setPosition).toHaveBeenLastCalledWith(15);
-    act(() => { notify({ status: "error" }); });
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(retry).toHaveBeenCalled();
   });
 
   test("never dispatches chart events", () => {
