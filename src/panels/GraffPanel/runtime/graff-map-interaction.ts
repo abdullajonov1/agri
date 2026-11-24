@@ -14,6 +14,7 @@ import {
   sampleIndexFromRgba,
 } from "../../../gis/agri-polygon-api-source";
 import { clearMapSelectionGraphics, isLayerTreeVisible } from "./graff-map-utils";
+import { isOnTrailingSide } from "../../../shared/agri-swipe-state";
 import { copyUniqueIdToClipboard } from "./graff-clipboard";
 import { graffDebugCatch, graffLog } from "./graff-log";
 import type { GraffVegetationRasterSample } from "./graff-raster-overlay";
@@ -680,6 +681,11 @@ export const attachGraffRasterHover = (
 
   host._vegetationHoverHandle = view.on("pointer-move", (event: __esri.ViewPointerMoveEvent) => {
     if (!host._vegetationRasterSample || !host._isMounted) {
+      host.hideVegetationHoverTooltip();
+      return;
+    }
+    // Raster snapshot is only visible on the leading side of an active swipe.
+    if (isOnTrailingSide(event.x, view.width)) {
       host.hideVegetationHoverTooltip();
       return;
     }
