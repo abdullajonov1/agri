@@ -6,7 +6,8 @@
   --swipe-focus: #60a5fa;
   position: absolute;
   left: 50%;
-  bottom: 24px;
+  /* Top-center: the bottom of the map holds Graff's index value card. */
+  top: 16px;
   transform: translateX(-50%);
   z-index: 16;
   display: flex;
@@ -128,5 +129,81 @@ body.light-theme .agri-field-swipe-bar {
      error and its retry need the width more than the main date chip. */
   .agri-field-swipe-bar.is-error .agri-field-swipe-chip--main {
     display: none;
+  }
+}
+
+/* ---- Esri Swipe divider + handle (scoped by SWIPE_VIEW_CLASS on the view) ---- */
+.agri-field-swipe-active .esri-swipe__container {
+  width: 44px;
+  cursor: ew-resize;
+}
+
+/* 2px white line with a dark halo: visible over bright crops and dark soil. */
+.agri-field-swipe-active .esri-swipe__divider {
+  width: 2px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.45), 0 0 12px rgba(0, 0, 0, 0.35);
+}
+
+/* 44px round handle (touch target), dashboard surface, white ring. */
+.agri-field-swipe-active .esri-swipe__handle {
+  width: 44px;
+  height: 44px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: rgba(31, 32, 48, 0.96);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  cursor: ew-resize;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.agri-field-swipe-active .esri-swipe__handle-icon {
+  display: none;
+}
+
+/* Two white arrows (left / right) drawn with borders. */
+.agri-field-swipe-active .esri-swipe__handle::before,
+.agri-field-swipe-active .esri-swipe__handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  transform: translateY(-50%);
+}
+
+.agri-field-swipe-active .esri-swipe__handle::before {
+  left: 9px;
+  border-right: 7px solid #ffffff;
+}
+
+.agri-field-swipe-active .esri-swipe__handle::after {
+  right: 9px;
+  border-left: 7px solid #ffffff;
+}
+
+.agri-field-swipe-active .esri-swipe__handle:hover,
+.agri-field-swipe-active .esri-swipe__container:active .esri-swipe__handle {
+  background: #2563eb;
+}
+
+.agri-field-swipe-active .esri-swipe__container:active .esri-swipe__handle {
+  transform: scale(1.06);
+}
+
+.agri-field-swipe-active .esri-swipe__container:focus-visible {
+  outline: none;
+}
+
+.agri-field-swipe-active .esri-swipe__container:focus-visible .esri-swipe__handle {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agri-field-swipe-active .esri-swipe__handle {
+    transition: none;
   }
 }

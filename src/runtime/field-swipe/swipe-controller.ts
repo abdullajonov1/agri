@@ -15,6 +15,8 @@ import { setSwipeCompareState } from "../../shared/agri-swipe-state";
 
 export const SWIPE_COMPARE_LAYER_ID = "agri-field-swipe-compare-layer";
 const DEFAULT_POSITION = 50;
+/** Scopes the Swipe divider/handle styles (field-swipe.css) to this view only. */
+export const SWIPE_VIEW_CLASS = "agri-field-swipe-active";
 
 export type SwipeStatus = "idle" | "loading" | "ready" | "error";
 
@@ -94,6 +96,7 @@ export function createFieldSwipeController(
     positionHandle?.remove();
     positionHandle = null;
     if (!swipe) return;
+    view.container?.classList.remove(SWIPE_VIEW_CLASS);
     view.ui.remove(swipe);
     swipe.destroy();
     swipe = null;
@@ -161,6 +164,7 @@ export function createFieldSwipeController(
         position,
       });
       view.ui.add(swipe);
+      view.container?.classList.add(SWIPE_VIEW_CLASS);
       positionHandle = deps.watchPosition(swipe, (next) => {
         position = next;
         setSwipeCompareState({ position: next });
