@@ -30,6 +30,7 @@ import { asMock, makeStubHost } from "./__test-utils__/stub-host";
 import type { AgriGraffWidgetState } from "./graff-state";
 import type { GraffMapInteractionHost } from "./graff-map-interaction";
 import * as mi from "./graff-map-interaction";
+import { resetSwipeCompareState, setSwipeCompareState } from "../../../shared/agri-swipe-state";
 
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 const makeHost = (state: Partial<AgriGraffWidgetState> = {}, extra: Record<string, unknown> = {}): GraffMapInteractionHost =>
@@ -468,6 +469,25 @@ describe("attachGraffRasterHover", () => {
     const h = attach(nullSample, { sampleVegetationRasterValue: jest.fn((): null => null) });
     moveHandler(nullSample)({ x: 0, y: 0 });
     expect(asMock(h.hideVegetationHoverTooltip)).toHaveBeenCalled();
+  });
+  describe("swipe compare trailing side", () => {
+    afterEach(() => resetSwipeCompareState());
+    test("hides tooltip and skips lookup when pointer is right of the swipe", () => {
+      setSwipeCompareState({ active: true, position: 50 });
+      const view = makeView({ width: 1000 } as Partial<FakeView>);
+      const host = attach(view);
+      moveHandler(view)({ x: 800, y: 10 });
+      expect(asMock(host.hideVegetationHoverTooltip)).toHaveBeenCalled();
+      expect(view.toMap).not.toHaveBeenCalled();
+      expect(asMock(host.updateVegetationHoverTooltip)).not.toHaveBeenCalled();
+    });
+    test("keeps normal behaviour left of the swipe", () => {
+      setSwipeCompareState({ active: true, position: 50 });
+      const view = makeView({ width: 1000 } as Partial<FakeView>);
+      const host = attach(view);
+      moveHandler(view)({ x: 200, y: 10 });
+      expect(asMock(host.updateVegetationHoverTooltip)).toHaveBeenCalledWith(0.5, 105, 206);
+    });
   });
   test("pointer-move hides when sample was cleared or unmounted", () => {
     const view = makeView();
