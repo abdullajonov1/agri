@@ -137,12 +137,6 @@ function CompareCalendar(props: CalendarProps): JSX.Element {
           );
         })}
       </div>
-      <div className="agri-dashboard-compare-legend">
-        <i className="agri-dashboard-compare-legend-available" />
-        <span>{copy.available}</span>
-        <i className="agri-dashboard-compare-legend-main" />
-        <span>{copy.chartDate}</span>
-      </div>
     </div>
   );
 }

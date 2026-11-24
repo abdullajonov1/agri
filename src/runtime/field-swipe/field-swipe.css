@@ -1,75 +1,89 @@
-/* ---- Esri Swipe divider + handle (scoped by SWIPE_VIEW_CLASS on the view) ---- */
-.agri-field-swipe-active .esri-swipe__container {
-  width: 44px;
+/* ---- Esri Swipe divider + handle (scoped by SWIPE_VIEW_CLASS on the view) ----
+   Three-class selectors beat Esri's own two-class rules regardless of load order.
+   Container is 40px wide and centred on the swipe position (Esri's default margin assumes 32px). */
+.agri-field-swipe-active .esri-swipe .esri-swipe__container {
+  width: 40px;
+  margin-left: -20px;
   cursor: ew-resize;
 }
 
-/* 2px white line with a dark halo: visible over bright crops and dark soil. */
-.agri-field-swipe-active .esri-swipe__divider {
+/* 2px white line with a soft dark halo: visible over bright crops and dark soil. */
+.agri-field-swipe-active .esri-swipe .esri-swipe__divider {
+  position: absolute;
+  left: 19px;
   width: 2px;
+  margin: 0;
   background: #ffffff;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.45), 0 0 12px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18), 0 0 8px rgba(0, 0, 0, 0.35);
 }
 
-/* 44px round handle (touch target), dashboard surface, white ring. */
-.agri-field-swipe-active .esri-swipe__handle {
-  width: 44px;
-  height: 44px;
-  border: 2px solid #ffffff;
+/* 40px white round handle centred on the line, thin dark chevrons. */
+.agri-field-swipe-active .esri-swipe .esri-swipe__handle {
+  left: 0;
+  width: 40px;
+  height: 40px;
+  margin-left: 0;
+  border: 0;
   border-radius: 50%;
-  background: rgba(31, 32, 48, 0.96);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.08);
   cursor: ew-resize;
-  transition: background-color 0.15s ease, transform 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
-.agri-field-swipe-active .esri-swipe__handle-icon {
+.agri-field-swipe-active .esri-swipe .esri-swipe__handle-icon {
   display: none;
 }
 
-/* Two white arrows (left / right) drawn with borders. */
-.agri-field-swipe-active .esri-swipe__handle::before,
-.agri-field-swipe-active .esri-swipe__handle::after {
+.agri-field-swipe-active .esri-swipe .esri-swipe__handle::before,
+.agri-field-swipe-active .esri-swipe .esri-swipe__handle::after {
   content: "";
   position: absolute;
   top: 50%;
-  width: 0;
-  height: 0;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  transform: translateY(-50%);
+  box-sizing: content-box;
+  width: 6px;
+  height: 6px;
+  border: solid #1e293b;
+  border-width: 0 0 2px 2px;
+  background: none;
+  transition: border-color 0.15s ease;
 }
 
-.agri-field-swipe-active .esri-swipe__handle::before {
-  left: 9px;
-  border-right: 7px solid #ffffff;
+.agri-field-swipe-active .esri-swipe .esri-swipe__handle::before {
+  left: 11px;
+  transform: translateY(-50%) rotate(45deg);
 }
 
-.agri-field-swipe-active .esri-swipe__handle::after {
-  right: 9px;
-  border-left: 7px solid #ffffff;
+.agri-field-swipe-active .esri-swipe .esri-swipe__handle::after {
+  right: 11px;
+  transform: translateY(-50%) rotate(-135deg);
 }
 
-.agri-field-swipe-active .esri-swipe__handle:hover,
-.agri-field-swipe-active .esri-swipe__container:active .esri-swipe__handle {
-  background: #2563eb;
+.agri-field-swipe-active .esri-swipe .esri-swipe__handle:hover,
+.agri-field-swipe-active .esri-swipe .esri-swipe__container:active .esri-swipe__handle {
+  transform: scale(1.08);
 }
 
-.agri-field-swipe-active .esri-swipe__container:active .esri-swipe__handle {
-  transform: scale(1.06);
+.agri-field-swipe-active .esri-swipe .esri-swipe__handle:hover::before,
+.agri-field-swipe-active .esri-swipe .esri-swipe__handle:hover::after,
+.agri-field-swipe-active .esri-swipe .esri-swipe__container:active .esri-swipe__handle::before,
+.agri-field-swipe-active .esri-swipe .esri-swipe__container:active .esri-swipe__handle::after {
+  border-color: #2563eb;
 }
 
-.agri-field-swipe-active .esri-swipe__container:focus-visible {
+.agri-field-swipe-active .esri-swipe .esri-swipe__container:focus-visible {
   outline: none;
 }
 
-.agri-field-swipe-active .esri-swipe__container:focus-visible .esri-swipe__handle {
+.agri-field-swipe-active .esri-swipe .esri-swipe__container:focus-visible .esri-swipe__handle {
   outline: 3px solid #60a5fa;
   outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .agri-field-swipe-active .esri-swipe__handle {
+  .agri-field-swipe-active .esri-swipe .esri-swipe__handle,
+  .agri-field-swipe-active .esri-swipe .esri-swipe__handle::before,
+  .agri-field-swipe-active .esri-swipe .esri-swipe__handle::after {
     transition: none;
   }
 }

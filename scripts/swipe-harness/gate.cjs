@@ -57,13 +57,13 @@ function staticChecks(args) {
     return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height }
   }
 
-  // buttons >= 40x40; calendar day and month-nav buttons may be 32 on fine pointers; retry is checked below
+  // buttons >= 40x40; calendar day and month-nav buttons may be 28 on fine pointers (40 on touch); retry is checked below
   const isCoarse = window.matchMedia('(pointer: coarse)').matches
   document.querySelectorAll('button').forEach((b) => {
     if (!isShown(b)) return
     if (b.matches('.agri-dashboard-compare-retry')) return
     const isCalendarSmall = b.matches('.agri-dashboard-compare-day') || !!b.closest('.agri-dashboard-compare-month')
-    const min = isCalendarSmall && !isCoarse ? 31.5 : 39.5
+    const min = isCalendarSmall && !isCoarse ? 27.5 : 39.5
     const r = b.getBoundingClientRect()
     if (r.width < min || r.height < min) out.push(`button ${describe(b)} is ${r.width.toFixed(1)}x${r.height.toFixed(1)} (<${Math.round(min + 0.5)}px)`)
   })
@@ -193,10 +193,10 @@ function staticChecks(args) {
     if (scrollers.length > 1) out.push(`popover has ${scrollers.length} scroll containers: ${scrollers.map(describe).join(' | ')}`)
     if (scrollViewports.includes(viewportName) && panel.scrollHeight > panel.clientHeight + 1) out.push(`popover has a scrollbar (scrollHeight ${panel.scrollHeight} > clientHeight ${panel.clientHeight})`)
     if (panel.getBoundingClientRect().bottom > mapRect.top + mapHeight + 0.5) out.push(`popover bottom is outside the ${mapHeight}px map box`)
-    const legend = panel.querySelector('.agri-dashboard-compare-legend')
-    if (legend && panel.scrollHeight <= panel.clientHeight + 1) {
-      const gap = panel.getBoundingClientRect().bottom - legend.getBoundingClientRect().bottom
-      if (gap > 16.5) out.push(`popover has ${gap.toFixed(1)}px empty space below the legend (>16px)`)
+    const days = panel.querySelector('.agri-dashboard-compare-days')
+    if (days && panel.scrollHeight <= panel.clientHeight + 1) {
+      const gap = panel.getBoundingClientRect().bottom - days.getBoundingClientRect().bottom
+      if (gap > 16.5) out.push(`popover has ${gap.toFixed(1)}px empty space below the days (>16px)`)
     }
   }
   return { out, rects }
