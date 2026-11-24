@@ -240,6 +240,23 @@ describe("createFieldSwipeController", () => {
     expect(getSwipeCompareState().position).toBe(85);
   });
 
+  it("notifies subscribers with the divider position", async () => {
+    const t = setup();
+    t.fetchImage.mockResolvedValue(okResult);
+    const states: Array<{ status: SwipeStatus; position: number }> = [];
+    t.controller.subscribe((s) => states.push({ status: s.status, position: s.position }));
+
+    t.controller.setCompare(PARAMS);
+    await flush();
+    expect(states[states.length - 1]).toEqual({ status: "ready", position: 50 });
+
+    t.emitPosition(30);
+    expect(states[states.length - 1]).toEqual({ status: "ready", position: 30 });
+
+    t.controller.setPosition(85);
+    expect(states[states.length - 1]).toEqual({ status: "ready", position: 85 });
+  });
+
   it("setCompare(null) removes layer and swipe and goes idle", async () => {
     const t = setup();
     t.fetchImage.mockResolvedValue(okResult);
