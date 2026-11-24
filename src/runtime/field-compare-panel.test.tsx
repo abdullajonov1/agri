@@ -1,178 +1,222 @@
 import { React } from "jimu-core";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import FieldComparePanel from "./field-compare-panel";
-import {
-  fetchPolygonAvailableDates,
-  fetchPolygonExportImageTiff,
-} from "../gis/agri-polygon-api-source";
+import { createFieldSwipeController } from "./field-swipe/swipe-controller";
 
 jest.mock("../gis/agri-polygon-api-source", () => ({
-  fetchPolygonExportImageTiff: jest.fn(),
-  fetchPolygonAvailableDates: jest.fn(),
+  fetchPolygonAvailableDates: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../gis/agri-vegetation-overlay-prefetch", () => ({
   getVegetationOverlayContext: () => ({ regionId: 4, year: 2026, lastIndex: "ndvi" }),
 }));
 
-const fetchTiff = fetchPolygonExportImageTiff as jest.Mock;
-const fetchDates = fetchPolygonAvailableDates as jest.Mock;
+jest.mock("./field-swipe/swipe-controller", () => ({
+  createFieldSwipeController: jest.fn(),
+}));
 
-const selectField = (): void => {
+const createController = createFieldSwipeController as jest.Mock;
+const setCompare = jest.fn();
+const setPosition = jest.fn();
+const retry = jest.fn();
+const destroy = jest.fn();
+let notify: (state: { status: string }) => void = () => undefined;
+
+const view = {} as unknown as __esri.MapView;
+const OPEN_EN = "Compare snapshots";
+const AVAILABLE = ["2026-06-01", "2026-06-15", "2026-06-20"];
+
+const selectField = (uniqueid = "{abc}"): void => {
   document.dispatchEvent(new CustomEvent("widgetSelectionChanged", {
-    detail: { source: "AgriPopup", polygonMode: true, uniqueid: "{abc}", regionId: 4 },
+    detail: { source: "AgriPopup", polygonMode: true, uniqueid, regionId: 4 },
   }));
+};
+
+const chartDate = (date: string | null, indexKey = "ndvi", availableDates = AVAILABLE): void => {
   document.dispatchEvent(new CustomEvent("graffDateIndexSelectionChanged", {
-    detail: {
-      date: "2026-06-01",
-      indexKey: "ndvi",
-      availableDates: ["2026-06-01", "2026-06-15"],
-      navigable: true,
-    },
+    detail: { date, indexKey, availableDates, navigable: true },
   }));
+};
+
+const day = (ymd: string): HTMLButtonElement =>
+  document.querySelector(`[data-date="${ymd}"]`) as HTMLButtonElement;
+
+const openButton = (): HTMLElement => screen.getByRole("button", { name: OPEN_EN });
+
+const setup = (): void => {
+  render(<FieldComparePanel language="en" view={view} />);
+  act(() => { selectField(); chartDate("2026-06-01"); });
+};
+
+const pickJune15 = (): void => {
+  fireEvent.click(openButton());
+  fireEvent.click(day("2026-06-15"));
 };
 
 describe("FieldComparePanel", () => {
   beforeEach(() => {
-    fetchTiff.mockReset();
-    fetchDates.mockReset();
-    fetchTiff.mockResolvedValue({ canvas: { toDataURL: () => "data:image/png;base64,abc" } });
-    fetchDates.mockResolvedValue(["2026-06-20"]);
+    setCompare.mockReset();
+    setPosition.mockReset();
+    retry.mockReset();
+    destroy.mockReset();
+    createController.mockReset();
+    createController.mockImplementation(() => ({
+      setCompare,
+      setPosition,
+      retry,
+      destroy,
+      subscribe: (fn: (state: { status: string }) => void) => {
+        notify = fn;
+        return () => undefined;
+      },
+    }));
   });
 
-  test("calendar changes only the popup image", async () => {
-    render(<FieldComparePanel language="uz_lat" />);
-    fireEvent.click(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }));
-    act(() => { selectField(); });
+  test("does not open the calendar when a field is selected", () => {
+    setup();
+    expect(openButton().getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(openButton());
+    expect(openButton().getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Choose a comparison date")).toBeTruthy();
+  });
 
-    await waitFor(() => expect(fetchTiff).toHaveBeenCalledWith(expect.objectContaining({
+  test("enables only available days and disables the chart date", () => {
+    setup();
+    fireEvent.click(openButton());
+    expect(day("2026-06-15").disabled).toBe(false);
+    expect(day("2026-06-15").className).toContain("has-scene");
+    expect(day("2026-06-02").disabled).toBe(true);
+    expect(day("2026-06-01").disabled).toBe(true);
+    expect(day("2026-06-01").className).toContain("is-main");
+  });
+
+  test("asks to select a field when no polygon is chosen", () => {
+    render(<FieldComparePanel language="en" view={view} />);
+    fireEvent.click(openButton());
+    expect(screen.getByText("Select a field on the map")).toBeTruthy();
+  });
+
+  test("picking a day closes the popover and compares with the chart index", () => {
+    setup();
+    pickJune15();
+    expect(openButton().getAttribute("aria-expanded")).toBe("false");
+    expect(setCompare).toHaveBeenLastCalledWith({
       uniqueid: "abc",
       regionId: 4,
-      rasterDate: "2026-06-01",
-      indiceType: "ndvi",
-      stretch: "fixed",
-    })));
-
-    const panel = document.querySelector(".agri-dashboard-compare-panel");
-    const stage = panel?.querySelector(".agri-dashboard-compare-stage");
-    const calendar = panel?.querySelector(".agri-dashboard-compare-calendar");
-    expect(stage && calendar && stage.compareDocumentPosition(calendar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
-    const callsAfterSeed = fetchTiff.mock.calls.length;
-    act(() => {
-      document.dispatchEvent(new CustomEvent("graffDateIndexSelectionChanged", {
-        detail: {
-          date: "2026-06-15",
-          indexKey: "savi",
-          availableDates: ["2026-06-01", "2026-06-15"],
-          navigable: true,
-        },
-      }));
+      date: "2026-06-15",
+      indexKey: "ndvi",
     });
-    expect(fetchTiff.mock.calls.length).toBe(callsAfterSeed);
-    expect(document.querySelector('[data-date="2026-06-01"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector(".agri-field-swipe-bar")).not.toBeNull();
+    expect(day("2026-06-15").className).toContain("is-selected");
+  });
 
-    const sceneDay = document.querySelector('[data-date="2026-06-15"]');
-    const emptyDay = document.querySelector('[data-date="2026-06-02"]');
-    const outsideIndex = document.querySelector('[data-date="2026-06-20"]');
-    expect(sceneDay?.className).toContain("has-scene");
-    expect(emptyDay?.className).not.toContain("has-scene");
-    expect(outsideIndex?.className).not.toContain("has-scene");
+  test("keeps the compare date when the chart date moves to another available date", () => {
+    setup();
+    pickJune15();
+    act(() => { chartDate("2026-06-20"); });
+    expect(setCompare).toHaveBeenLastCalledWith(expect.objectContaining({ date: "2026-06-15" }));
+  });
 
-    const callsBeforeNoise = fetchTiff.mock.calls.length;
+  test("clears the compare date when it is no longer available", () => {
+    setup();
+    pickJune15();
+    act(() => { chartDate("2026-06-01", "ndvi", ["2026-06-01", "2026-06-20"]); });
+    expect(setCompare).toHaveBeenLastCalledWith(null);
+    expect(document.querySelector(".agri-field-swipe-bar")).toBeNull();
+  });
+
+  test("index change calls setCompare with the new index", () => {
+    setup();
+    pickJune15();
+    act(() => { chartDate("2026-06-01", "savi"); });
+    expect(setCompare).toHaveBeenLastCalledWith(expect.objectContaining({
+      date: "2026-06-15",
+      indexKey: "savi",
+    }));
+  });
+
+  test("same date as the chart means no swipe and no bar", () => {
+    setup();
+    pickJune15();
+    act(() => { chartDate("2026-06-15"); });
+    expect(setCompare).toHaveBeenLastCalledWith(null);
+    expect(document.querySelector(".agri-field-swipe-bar")).toBeNull();
+  });
+
+  test("close button clears the comparison", () => {
+    setup();
+    pickJune15();
+    fireEvent.click(screen.getByRole("button", { name: "Close comparison" }));
+    expect(setCompare).toHaveBeenLastCalledWith(null);
+    expect(document.querySelector(".agri-field-swipe-bar")).toBeNull();
+  });
+
+  test("polygon change clears the comparison and closes the popover", () => {
+    setup();
+    pickJune15();
+    fireEvent.click(openButton());
+    act(() => { selectField("{def}"); });
+    expect(openButton().getAttribute("aria-expanded")).toBe("false");
+    expect(setCompare).toHaveBeenLastCalledWith(null);
+    expect(document.querySelector(".agri-field-swipe-bar")).toBeNull();
+  });
+
+  test("deselecting the polygon clears the comparison", () => {
+    setup();
+    pickJune15();
     act(() => {
       document.dispatchEvent(new CustomEvent("widgetSelectionChanged", {
-        detail: { source: "AgriPie", polygonMode: false, turi: "Bug'doy" },
-      }));
-      document.dispatchEvent(new CustomEvent("widgetSelectionChanged", {
-        detail: { source: "AgriGraffWidget", ndviDate: "2026-06-02", timestamp: 1 },
+        detail: { source: "AgriPopup", polygonMode: false, uniqueid: "" },
       }));
     });
-    expect(fetchTiff.mock.calls.length).toBe(callsBeforeNoise);
+    expect(setCompare).toHaveBeenLastCalledWith(null);
+  });
 
+  test("bar chips move the divider and retry reaches the controller", () => {
+    setup();
+    pickJune15();
+    const chip = (side: string): Element =>
+      document.querySelector(`.agri-field-swipe-chip--${side}`) as Element;
+    fireEvent.click(chip("main"));
+    expect(setPosition).toHaveBeenLastCalledWith(85);
+    fireEvent.click(chip("compare"));
+    expect(setPosition).toHaveBeenLastCalledWith(15);
+    act(() => { notify({ status: "error" }); });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalled();
+  });
+
+  test("never dispatches chart events", () => {
+    setup();
     const dispatched: string[] = [];
     const spy = jest.spyOn(document, "dispatchEvent").mockImplementation((event: Event) => {
       dispatched.push(event.type);
       return true;
     });
-    fireEvent.click(screen.getByRole("button", { name: "15" }));
-    await waitFor(() => expect(fetchTiff).toHaveBeenCalledWith(expect.objectContaining({
-      rasterDate: "2026-06-15",
-    })));
-    expect(dispatched.filter((type) => (
-      type === "graffDateIndexSelectionChanged" ||
-      type === "masterFilterChanged" ||
-      type === "widgetSelectionChanged"
-    ))).toEqual([]);
+    pickJune15();
     spy.mockRestore();
-
-    const callsAfterPopupPick = fetchTiff.mock.calls.length;
-    act(() => {
-      document.dispatchEvent(new CustomEvent("graffDateIndexSelectionChanged", {
-        detail: {
-          date: "2026-06-01",
-          indexKey: "savi",
-          availableDates: ["2026-06-01", "2026-06-15"],
-          navigable: true,
-        },
-      }));
-    });
-    expect(fetchTiff.mock.calls.length).toBe(callsAfterPopupPick);
-    expect(document.querySelector('[data-date="2026-06-15"]')?.getAttribute("aria-pressed")).toBe("true");
-
-    fireEvent.click(screen.getByRole("button", { name: "Xarita sanasi" }));
-    await waitFor(() => expect(fetchTiff).toHaveBeenLastCalledWith(expect.objectContaining({
-      rasterDate: "2026-06-01",
-      indiceType: "ndvi",
-    })));
-
-    fireEvent.click(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }));
-    expect(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }).getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }));
-    act(() => {
-      document.dispatchEvent(new CustomEvent("agriIndicatorsDrawerToggled", { detail: { open: true } }));
-    });
-    expect(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }).getAttribute("aria-expanded")).toBe("false");
+    expect(dispatched).not.toContain("graffDateIndexSelectionChanged");
+    expect(dispatched).not.toContain("widgetSelectionChanged");
   });
 
-  test("shows the shared loader and a translated empty state", async () => {
-    let rejectFetch: (reason: Error) => void = () => undefined;
-    fetchTiff.mockReturnValue(new Promise((_resolve, reject) => {
-      rejectFetch = reject;
-    }));
-    render(<FieldComparePanel language="ru" />);
-    fireEvent.click(screen.getByRole("button", { name: "Сравнить снимок поля" }));
-    act(() => { selectField(); });
-    expect(document.querySelector(".agri-dashboard-spinner")).not.toBeNull();
-    await act(async () => {
-      rejectFetch(new Error("no raster"));
-    });
-    expect(screen.getByText("Снимок отсутствует")).toBeTruthy();
-  });
-
-  test("closes when the land layers panel opens", () => {
-    render(<FieldComparePanel language="uz_lat" />);
-    const button = screen.getByRole("button", { name: "Maydon rasmini solishtirish" });
-    fireEvent.click(button);
+  test("closes when the indicators or land layers panels open", () => {
+    setup();
+    fireEvent.click(openButton());
     act(() => {
       document.dispatchEvent(new CustomEvent("agriLandLayersToggled", { detail: { open: true } }));
     });
-    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(openButton().getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(openButton());
+    act(() => {
+      document.dispatchEvent(new CustomEvent("agriIndicatorsDrawerToggled", { detail: { open: true } }));
+    });
+    expect(openButton().getAttribute("aria-expanded")).toBe("false");
   });
 
-  test("opens when a field is selected", () => {
-    render(<FieldComparePanel language="uz_lat" />);
-    expect(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }).getAttribute("aria-expanded")).toBe("false");
-    act(() => { selectField(); });
-    expect(screen.getByRole("button", { name: "Maydon rasmini solishtirish" }).getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByText("Indeks mavjud bo‘lgan sana")).toBeTruthy();
-  });
-
-  test("uses the selected language for the compare controls", () => {
-    const { unmount } = render(<FieldComparePanel language="uz_cyr" />);
-    expect(screen.getByRole("button", { name: "Майдон расмини солиштириш" })).toBeTruthy();
+  test("destroys the controller on unmount and uses the selected language", () => {
+    const { unmount } = render(<FieldComparePanel language="ru" view={view} />);
+    expect(screen.getByRole("button", { name: "Сравнить снимки" })).toBeTruthy();
     unmount();
-    render(<FieldComparePanel language="en" />);
-    expect(screen.getByRole("button", { name: "Compare field image" })).toBeTruthy();
+    expect(destroy).toHaveBeenCalled();
   });
 });
