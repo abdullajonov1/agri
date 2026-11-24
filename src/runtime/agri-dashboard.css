@@ -253,14 +253,13 @@ body.light-theme .agri-dashboard-land-panel {
 
 .agri-dashboard-compare-panel {
   position: absolute;
-  top: 10px;
-  bottom: 10px;
+  top: calc(10px + 46px + 36px + 46px + 8px);
   left: calc(10px + 46px + 8px);
   z-index: 15;
-  display: flex;
-  flex-direction: column;
-  width: 332px;
-  overflow: hidden;
+  box-sizing: border-box;
+  width: 316px;
+  max-height: calc(100% - (10px + 46px + 36px + 46px + 8px) - 10px);
+  overflow: auto;
   padding: 12px;
   border-radius: 16px;
   background: rgba(31, 32, 48, 0.96);
@@ -280,18 +279,9 @@ body.light-theme .agri-dashboard-land-panel {
   pointer-events: auto;
 }
 
-.agri-dashboard-compare-title,
-.agri-dashboard-compare-calendar {
-  flex: 0 0 auto;
-}
-
-.agri-dashboard-compare-calendar {
-  margin-top: auto;
-}
-
 .agri-dashboard-compare-title {
   margin-bottom: 8px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -306,18 +296,20 @@ body.light-theme .agri-dashboard-land-panel {
 }
 
 .agri-dashboard-compare-month button,
-.agri-dashboard-compare-legend button {
+.agri-dashboard-compare-day {
   border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
+  outline: 0;
   font: inherit;
 }
 
 .agri-dashboard-compare-month button {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
   font-size: 22px;
   line-height: 1;
 }
@@ -329,7 +321,8 @@ body.light-theme .agri-dashboard-land-panel {
 .agri-dashboard-compare-weekdays,
 .agri-dashboard-compare-days {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, 40px);
+  justify-content: center;
   gap: 2px;
   text-align: center;
 }
@@ -337,16 +330,17 @@ body.light-theme .agri-dashboard-land-panel {
 .agri-dashboard-compare-weekdays {
   margin-bottom: 2px;
   color: rgba(233, 248, 255, 0.62);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .agri-dashboard-compare-day {
-  height: 22px;
-  border: 0;
-  border-radius: 6px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 8px;
   background: transparent;
   color: rgba(233, 248, 255, 0.38);
-  font-size: 11px;
+  font-size: 13px;
   cursor: default;
 }
 
@@ -356,83 +350,50 @@ body.light-theme .agri-dashboard-land-panel {
   cursor: pointer;
 }
 
-.agri-dashboard-compare-day.is-map {
-  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.9);
+.agri-dashboard-compare-day.has-scene:hover {
+  background: rgba(34, 197, 94, 0.36);
 }
 
-.agri-dashboard-compare-day.is-selected {
+.agri-dashboard-compare-day.is-main {
+  box-shadow: inset 0 0 0 2px #3b82f6;
+}
+
+.agri-dashboard-compare-day.is-selected,
+.agri-dashboard-compare-day.is-selected:hover {
   background: #16a34a;
   color: #ffffff;
 }
 
+.agri-dashboard-compare-month button:focus-visible,
+.agri-dashboard-compare-day:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
 .agri-dashboard-compare-legend {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 6px 6px;
   margin-top: 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .agri-dashboard-compare-legend i {
-  width: 10px;
-  height: 10px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
   border-radius: 3px;
+}
+
+.agri-dashboard-compare-legend-available {
   background: rgba(34, 197, 94, 0.9);
 }
 
-.agri-dashboard-compare-legend button {
-  margin-left: auto;
-  color: #93c5fd;
-}
-
-.agri-dashboard-compare-stage {
-  position: relative;
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  min-height: 240px;
-  margin-bottom: 8px;
-  overflow: hidden;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.agri-dashboard-compare-stage img {
-  display: block;
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 0;
-  object-fit: contain;
-}
-
-.agri-dashboard-compare-stage .agri-dashboard-spinner-wrap {
-  margin: auto;
-}
-
-.agri-dashboard-compare-stage p,
-.agri-dashboard-compare-stage strong {
-  margin: 0;
-  text-align: center;
-}
-
-.agri-dashboard-compare-stage p {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 12px;
-  font-size: 15px;
-  line-height: 1.35;
-}
-
-.agri-dashboard-compare-stage strong {
-  flex: 0 0 auto;
-  padding: 6px 8px 2px;
-  font-size: 12px;
+.agri-dashboard-compare-legend-main {
+  margin-left: 8px;
+  box-shadow: inset 0 0 0 2px #3b82f6;
 }
 
 html.light-theme .agri-dashboard-compare-panel,
@@ -442,9 +403,18 @@ body.light-theme .agri-dashboard-compare-panel {
   color: #0f172a;
 }
 
+html.light-theme .agri-dashboard-compare-month button:hover,
+html[data-theme="light"] .agri-dashboard-compare-month button:hover,
+body.light-theme .agri-dashboard-compare-month button:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
 html.light-theme .agri-dashboard-compare-weekdays,
 html[data-theme="light"] .agri-dashboard-compare-weekdays,
-body.light-theme .agri-dashboard-compare-weekdays,
+body.light-theme .agri-dashboard-compare-weekdays {
+  color: #475569;
+}
+
 html.light-theme .agri-dashboard-compare-day,
 html[data-theme="light"] .agri-dashboard-compare-day,
 body.light-theme .agri-dashboard-compare-day {
@@ -456,6 +426,33 @@ html[data-theme="light"] .agri-dashboard-compare-day.has-scene,
 body.light-theme .agri-dashboard-compare-day.has-scene {
   background: rgba(22, 163, 74, 0.16);
   color: #166534;
+}
+
+html.light-theme .agri-dashboard-compare-day.has-scene:hover,
+html[data-theme="light"] .agri-dashboard-compare-day.has-scene:hover,
+body.light-theme .agri-dashboard-compare-day.has-scene:hover {
+  background: rgba(22, 163, 74, 0.28);
+}
+
+html.light-theme .agri-dashboard-compare-day.is-selected,
+html[data-theme="light"] .agri-dashboard-compare-day.is-selected,
+body.light-theme .agri-dashboard-compare-day.is-selected,
+html.light-theme .agri-dashboard-compare-day.is-selected:hover,
+html[data-theme="light"] .agri-dashboard-compare-day.is-selected:hover,
+body.light-theme .agri-dashboard-compare-day.is-selected:hover {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+@media (max-width: 480px) {
+  .agri-dashboard-compare-panel {
+    top: auto;
+    bottom: 72px;
+    left: 10px;
+    width: calc(100% - 20px);
+    max-width: 316px;
+    max-height: calc(100% - 72px - 10px);
+  }
 }
 
 .agri-dashboard-fullscreen-button {
